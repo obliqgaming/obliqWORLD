@@ -80,7 +80,7 @@ export async function ensureCharacter(sceneId: string): Promise<Character> {
       .insert({
         user_id: userId,
         name: "Aventurier",
-        visual_asset_id: asset.id,
+        visual_asset_id: asset!.id,
         scene_id: sceneId,
         position: { x: 50, y: 70 },
       })
@@ -107,8 +107,8 @@ export async function saveCharacterPosition(id: string, position: Point) {
 export function pointInPolygon(p: Point, poly: [number, number][]): boolean {
   let inside = false;
   for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const [xi, yi] = poly[i];
-    const [xj, yj] = poly[j];
+    const [xi, yi] = poly[i]!;
+    const [xj, yj] = poly[j]!;
     if (yi > p.y !== yj > p.y && p.x < ((xj - xi) * (p.y - yi)) / (yj - yi) + xi) {
       inside = !inside;
     }
