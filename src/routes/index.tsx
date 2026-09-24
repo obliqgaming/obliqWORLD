@@ -57,6 +57,7 @@ function Index() {
   const [walking, setWalking] = useState(false);
   const [duration, setDuration] = useState(0);
   const [peers, setPeers] = useState<Record<string, PeerState>>({});
+  const [walkingPeers, setWalkingPeers] = useState<Record<string, boolean>>({});
 
   const walkTimer = useRef<number | null>(null);
   const sceneRef = useRef<HTMLDivElement | null>(null);
@@ -64,6 +65,8 @@ function Index() {
   const userIdRef = useRef<string | null>(null);
   const characterRef = useRef<Character | null>(null);
   const sceneIdRef = useRef<string>(initialScene.id);
+  const prevPeerPos = useRef<Record<string, Point>>({});
+  const peerTimers = useRef<Record<string, number>>({});
 
   // ---------- Musique, avec fondu au changement de scène ----------
   const playMusic = (url: string, fade: boolean) => {
@@ -158,6 +161,25 @@ function Index() {
     };
   }, [scene.id]);
 
+  // ---------- Réception de la présence des autres joueurs ----------
+  // La marche est déclenchée localement dès qu'une position change,
+  // peu importe l'ordre ou le nombre de messages reçus du réseau —
+  // ça évite la téléportation si un message intermédiaire se perd.
+  const handlePeersUpdate = (next: Record<string, PeerState>) => {
+    for (const [key, peer] of Object.entries(next)) {
+      const prev = prevPeerPos.current[key];
+      if (prev && (prev.x !== peer.position.x || prev.y !== peer.position.y)) {
+        setWalkingPeers((w) => ({ ...w, [key]: true }));
+        if (peerTimers.current[key]) window.clearTimeout(peerTimers.current[key]);
+        peerTimers.current[key] = window.setTimeout(() => {
+          setWalkingPeers((w) => ({ ...w, [key]: false }));
+        }, 500);
+      }
+      prevPeerPos.current[key] = peer.position;
+    }
+    setPeers(next);
+  };
+
   // ---------- Présence multijoueur : rejoint le canal de la scène courante ----------
   useEffect(() => {
     if (!character) return;
@@ -170,7 +192,8 @@ function Index() {
       userIdRef.current = userId;
 
       leaveScenePresence(channelRef.current);
-      channelRef.current = joinScenePresence(scene.id, userId, setPeers);
+      prevPeerPos.current = {};
+      channelRef.current = joinScenePresence(scene.id, userId, handlePeersUpdate);
 
       channelRef.current.track({
         characterId: character.id,
@@ -187,6 +210,7 @@ function Index() {
       leaveScenePresence(channelRef.current);
       channelRef.current = null;
       setPeers({});
+      setWalkingPeers({});
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scene.id, character?.id]);
@@ -320,9 +344,7 @@ function Index() {
             top: `${peer.position.y}%`,
             width: 120,
             transform: "translate(-50%, -100%)",
-            transition: peer.walking
-              ? `left ${peer.duration}ms linear, top ${peer.duration}ms linear`
-              : "none",
+            transition: "left 500ms linear, top 500ms linear",
           }}
         >
           <img
@@ -332,7 +354,7 @@ function Index() {
             className="block w-full"
             style={{
               transformOrigin: "50% 100%",
-              animation: peer.walking ? "auberge-walk 250ms linear infinite" : "none",
+              animation: walkingPeers[key] ? "auberge-walk 250ms linear infinite" : "none",
             }}
           />
         </div>
