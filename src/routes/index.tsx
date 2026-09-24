@@ -293,7 +293,7 @@ function Index() {
           style={{
             left: `${pos.x}%`,
             top: `${pos.y}%`,
-            width: 150,
+            width: 120,
             transform: "translate(-50%, -100%)",
             transition: walking ? `left ${duration}ms linear, top ${duration}ms linear` : "none",
           }}
@@ -318,7 +318,7 @@ function Index() {
           style={{
             left: `${peer.position.x}%`,
             top: `${peer.position.y}%`,
-            width: 150,
+            width: 120,
             transform: "translate(-50%, -100%)",
             transition: peer.walking
               ? `left ${peer.duration}ms linear, top ${peer.duration}ms linear`
