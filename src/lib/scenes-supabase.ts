@@ -25,6 +25,13 @@ export interface Scene {
   walkable_zone: [number, number][] | null;
 }
 
+export interface SceneExit {
+  id: string;
+  to_scene_id: string;
+  position: Point;
+  label: string | null;
+}
+
 export interface Character {
   id: string;
   user_id: string;
@@ -35,6 +42,15 @@ export interface Character {
   image_url?: string;
 }
 
+export interface PeerState {
+  characterId: string;
+  name: string;
+  image_url: string;
+  position: Point;
+  duration: number;
+  walking: boolean;
+}
+
 export async function fetchSceneByName(name: string): Promise<Scene> {
   const { data, error } = await scenesClient
     .from("scenes")
@@ -43,6 +59,25 @@ export async function fetchSceneByName(name: string): Promise<Scene> {
     .single();
   if (error) throw error;
   return data as Scene;
+}
+
+export async function fetchScene(id: string): Promise<Scene> {
+  const { data, error } = await scenesClient
+    .from("scenes")
+    .select("id,name,image_url,music_url,walkable_zone")
+    .eq("id", id)
+    .single();
+  if (error) throw error;
+  return data as Scene;
+}
+
+export async function fetchSceneExits(sceneId: string): Promise<SceneExit[]> {
+  const { data, error } = await scenesClient
+    .from("scene_exits")
+    .select("id,to_scene_id,position,label")
+    .eq("from_scene_id", sceneId);
+  if (error) throw error;
+  return (data ?? []) as SceneExit[];
 }
 
 async function ensureUserId(): Promise<string> {
@@ -104,6 +139,14 @@ export async function saveCharacterPosition(id: string, position: Point) {
   if (error) console.error("Failed to save position", error);
 }
 
+export async function moveCharacterToScene(id: string, sceneId: string, position: Point) {
+  const { error } = await scenesClient
+    .from("characters")
+    .update({ scene_id: sceneId, position })
+    .eq("id", id);
+  if (error) console.error("Failed to move to scene", error);
+}
+
 export function pointInPolygon(p: Point, poly: [number, number][]): boolean {
   let inside = false;
   for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
@@ -114,4 +157,41 @@ export function pointInPolygon(p: Point, poly: [number, number][]): boolean {
     }
   }
   return inside;
+}
+
+// ---------- Présence multijoueur (temps réel, par scène) ----------
+
+export type PresenceChannel = ReturnType<typeof scenesClient.channel>;
+
+export function joinScenePresence(
+  sceneId: string,
+  userId: string,
+  onUpdate: (peers: Record<string, PeerState>) => void,
+): PresenceChannel {
+  const channel = scenesClient.channel(`scene:${sceneId}`, {
+    config: { presence: { key: userId } },
+  });
+
+  const emit = () => {
+    const raw = channel.presenceState<PeerState>();
+    const peers: Record<string, PeerState> = {};
+    for (const key of Object.keys(raw)) {
+      if (key === userId) continue;
+      const entries = raw[key];
+      if (entries && entries[0]) peers[key] = entries[0];
+    }
+    onUpdate(peers);
+  };
+
+  channel
+    .on("presence", { event: "sync" }, emit)
+    .on("presence", { event: "join" }, emit)
+    .on("presence", { event: "leave" }, emit)
+    .subscribe();
+
+  return channel;
+}
+
+export function leaveScenePresence(channel: PresenceChannel | null) {
+  if (channel) scenesClient.removeChannel(channel);
 }
