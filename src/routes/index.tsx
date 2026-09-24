@@ -48,6 +48,7 @@ function Index() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [muted, setMuted] = useState(false);
   const [needsInteraction, setNeedsInteraction] = useState(false);
+  const mutedRef = useRef(false);
 
   const [scene, setScene] = useState<Scene>(initialScene);
   const [exits, setExits] = useState<SceneExit[]>([]);
@@ -69,6 +70,7 @@ function Index() {
     const prev = audioRef.current;
     const next = new Audio(url);
     next.loop = true;
+    next.muted = mutedRef.current;
     next.volume = fade ? 0 : 1;
 
     next.play().catch(() => {
@@ -116,6 +118,7 @@ function Index() {
     if (!audio) return;
     audio.muted = !audio.muted;
     setMuted(audio.muted);
+    mutedRef.current = audio.muted;
     if (needsInteraction) {
       audio.play().then(() => setNeedsInteraction(false)).catch(() => {});
     }
