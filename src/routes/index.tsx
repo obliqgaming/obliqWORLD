@@ -496,6 +496,7 @@ function Index() {
     showBubble(character.id, text);
     broadcastChatMessage(channelRef.current, msg);
     setChatInput("");
+    bumpChatActivity();
   };
 
   if (checkingCharacter) {
