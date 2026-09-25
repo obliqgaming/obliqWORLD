@@ -1,6 +1,5 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type RealtimeChannel } from "@supabase/supabase-js";
 
-// External project hosting the game data (scenes, characters, visual_assets).
 const SCENES_SUPABASE_URL = "https://xbesddgqhvwcyjnoxtaz.supabase.co";
 const SCENES_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_gfJOIX_L5Iq1y-4vMFKAHA_x4tCyoXB";
 
@@ -11,50 +10,86 @@ export const scenesClient = createClient(SCENES_SUPABASE_URL, SCENES_SUPABASE_PU
     persistSession: isBrowser,
     autoRefreshToken: isBrowser,
     storageKey: "auberge-auth",
-    storage: isBrowser ? window.localStorage : undefined,
   },
 });
 
 export type Point = { x: number; y: number };
 
-export interface Scene {
+export type Scene = {
   id: string;
   name: string;
   image_url: string;
   music_url: string;
-  walkable_zone: [number, number][] | null;
-}
+  walkable_zone: Point[] | null;
+  created_at: string;
+};
 
-export interface SceneExit {
+export type SceneExit = {
   id: string;
+  from_scene_id: string;
   to_scene_id: string;
   position: Point;
   label: string | null;
-}
+};
 
-export interface Character {
+export type VisualAsset = {
+  id: string;
+  type: "character" | "npc" | "monster" | "object";
+  name: string;
+  image_url: string;
+  author_user_id: string | null;
+  source: "drawn" | "imported";
+  created_at: string;
+};
+
+export type Character = {
   id: string;
   user_id: string;
   name: string;
+  class_id: string | null;
   visual_asset_id: string;
   scene_id: string;
   position: Point;
-  image_url?: string;
-}
+  image_url: string; // dénormalisé depuis visual_assets
+  created_at: string;
+};
 
-export interface PeerState {
+export type PeerState = {
   characterId: string;
   name: string;
   image_url: string;
   position: Point;
   duration: number;
   walking: boolean;
+};
+
+export type ChatMessage = {
+  characterId: string;
+  name: string;
+  text: string;
+  ts: number;
+};
+
+export type PresenceChannel = RealtimeChannel;
+
+// ---------- Auth anonyme ----------
+// NOTE: pour l'instant, connexion anonyme. Le jour où on passe à une vraie connexion
+// (Discord / Twitch), c'est cette fonction qui changera — le reste du code n'a pas
+// à bouger puisqu'il ne connaît que "un userId".
+async function ensureUserId(): Promise<string> {
+  const { data } = await scenesClient.auth.getSession();
+  if (data.session?.user) return data.session.user.id;
+
+  const { data: signIn, error } = await scenesClient.auth.signInAnonymously();
+  if (error || !signIn.user) throw error ?? new Error("Anonymous sign-in failed");
+  return signIn.user.id;
 }
 
+// ---------- Scènes ----------
 export async function fetchSceneByName(name: string): Promise<Scene> {
   const { data, error } = await scenesClient
     .from("scenes")
-    .select("id,name,image_url,music_url,walkable_zone")
+    .select("*")
     .ilike("name", name)
     .single();
   if (error) throw error;
@@ -62,11 +97,7 @@ export async function fetchSceneByName(name: string): Promise<Scene> {
 }
 
 export async function fetchScene(id: string): Promise<Scene> {
-  const { data, error } = await scenesClient
-    .from("scenes")
-    .select("id,name,image_url,music_url,walkable_zone")
-    .eq("id", id)
-    .single();
+  const { data, error } = await scenesClient.from("scenes").select("*").eq("id", id).single();
   if (error) throw error;
   return data as Scene;
 }
@@ -74,69 +105,103 @@ export async function fetchScene(id: string): Promise<Scene> {
 export async function fetchSceneExits(sceneId: string): Promise<SceneExit[]> {
   const { data, error } = await scenesClient
     .from("scene_exits")
-    .select("id,to_scene_id,position,label")
+    .select("*")
     .eq("from_scene_id", sceneId);
   if (error) throw error;
   return (data ?? []) as SceneExit[];
 }
 
-async function ensureUserId(): Promise<string> {
-  const { data } = await scenesClient.auth.getSession();
-  if (data.session?.user) return data.session.user.id;
-  const { data: signed, error } = await scenesClient.auth.signInAnonymously();
-  if (error || !signed.user) throw error ?? new Error("Anonymous sign-in failed");
-  return signed.user.id;
+// ---------- Personnages / assets visuels ----------
+function flattenCharacter(row: any): Character {
+  return {
+    id: row.id,
+    user_id: row.user_id,
+    name: row.name,
+    class_id: row.class_id,
+    visual_asset_id: row.visual_asset_id,
+    scene_id: row.scene_id,
+    position: row.position,
+    created_at: row.created_at,
+    image_url: row.visual_assets?.image_url ?? "",
+  };
 }
 
-export async function ensureCharacter(sceneId: string): Promise<Character> {
+// Renvoie le personnage existant de l'utilisateur courant, ou null s'il n'en a pas
+// encore (ne crée plus rien automatiquement — c'était le comportement précédent
+// à corriger : un personnage n'existe qu'après un choix explicite de l'utilisateur).
+export async function fetchMyCharacter(): Promise<Character | null> {
   const userId = await ensureUserId();
-
-  const { data: existing, error: selErr } = await scenesClient
+  const { data, error } = await scenesClient
     .from("characters")
-    .select("id,user_id,name,visual_asset_id,scene_id,position")
+    .select("*, visual_assets(image_url)")
     .eq("user_id", userId)
-    .limit(1)
     .maybeSingle();
-  if (selErr) throw selErr;
+  if (error) throw error;
+  if (!data) return null;
+  return flattenCharacter(data);
+}
 
-  let character = existing as Character | null;
-
-  if (!character) {
-    const { data: assets, error: aErr } = await scenesClient
-      .from("visual_assets")
-      .select("id")
-      .eq("type", "character");
-    if (aErr) throw aErr;
-    if (!assets?.length) throw new Error("No character assets");
-    const asset = assets[Math.floor(Math.random() * assets.length)];
-
-    const { data: created, error: insErr } = await scenesClient
-      .from("characters")
-      .insert({
-        user_id: userId,
-        name: "Aventurier",
-        visual_asset_id: asset!.id,
-        scene_id: sceneId,
-        position: { x: 50, y: 70 },
-      })
-      .select("id,user_id,name,visual_asset_id,scene_id,position")
-      .single();
-    if (insErr) throw insErr;
-    character = created as Character;
-  }
-
-  const { data: asset } = await scenesClient
+export async function fetchCharacterAssets(): Promise<VisualAsset[]> {
+  const { data, error } = await scenesClient
     .from("visual_assets")
-    .select("image_url")
-    .eq("id", character.visual_asset_id)
-    .single();
+    .select("*")
+    .eq("type", "character")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as VisualAsset[];
+}
 
-  return { ...character, image_url: asset?.image_url };
+export async function createCharacterWithAsset(
+  sceneId: string,
+  visualAssetId: string,
+  name: string,
+): Promise<Character> {
+  const userId = await ensureUserId();
+  const { data, error } = await scenesClient
+    .from("characters")
+    .insert({
+      user_id: userId,
+      name: name || "Aventurier·ère",
+      visual_asset_id: visualAssetId,
+      scene_id: sceneId,
+      position: { x: 50, y: 70 },
+    })
+    .select("*, visual_assets(image_url)")
+    .single();
+  if (error) throw error;
+  return flattenCharacter(data);
+}
+
+// Upload d'un dessin (canvas -> PNG -> bucket `drawings`) puis création de la ligne visual_assets.
+export async function uploadDrawingAsCharacterAsset(blob: Blob, name: string): Promise<VisualAsset> {
+  const userId = await ensureUserId();
+  const fileName = `character_${userId}_${Date.now()}.png`;
+
+  const { error: uploadError } = await scenesClient.storage
+    .from("drawings")
+    .upload(fileName, blob, { contentType: "image/png", upsert: false });
+  if (uploadError) throw uploadError;
+
+  const { data: pub } = scenesClient.storage.from("drawings").getPublicUrl(fileName);
+
+  const { data, error } = await scenesClient
+    .from("visual_assets")
+    .insert({
+      type: "character",
+      name: name || "Personnage",
+      image_url: pub.publicUrl,
+      author_user_id: userId,
+      source: "drawn",
+    })
+    .select("*")
+    .single();
+  if (error) throw error;
+  return data as VisualAsset;
 }
 
 export async function saveCharacterPosition(id: string, position: Point) {
   const { error } = await scenesClient.from("characters").update({ position }).eq("id", id);
-  if (error) console.error("Failed to save position", error);
+  if (error) console.error("saveCharacterPosition failed", error);
 }
 
 export async function moveCharacterToScene(id: string, sceneId: string, position: Point) {
@@ -144,49 +209,48 @@ export async function moveCharacterToScene(id: string, sceneId: string, position
     .from("characters")
     .update({ scene_id: sceneId, position })
     .eq("id", id);
-  if (error) console.error("Failed to move to scene", error);
+  if (error) console.error("moveCharacterToScene failed", error);
 }
 
-export function pointInPolygon(p: Point, poly: [number, number][]): boolean {
+// ---------- Géométrie ----------
+export function pointInPolygon(point: Point, polygon: Point[]): boolean {
   let inside = false;
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const [xi, yi] = poly[i]!;
-    const [xj, yj] = poly[j]!;
-    if (yi > p.y !== yj > p.y && p.x < ((xj - xi) * (p.y - yi)) / (yj - yi) + xi) {
-      inside = !inside;
-    }
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i].x, yi = polygon[i].y;
+    const xj = polygon[j].x, yj = polygon[j].y;
+    const intersect =
+      yi > point.y !== yj > point.y &&
+      point.x < ((xj - xi) * (point.y - yi)) / (yj - yi) + xi;
+    if (intersect) inside = !inside;
   }
   return inside;
 }
 
-// ---------- Présence multijoueur (temps réel, par scène) ----------
-
-export type PresenceChannel = ReturnType<typeof scenesClient.channel>;
-
+// ---------- Présence + chat temps réel (un seul canal par scène) ----------
 export function joinScenePresence(
   sceneId: string,
   userId: string,
   onUpdate: (peers: Record<string, PeerState>) => void,
+  onChatMessage?: (msg: ChatMessage) => void,
 ): PresenceChannel {
   const channel = scenesClient.channel(`scene:${sceneId}`, {
     config: { presence: { key: userId } },
   });
 
-  const emit = () => {
-    const raw = channel.presenceState<PeerState>();
-    const peers: Record<string, PeerState> = {};
-    for (const key of Object.keys(raw)) {
-      if (key === userId) continue;
-      const entries = raw[key];
-      if (entries && entries[0]) peers[key] = entries[0];
-    }
-    onUpdate(peers);
-  };
-
   channel
-    .on("presence", { event: "sync" }, emit)
-    .on("presence", { event: "join" }, emit)
-    .on("presence", { event: "leave" }, emit)
+    .on("presence", { event: "sync" }, () => {
+      const state = channel.presenceState<PeerState>();
+      const peers: Record<string, PeerState> = {};
+      Object.entries(state).forEach(([key, presences]) => {
+        if (key === userId) return; // on ne s'affiche pas soi-même comme "peer"
+        const latest = presences[presences.length - 1];
+        if (latest) peers[key] = latest as unknown as PeerState;
+      });
+      onUpdate(peers);
+    })
+    .on("broadcast", { event: "chat" }, ({ payload }) => {
+      if (onChatMessage) onChatMessage(payload as ChatMessage);
+    })
     .subscribe();
 
   return channel;
@@ -194,4 +258,8 @@ export function joinScenePresence(
 
 export function leaveScenePresence(channel: PresenceChannel | null) {
   if (channel) scenesClient.removeChannel(channel);
+}
+
+export function broadcastChatMessage(channel: PresenceChannel, msg: ChatMessage) {
+  channel.send({ type: "broadcast", event: "chat", payload: msg });
 }

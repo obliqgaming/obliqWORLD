@@ -1,0 +1,472 @@
+// Porté fidèlement depuis ObliqWild (src/components/DrawingModal.tsx).
+// Adaptations : plus de <Dialog> (ce composant s'intègre directement dans un onglet
+// de CharacterSelect, pas en popup par-dessus le jeu), suppression du système de
+// musique contextuelle et du mode "creatures" propres à ObliqWild (ce projet n'a ni
+// l'un ni l'autre), boutons/sliders réécrits en HTML simple pour ne dépendre d'aucun
+// composant shadcn/ui dont on n'est pas sûr qu'il existe déjà dans ce repo.
+// Tout le moteur de dessin (pinceau, gomme, ligne, cercle, spray, remplissage,
+// pipette, undo/redo, historique) est identique à l'original.
+
+import React, { useRef, useState, useEffect, useCallback } from "react";
+import { hexToRgb, paintStrokeSegment, sprayPaintSegment } from "../lib/drawingTools";
+import {
+  Pencil,
+  Eraser,
+  Trash2,
+  Undo2,
+  Redo2,
+  Save,
+  Minus,
+  Pipette,
+  PaintBucket,
+  Circle,
+  SprayCan,
+} from "lucide-react";
+
+const CANVAS_SIZE = 512;
+const MAX_HISTORY = 30;
+
+const PALETTE = [
+  "#1a1a1a", "#ffffff", "#6b7280", "#ef4444",
+  "#f97316", "#eab308", "#22c55e", "#3b82f6",
+  "#8b5cf6", "#ec4899", "#78350f", "#166534",
+];
+
+type Tool = "brush" | "eraser" | "line" | "circle" | "eyedropper" | "fill" | "spray";
+
+function hexToRgba(hex: string, opacity: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${opacity})`;
+}
+
+function rgbToHex(r: number, g: number, b: number): string {
+  return "#" + [r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("");
+}
+
+function colorsMatch(data: Uint8ClampedArray, i: number, r: number, g: number, b: number, a: number, tolerance = 10): boolean {
+  return (
+    Math.abs(data[i] - r) <= tolerance &&
+    Math.abs(data[i + 1] - g) <= tolerance &&
+    Math.abs(data[i + 2] - b) <= tolerance &&
+    Math.abs(data[i + 3] - a) <= tolerance
+  );
+}
+
+function floodFill(ctx: CanvasRenderingContext2D, startX: number, startY: number, fillR: number, fillG: number, fillB: number, fillA: number) {
+  const w = ctx.canvas.width;
+  const h = ctx.canvas.height;
+  const imageData = ctx.getImageData(0, 0, w, h);
+  const data = imageData.data;
+  const sx = Math.round(startX);
+  const sy = Math.round(startY);
+  if (sx < 0 || sx >= w || sy < 0 || sy >= h) return;
+  const startIdx = (sy * w + sx) * 4;
+  const targetR = data[startIdx];
+  const targetG = data[startIdx + 1];
+  const targetB = data[startIdx + 2];
+  const targetA = data[startIdx + 3];
+  if (targetA === fillA && Math.abs(targetR - fillR) <= 5 &&
+      Math.abs(targetG - fillG) <= 5 && Math.abs(targetB - fillB) <= 5) return;
+  const stack: [number, number][] = [[sx, sy]];
+  const visited = new Uint8Array(w * h);
+  while (stack.length > 0) {
+    const [cx, cy] = stack.pop()!;
+    const idx = cy * w + cx;
+    if (visited[idx]) continue;
+    const pi = idx * 4;
+    const isTransparentTarget = targetA < 10;
+    const matches = isTransparentTarget
+      ? data[pi + 3] < 10
+      : colorsMatch(data, pi, targetR, targetG, targetB, targetA, 30);
+    if (!matches) continue;
+    visited[idx] = 1;
+    data[pi] = fillR;
+    data[pi + 1] = fillG;
+    data[pi + 2] = fillB;
+    data[pi + 3] = fillA;
+    if (cx > 0) stack.push([cx - 1, cy]);
+    if (cx < w - 1) stack.push([cx + 1, cy]);
+    if (cy > 0) stack.push([cx, cy - 1]);
+    if (cy < h - 1) stack.push([cx, cy + 1]);
+  }
+  ctx.putImageData(imageData, 0, 0);
+}
+
+export function DrawingCanvas({
+  onExport,
+  exporting,
+}: {
+  onExport: (blob: Blob) => void;
+  exporting?: boolean;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const overlayRef = useRef<HTMLCanvasElement>(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [tool, setTool] = useState<Tool>("brush");
+  const [brushSize, setBrushSize] = useState(4);
+  const [opacity, setOpacity] = useState(1);
+  const [color, setColor] = useState("#1a1a1a");
+
+  const lineStartRef = useRef<{ x: number; y: number } | null>(null);
+  const lastPointRef = useRef<{ x: number; y: number } | null>(null);
+  const strokeMaskRef = useRef<Uint8Array | null>(null);
+  const [altHeld, setAltHeld] = useState(false);
+  const prevToolRef = useRef<Tool>("brush");
+
+  const historyRef = useRef<ImageData[]>([]);
+  const redoRef = useRef<ImageData[]>([]);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+
+  const pushHistory = useCallback(() => {
+    const ctx = canvasRef.current?.getContext("2d");
+    if (!ctx) return;
+    const snap = ctx.getImageData(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+    historyRef.current.push(snap);
+    if (historyRef.current.length > MAX_HISTORY) historyRef.current.shift();
+    redoRef.current = [];
+    setCanUndo(true);
+    setCanRedo(false);
+  }, []);
+
+  const undo = useCallback(() => {
+    const ctx = canvasRef.current?.getContext("2d");
+    if (!ctx || historyRef.current.length === 0) return;
+    redoRef.current.push(ctx.getImageData(0, 0, CANVAS_SIZE, CANVAS_SIZE));
+    const prev = historyRef.current.pop()!;
+    ctx.putImageData(prev, 0, 0);
+    setCanUndo(historyRef.current.length > 0);
+    setCanRedo(true);
+  }, []);
+
+  const redo = useCallback(() => {
+    const ctx = canvasRef.current?.getContext("2d");
+    if (!ctx || redoRef.current.length === 0) return;
+    historyRef.current.push(ctx.getImageData(0, 0, CANVAS_SIZE, CANVAS_SIZE));
+    const next = redoRef.current.pop()!;
+    ctx.putImageData(next, 0, 0);
+    setCanUndo(true);
+    setCanRedo(redoRef.current.length > 0);
+  }, []);
+
+  useEffect(() => {
+    const ctx = canvasRef.current?.getContext("2d");
+    if (!ctx) return;
+    ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+  }, []);
+
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "z") {
+        e.preventDefault();
+        if (e.shiftKey) redo(); else undo();
+      }
+      if (e.key === "Alt" && !altHeld) {
+        e.preventDefault();
+        setAltHeld(true);
+        prevToolRef.current = tool;
+        setTool("eyedropper");
+      }
+    };
+    const up = (e: KeyboardEvent) => {
+      if (e.key === "Alt") {
+        setAltHeld(false);
+        setTool(prevToolRef.current);
+      }
+    };
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    return () => {
+      window.removeEventListener("keydown", down);
+      window.removeEventListener("keyup", up);
+    };
+  }, [undo, redo, tool, altHeld]);
+
+  const getPos = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const rect = canvasRef.current!.getBoundingClientRect();
+    const scaleX = CANVAS_SIZE / rect.width;
+    const scaleY = CANVAS_SIZE / rect.height;
+    return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
+  };
+
+  const getPaintMode = (activeTool: Tool): "erase" | "paint" => (activeTool === "eraser" ? "erase" : "paint");
+
+  const pickColor = (x: number, y: number) => {
+    const ctx = canvasRef.current?.getContext("2d");
+    if (!ctx) return;
+    const pixel = ctx.getImageData(Math.round(x), Math.round(y), 1, 1).data;
+    if (pixel[3] > 0) {
+      setColor(rgbToHex(pixel[0], pixel[1], pixel[2]));
+      setOpacity(Math.round((pixel[3] / 255) * 100) / 100);
+    }
+    if (!altHeld) setTool(prevToolRef.current === "eyedropper" ? "brush" : prevToolRef.current);
+  };
+
+  const startDraw = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    const { x, y } = getPos(e);
+
+    if (tool === "eyedropper") {
+      pickColor(x, y);
+      return;
+    }
+
+    if (tool === "fill") {
+      pushHistory();
+      const ctx = canvasRef.current?.getContext("2d");
+      if (!ctx) return;
+      const [fr, fg, fb] = hexToRgb(color);
+      const fa = Math.round(opacity * 255);
+      floodFill(ctx, x, y, fr, fg, fb, fa);
+      return;
+    }
+
+    pushHistory();
+    setIsDrawing(true);
+    strokeMaskRef.current = new Uint8Array(CANVAS_SIZE * CANVAS_SIZE);
+    lastPointRef.current = { x, y };
+
+    if (tool === "line" || tool === "circle") {
+      lineStartRef.current = { x, y };
+      return;
+    }
+
+    const ctx = canvasRef.current?.getContext("2d");
+    if (!ctx) return;
+    if (tool === "spray") {
+      sprayPaintSegment(ctx, x, y, x, y, brushSize, "paint", hexToRgb(color), opacity, strokeMaskRef.current);
+      return;
+    }
+    paintStrokeSegment(ctx, x, y, x, y, brushSize, getPaintMode(tool), hexToRgb(color), opacity, strokeMaskRef.current);
+  };
+
+  const draw = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    if (!isDrawing) return;
+    const { x, y } = getPos(e);
+
+    if (tool === "line" || tool === "circle") {
+      const oCtx = overlayRef.current?.getContext("2d");
+      if (!oCtx || !lineStartRef.current) return;
+      oCtx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+      oCtx.beginPath();
+      oCtx.lineCap = "round";
+      oCtx.lineWidth = brushSize;
+      oCtx.strokeStyle = hexToRgba(color, opacity);
+      if (tool === "line") {
+        oCtx.moveTo(lineStartRef.current.x, lineStartRef.current.y);
+        oCtx.lineTo(x, y);
+      } else {
+        const dx = x - lineStartRef.current.x;
+        const dy = y - lineStartRef.current.y;
+        const radius = Math.sqrt(dx * dx + dy * dy);
+        oCtx.arc(lineStartRef.current.x, lineStartRef.current.y, radius, 0, Math.PI * 2);
+      }
+      oCtx.stroke();
+      return;
+    }
+
+    const ctx = canvasRef.current?.getContext("2d");
+    if (!ctx || !lastPointRef.current) return;
+    if (tool === "spray") {
+      sprayPaintSegment(ctx, lastPointRef.current.x, lastPointRef.current.y, x, y, brushSize, "paint", hexToRgb(color), opacity, strokeMaskRef.current);
+    } else {
+      paintStrokeSegment(ctx, lastPointRef.current.x, lastPointRef.current.y, x, y, brushSize, getPaintMode(tool), hexToRgb(color), opacity, strokeMaskRef.current);
+    }
+    lastPointRef.current = { x, y };
+  };
+
+  const stopDraw = (e?: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!isDrawing) return;
+
+    if ((tool === "line" || tool === "circle") && lineStartRef.current && e) {
+      const { x, y } = getPos(e);
+      const ctx = canvasRef.current?.getContext("2d");
+      if (ctx) {
+        if (tool === "line") {
+          paintStrokeSegment(ctx, lineStartRef.current.x, lineStartRef.current.y, x, y, brushSize, "paint", hexToRgb(color), opacity, new Uint8Array(CANVAS_SIZE * CANVAS_SIZE));
+        } else {
+          ctx.beginPath();
+          ctx.lineCap = "round";
+          ctx.lineWidth = brushSize;
+          ctx.strokeStyle = hexToRgba(color, opacity);
+          const dx = x - lineStartRef.current.x;
+          const dy = y - lineStartRef.current.y;
+          const radius = Math.sqrt(dx * dx + dy * dy);
+          ctx.arc(lineStartRef.current.x, lineStartRef.current.y, radius, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
+      const oCtx = overlayRef.current?.getContext("2d");
+      if (oCtx) oCtx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+      lineStartRef.current = null;
+    }
+
+    lastPointRef.current = null;
+    strokeMaskRef.current = null;
+    setIsDrawing(false);
+  };
+
+  const clearCanvas = () => {
+    if (!window.confirm("Effacer tout le dessin ? Annulable avec Ctrl+Z.")) return;
+    const ctx = canvasRef.current?.getContext("2d");
+    if (!ctx) return;
+    pushHistory();
+    ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+  };
+
+  const handleExport = () => {
+    canvasRef.current?.toBlob((blob) => {
+      if (blob) onExport(blob);
+    }, "image/png");
+  };
+
+  const toolBtn = (active: boolean) =>
+    `flex h-8 w-8 items-center justify-center rounded border ${
+      active ? "border-[#e8b168] bg-[#7a4a22] text-white" : "border-transparent bg-black/20 text-[#fff3d6] hover:bg-black/30"
+    }`;
+
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row">
+      <div
+        className="relative aspect-square w-full max-w-[320px] overflow-hidden rounded-md border border-[#7a4a22]/70"
+        style={{
+          backgroundImage: `
+            linear-gradient(45deg, #ccc 25%, transparent 25%),
+            linear-gradient(-45deg, #ccc 25%, transparent 25%),
+            linear-gradient(45deg, transparent 75%, #ccc 75%),
+            linear-gradient(-45deg, transparent 75%, #ccc 75%)`,
+          backgroundSize: "16px 16px",
+          backgroundPosition: "0 0, 0 8px, 8px -8px, -8px 0px",
+          backgroundColor: "#fff",
+        }}
+      >
+        <canvas
+          ref={canvasRef}
+          width={CANVAS_SIZE}
+          height={CANVAS_SIZE}
+          className="absolute inset-0 h-full w-full cursor-crosshair touch-none"
+          style={{ touchAction: "none" }}
+          onPointerDown={startDraw}
+          onPointerMove={draw}
+          onPointerUp={stopDraw}
+          onMouseLeave={() => stopDraw()}
+          onPointerCancel={stopDraw}
+        />
+        <canvas
+          ref={overlayRef}
+          width={CANVAS_SIZE}
+          height={CANVAS_SIZE}
+          className="pointer-events-none absolute inset-0 h-full w-full touch-none"
+        />
+      </div>
+
+      <div className="flex w-full flex-col gap-2 sm:w-48">
+        <div className="flex flex-wrap gap-1">
+          <button type="button" className={toolBtn(tool === "brush")} onClick={() => setTool("brush")} title="Pinceau">
+            <Pencil className="h-4 w-4" />
+          </button>
+          <button type="button" className={toolBtn(tool === "eraser")} onClick={() => setTool("eraser")} title="Gomme">
+            <Eraser className="h-4 w-4" />
+          </button>
+          <button type="button" className={toolBtn(tool === "line")} onClick={() => setTool("line")} title="Ligne">
+            <Minus className="h-4 w-4" />
+          </button>
+          <button type="button" className={toolBtn(tool === "circle")} onClick={() => setTool("circle")} title="Cercle">
+            <Circle className="h-4 w-4" />
+          </button>
+          <button type="button" className={toolBtn(tool === "spray")} onClick={() => setTool("spray")} title="Spray">
+            <SprayCan className="h-4 w-4" />
+          </button>
+          <button type="button" className={toolBtn(tool === "fill")} onClick={() => setTool("fill")} title="Remplissage">
+            <PaintBucket className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            className={toolBtn(tool === "eyedropper")}
+            onClick={() => {
+              prevToolRef.current = tool === "eyedropper" ? "brush" : tool;
+              setTool("eyedropper");
+            }}
+            title="Pipette (Alt)"
+          >
+            <Pipette className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="flex items-center gap-1">
+          <button type="button" className={toolBtn(false)} onClick={undo} disabled={!canUndo} title="Annuler">
+            <Undo2 className="h-4 w-4" />
+          </button>
+          <button type="button" className={toolBtn(false)} onClick={redo} disabled={!canRedo} title="Rétablir">
+            <Redo2 className="h-4 w-4" />
+          </button>
+          <button type="button" className={toolBtn(false)} onClick={clearCanvas} title="Effacer tout">
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+
+        <label className="flex items-center gap-2 text-xs text-[#fff3d6]">
+          Taille
+          <input type="range" min={1} max={24} value={brushSize} onChange={(e) => setBrushSize(Number(e.target.value))} className="flex-1" />
+          <span className="w-4 text-right">{brushSize}</span>
+        </label>
+        <label className="flex items-center gap-2 text-xs text-[#fff3d6]">
+          Opacité
+          <input
+            type="range"
+            min={5}
+            max={100}
+            step={5}
+            value={opacity * 100}
+            onChange={(e) => setOpacity(Number(e.target.value) / 100)}
+            className="flex-1"
+          />
+          <span className="w-8 text-right">{Math.round(opacity * 100)}%</span>
+        </label>
+
+        <div className="grid grid-cols-6 gap-1">
+          {PALETTE.map((c) => (
+            <button
+              key={c}
+              type="button"
+              className={`h-6 w-6 rounded-sm border-2 ${color === c && tool !== "eraser" ? "border-[#fff3d6]" : "border-transparent"}`}
+              style={{ backgroundColor: c }}
+              onClick={() => {
+                setColor(c);
+                if (tool === "eraser" || tool === "eyedropper") setTool("brush");
+              }}
+            />
+          ))}
+          <label
+            className="relative h-6 w-6 cursor-pointer overflow-hidden rounded-sm border-2 border-[#7a4a22]"
+            style={{ background: "linear-gradient(135deg, #ff0000, #ff8800, #ffff00, #00cc00, #00aaff, #8800ff, #ff00aa)" }}
+            title="Couleur personnalisée"
+          >
+            <input
+              type="color"
+              value={color}
+              onChange={(e) => {
+                setColor(e.target.value);
+                if (tool === "eraser" || tool === "eyedropper") setTool("brush");
+              }}
+              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+            />
+          </label>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleExport}
+          disabled={exporting}
+          className="mt-2 flex items-center justify-center gap-1.5 rounded-lg bg-[#7a4a22] py-2 text-sm font-bold text-[#fff3d6] hover:bg-[#8f5a2c] disabled:opacity-50"
+        >
+          <Save className="h-4 w-4" />
+          {exporting ? "Envoi…" : "Valider le dessin"}
+        </button>
+      </div>
+    </div>
+  );
+}

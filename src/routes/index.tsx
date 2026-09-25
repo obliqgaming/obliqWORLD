@@ -1,7 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import {
-  ensureCharacter,
+  broadcastChatMessage,
+  createCharacterWithAsset,
+  fetchCharacterAssets,
+  fetchMyCharacter,
   fetchScene,
   fetchSceneByName,
   fetchSceneExits,
@@ -12,12 +15,15 @@ import {
   saveCharacterPosition,
   scenesClient,
   type Character,
+  type ChatMessage,
   type PeerState,
   type PresenceChannel,
   type Point,
   type Scene,
   type SceneExit,
+  type VisualAsset,
 } from "../lib/scenes-supabase";
+import { CharacterSelect } from "../components/CharacterSelect";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -42,6 +48,32 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
+// ---------- Vitesse de marche ----------
+// Avant : durée quasi plate (~400-600ms) quelle que soit la distance -> le perso
+// semblait sprinter sur les longs clics. Lils voulait GARDER cette petite
+// accélération sur la distance (elle trouvait ça sympa), juste la rendre beaucoup
+// plus légère (~90% de moins), pas la supprimer complètement.
+// -> vitesse de base + un léger bonus de vitesse qui monte avec la distance,
+//    plafonné à ACCEL_INTENSITY (0 = vitesse constante, 1 = comportement d'origine).
+const BASE_WALK_SPEED_PX_PER_SEC = 140; // vitesse "de base" sur courte distance
+const ACCEL_INTENSITY = 0.12; // ~90% de moins que l'accélération d'origine
+const ACCEL_REFERENCE_PX = 900; // distance à partir de laquelle le bonus est à fond
+const MIN_WALK_MS = 300;
+const CHAT_BUBBLE_MS = 4500;
+const CHAT_LOG_SIZE = 30;
+
+function distanceInPx(rect: DOMRect, a: Point, b: Point) {
+  const dxPx = ((b.x - a.x) / 100) * rect.width;
+  const dyPx = ((b.y - a.y) / 100) * rect.height;
+  return Math.hypot(dxPx, dyPx);
+}
+
+function walkDurationMs(distPx: number) {
+  const accel = Math.min(1, distPx / ACCEL_REFERENCE_PX);
+  const speed = BASE_WALK_SPEED_PX_PER_SEC * (1 + ACCEL_INTENSITY * accel);
+  return Math.max(MIN_WALK_MS, Math.round((distPx / speed) * 1000));
+}
+
 function Index() {
   const initialScene = Route.useLoaderData() as Scene;
 
@@ -53,11 +85,24 @@ function Index() {
   const [scene, setScene] = useState<Scene>(initialScene);
   const [exits, setExits] = useState<SceneExit[]>([]);
   const [character, setCharacter] = useState<Character | null>(null);
+  const [checkingCharacter, setCheckingCharacter] = useState(true);
+  const [characterAssets, setCharacterAssets] = useState<VisualAsset[]>([]);
   const [pos, setPos] = useState<Point>({ x: 50, y: 70 });
   const [walking, setWalking] = useState(false);
   const [duration, setDuration] = useState(0);
   const [peers, setPeers] = useState<Record<string, PeerState>>({});
-  const [walkingPeers, setWalkingPeers] = useState<Record<string, boolean>>({});
+
+  // ---- Marche des autres joueurs, calculée localement (fix téléportation) ----
+  const prevPeerPosRef = useRef<Record<string, Point>>({});
+  const peerWalkTimers = useRef<Record<string, number>>({});
+  const [peerWalking, setPeerWalking] = useState<Record<string, boolean>>({});
+  const [peerDuration, setPeerDuration] = useState<Record<string, number>>({});
+
+  // ---- Chat ----
+  const [chatLog, setChatLog] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [bubbles, setBubbles] = useState<Record<string, { text: string; expiresAt: number }>>({});
+  const bubbleTimers = useRef<Record<string, number>>({});
 
   const walkTimer = useRef<number | null>(null);
   const sceneRef = useRef<HTMLDivElement | null>(null);
@@ -65,8 +110,6 @@ function Index() {
   const userIdRef = useRef<string | null>(null);
   const characterRef = useRef<Character | null>(null);
   const sceneIdRef = useRef<string>(initialScene.id);
-  const prevPeerPos = useRef<Record<string, Point>>({});
-  const peerTimers = useRef<Record<string, number>>({});
 
   // ---------- Musique, avec fondu au changement de scène ----------
   const playMusic = (url: string, fade: boolean) => {
@@ -127,25 +170,43 @@ function Index() {
     }
   };
 
-  // ---------- Personnage ----------
+  // ---------- Personnage : on vérifie s'il existe déjà, sinon on demande à en choisir un ----------
   useEffect(() => {
     let cancelled = false;
-    ensureCharacter(scene.id)
+    fetchMyCharacter()
       .then((c) => {
         if (cancelled) return;
-        setCharacter(c);
-        characterRef.current = c;
-        setPos(c.position);
+        if (c) {
+          setCharacter(c);
+          characterRef.current = c;
+          setPos(c.position);
+        } else {
+          fetchCharacterAssets().then((assets) => {
+            if (!cancelled) setCharacterAssets(assets);
+          });
+        }
       })
-      .catch((e) => console.error("Character setup failed", e));
+      .catch((e) => console.error("Character lookup failed", e))
+      .finally(() => {
+        if (!cancelled) setCheckingCharacter(false);
+      });
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const handleCharacterChosen = async (visualAssetId: string, name: string) => {
+    const c = await createCharacterWithAsset(scene.id, visualAssetId, name);
+    setCharacter(c);
+    characterRef.current = c;
+    setPos(c.position);
+  };
+
   useEffect(() => () => {
     if (walkTimer.current) window.clearTimeout(walkTimer.current);
+    Object.values(peerWalkTimers.current).forEach((t) => window.clearTimeout(t));
+    Object.values(bubbleTimers.current).forEach((t) => window.clearTimeout(t));
   }, []);
 
   // ---------- Sorties de la scène courante ----------
@@ -161,29 +222,67 @@ function Index() {
     };
   }, [scene.id]);
 
-  // ---------- Réception de la présence des autres joueurs ----------
-  // La marche est déclenchée localement dès qu'une position change,
-  // peu importe l'ordre ou le nombre de messages reçus du réseau —
-  // ça évite la téléportation si un message intermédiaire se perd.
-  const handlePeersUpdate = (next: Record<string, PeerState>) => {
-    for (const [key, peer] of Object.entries(next)) {
-      const prev = prevPeerPos.current[key];
-      if (prev && (prev.x !== peer.position.x || prev.y !== peer.position.y)) {
-        setWalkingPeers((w) => ({ ...w, [key]: true }));
-        if (peerTimers.current[key]) window.clearTimeout(peerTimers.current[key]);
-        peerTimers.current[key] = window.setTimeout(() => {
-          setWalkingPeers((w) => ({ ...w, [key]: false }));
-        }, 500);
+  // ---------- Mise à jour locale des pairs (marche calculée nous-mêmes, pas confiance au réseau) ----------
+  const handlePeerUpdate = (newPeers: Record<string, PeerState>) => {
+    setPeers(newPeers);
+    const rect = sceneRef.current?.getBoundingClientRect();
+
+    Object.entries(newPeers).forEach(([key, peer]) => {
+      const prev = prevPeerPosRef.current[key];
+      prevPeerPosRef.current[key] = peer.position;
+
+      if (!prev || !rect) return;
+      if (prev.x === peer.position.x && prev.y === peer.position.y) return;
+
+      const dist = distanceInPx(rect, prev, peer.position);
+      if (dist < 1) return;
+      const ms = walkDurationMs(dist);
+
+      setPeerDuration((d) => ({ ...d, [key]: ms }));
+      setPeerWalking((w) => ({ ...w, [key]: true }));
+
+      if (peerWalkTimers.current[key]) window.clearTimeout(peerWalkTimers.current[key]);
+      peerWalkTimers.current[key] = window.setTimeout(() => {
+        setPeerWalking((w) => ({ ...w, [key]: false }));
+      }, ms);
+    });
+
+    Object.keys(prevPeerPosRef.current).forEach((key) => {
+      if (!(key in newPeers)) {
+        delete prevPeerPosRef.current[key];
+        if (peerWalkTimers.current[key]) window.clearTimeout(peerWalkTimers.current[key]);
+        delete peerWalkTimers.current[key];
       }
-      prevPeerPos.current[key] = peer.position;
-    }
-    setPeers(next);
+    });
+  };
+
+  const showBubble = (characterId: string, text: string) => {
+    const expiresAt = Date.now() + CHAT_BUBBLE_MS;
+    setBubbles((b) => ({ ...b, [characterId]: { text, expiresAt } }));
+    if (bubbleTimers.current[characterId]) window.clearTimeout(bubbleTimers.current[characterId]);
+    bubbleTimers.current[characterId] = window.setTimeout(() => {
+      setBubbles((b) => {
+        const next = { ...b };
+        delete next[characterId];
+        return next;
+      });
+    }, CHAT_BUBBLE_MS);
+  };
+
+  const handleChatReceived = (msg: ChatMessage) => {
+    setChatLog((log) => [...log.slice(-(CHAT_LOG_SIZE - 1)), msg]);
+    showBubble(msg.characterId, msg.text);
   };
 
   // ---------- Présence multijoueur : rejoint le canal de la scène courante ----------
   useEffect(() => {
     if (!character) return;
     sceneIdRef.current = scene.id;
+    prevPeerPosRef.current = {};
+    Object.values(peerWalkTimers.current).forEach((t) => window.clearTimeout(t));
+    peerWalkTimers.current = {};
+    setPeerWalking({});
+    setPeerDuration({});
 
     let cancelled = false;
     scenesClient.auth.getSession().then(({ data }) => {
@@ -192,8 +291,7 @@ function Index() {
       userIdRef.current = userId;
 
       leaveScenePresence(channelRef.current);
-      prevPeerPos.current = {};
-      channelRef.current = joinScenePresence(scene.id, userId, handlePeersUpdate);
+      channelRef.current = joinScenePresence(scene.id, userId, handlePeerUpdate, handleChatReceived);
 
       channelRef.current.track({
         characterId: character.id,
@@ -210,7 +308,6 @@ function Index() {
       leaveScenePresence(channelRef.current);
       channelRef.current = null;
       setPeers({});
-      setWalkingPeers({});
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scene.id, character?.id]);
@@ -237,11 +334,8 @@ function Index() {
     };
     if (!pointInPolygon(target, scene.walkable_zone)) return;
 
-    const dxPx = ((target.x - pos.x) / 100) * rect.width;
-    const dyPx = ((target.y - pos.y) / 100) * rect.height;
-    const dist = Math.hypot(dxPx, dyPx);
-    const maxDist = Math.hypot(rect.width, rect.height);
-    const ms = Math.round(400 + Math.min(1, dist / (maxDist * 0.6)) * 200);
+    const dist = distanceInPx(rect, pos, target);
+    const ms = walkDurationMs(dist);
 
     setDuration(ms);
     setWalking(true);
@@ -255,11 +349,9 @@ function Index() {
     }, ms);
   };
 
-  // ---------- Changement de scène via une sortie ----------
-  const handleExitClick = async (e: React.MouseEvent, exit: SceneExit) => {
-    e.stopPropagation();
+  // ---------- Changement de scène (appelé une fois la marche jusqu'à la sortie terminée) ----------
+  const changeScene = async (exit: SceneExit) => {
     if (!character) return;
-
     try {
       const [newScene, newExits] = await Promise.all([
         fetchScene(exit.to_scene_id),
@@ -280,107 +372,214 @@ function Index() {
       characterRef.current = updated;
 
       await moveCharacterToScene(character.id, newScene.id, arrival);
+      trackPresence(arrival, 0, false);
     } catch (err) {
       console.error("Scene change failed", err);
     }
   };
 
+  // ---------- Clic sur une sortie : on marche jusqu'à elle, PUIS on change de scène ----------
+  const handleExitClick = (e: React.MouseEvent, exit: SceneExit) => {
+    e.stopPropagation();
+    if (!character || walking || !sceneRef.current) return;
+
+    const rect = sceneRef.current.getBoundingClientRect();
+    const dist = distanceInPx(rect, pos, exit.position);
+
+    if (dist < 4) {
+      changeScene(exit);
+      return;
+    }
+
+    const ms = walkDurationMs(dist);
+    setDuration(ms);
+    setWalking(true);
+    setPos(exit.position);
+    trackPresence(exit.position, ms, true);
+
+    walkTimer.current = window.setTimeout(() => {
+      changeScene(exit);
+    }, ms);
+  };
+
+  // ---------- Chat ----------
+  const handleSendChat = (e: React.FormEvent) => {
+    e.preventDefault();
+    const text = chatInput.trim();
+    if (!text || !character || !channelRef.current) return;
+
+    const msg: ChatMessage = { characterId: character.id, name: character.name, text, ts: Date.now() };
+    setChatLog((log) => [...log.slice(-(CHAT_LOG_SIZE - 1)), msg]);
+    showBubble(character.id, text);
+    broadcastChatMessage(channelRef.current, msg);
+    setChatInput("");
+  };
+
+  if (checkingCharacter) {
+    return <div className="flex h-screen w-screen items-center justify-center bg-black text-[#fff3d6]">Chargement…</div>;
+  }
+
+  if (!character) {
+    return <CharacterSelect assets={characterAssets} onChoose={handleCharacterChosen} />;
+  }
+
   return (
-    <div
-      ref={sceneRef}
-      onClick={handleSceneClick}
-      className="relative h-screen w-screen cursor-pointer overflow-hidden"
-    >
-      <style>{`@keyframes auberge-walk{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg)}}`}</style>
-      <img
-        src={scene.image_url}
-        alt={scene.name}
-        className="absolute inset-0 h-full w-full object-cover"
-        draggable={false}
-      />
-
-      {exits.map((exit) => (
-        <button
-          key={exit.id}
-          type="button"
-          onClick={(e) => handleExitClick(e, exit)}
-          aria-label={exit.label ?? "Sortie"}
-          title={exit.label ?? undefined}
-          className="absolute z-10 h-9 w-9 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#fff3d6]/80 bg-black/30 backdrop-blur-sm transition-transform hover:scale-110"
-          style={{ left: `${exit.position.x}%`, top: `${exit.position.y}%` }}
+    <div className="relative h-screen w-screen overflow-hidden">
+      <div ref={sceneRef} onClick={handleSceneClick} className="relative h-full w-full cursor-pointer">
+        <style>{`@keyframes auberge-walk{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg)}}`}</style>
+        <img
+          src={scene.image_url}
+          alt={scene.name}
+          className="absolute inset-0 h-full w-full object-cover"
+          draggable={false}
         />
-      ))}
 
-      {character?.image_url && (
-        <div
-          className="pointer-events-none absolute z-20"
+        {exits.map((exit) => (
+          <button
+            key={exit.id}
+            type="button"
+            onClick={(e) => handleExitClick(e, exit)}
+            aria-label={exit.label ?? "Sortie"}
+            title={exit.label ?? undefined}
+            className="absolute z-10 h-9 w-9 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#fff3d6]/80 bg-black/30 backdrop-blur-sm transition-transform hover:scale-110"
+            style={{ left: `${exit.position.x}%`, top: `${exit.position.y}%` }}
+          />
+        ))}
+
+        {character?.image_url && (
+          <div
+            className="pointer-events-none absolute z-20"
+            style={{
+              left: `${pos.x}%`,
+              top: `${pos.y}%`,
+              width: 120,
+              transform: "translate(-50%, -100%)",
+              transition: walking ? `left ${duration}ms linear, top ${duration}ms linear` : "none",
+            }}
+          >
+            {bubbles[character.id] && <SpeechBubble text={bubbles[character.id].text} />}
+            <img
+              src={character.image_url}
+              alt={character.name}
+              draggable={false}
+              className="block w-full"
+              style={{
+                transformOrigin: "50% 100%",
+                animation: walking ? "auberge-walk 250ms linear infinite" : "none",
+              }}
+            />
+          </div>
+        )}
+
+        {Object.entries(peers).map(([key, peer]) => {
+          const isWalking = !!peerWalking[key];
+          const ms = peerDuration[key] ?? 0;
+          return (
+            <div
+              key={key}
+              className="pointer-events-none absolute z-20"
+              style={{
+                left: `${peer.position.x}%`,
+                top: `${peer.position.y}%`,
+                width: 120,
+                transform: "translate(-50%, -100%)",
+                transition: isWalking ? `left ${ms}ms linear, top ${ms}ms linear` : "none",
+              }}
+            >
+              {bubbles[peer.characterId] && <SpeechBubble text={bubbles[peer.characterId].text} />}
+              <img
+                src={peer.image_url}
+                alt={peer.name}
+                draggable={false}
+                className="block w-full"
+                style={{
+                  transformOrigin: "50% 100%",
+                  animation: isWalking ? "auberge-walk 250ms linear infinite" : "none",
+                }}
+              />
+            </div>
+          );
+        })}
+
+        <h1
+          className="pointer-events-none absolute left-6 top-6 z-30 select-none text-5xl font-extrabold tracking-wide sm:text-6xl"
           style={{
-            left: `${pos.x}%`,
-            top: `${pos.y}%`,
-            width: 120,
-            transform: "translate(-50%, -100%)",
-            transition: walking ? `left ${duration}ms linear, top ${duration}ms linear` : "none",
+            fontFamily: "'Baloo 2', cursive",
+            color: "#fff3d6",
+            textShadow: "0 2px 0 #b4531f, 0 4px 0 rgba(87, 42, 12, 0.55), 0 8px 22px rgba(43, 20, 6, 0.6)",
+            transform: "rotate(-2deg)",
           }}
         >
-          <img
-            src={character.image_url}
-            alt={character.name}
-            draggable={false}
-            className="block w-full"
-            style={{
-              transformOrigin: "50% 100%",
-              animation: walking ? "auberge-walk 250ms linear infinite" : "none",
-            }}
-          />
-        </div>
-      )}
+          {scene.name}
+        </h1>
 
-      {Object.entries(peers).map(([key, peer]) => (
+        <button
+          type="button"
+          onClick={toggleMute}
+          aria-label={muted ? "Activer le son" : "Couper le son"}
+          className="absolute right-5 top-5 z-30 flex h-11 w-11 items-center justify-center rounded-full bg-black/35 text-xl text-[#fff3d6] backdrop-blur-sm transition-colors hover:bg-black/55"
+        >
+          {muted ? "🔇" : "🔊"}
+        </button>
+      </div>
+
+      {/* ---------- Chat bas centré, habillé avec le cadre parchemin ---------- */}
+      <div className="pointer-events-none absolute bottom-2 left-1/2 z-40 w-[min(640px,94vw)] -translate-x-1/2">
         <div
-          key={key}
-          className="pointer-events-none absolute z-20"
+          className="pointer-events-auto flex flex-col"
           style={{
-            left: `${peer.position.x}%`,
-            top: `${peer.position.y}%`,
-            width: 120,
-            transform: "translate(-50%, -100%)",
-            transition: "left 500ms linear, top 500ms linear",
+            borderStyle: "solid",
+            // Valeurs de départ, à ajuster une fois vu en vrai (dis-moi si un coin
+            // du cadre est étiré ou coupé et je retouche border-image-slice).
+            borderWidth: "34px 58px 30px 70px",
+            borderImageSource: "url('/ui/chat-frame.png')",
+            borderImageSlice: "130 230 120 260 fill",
+            borderImageRepeat: "stretch",
           }}
         >
-          <img
-            src={peer.image_url}
-            alt={peer.name}
-            draggable={false}
-            className="block w-full"
-            style={{
-              transformOrigin: "50% 100%",
-              animation: walkingPeers[key] ? "auberge-walk 250ms linear infinite" : "none",
-            }}
-          />
+          <div
+            className="flex max-h-28 flex-col gap-0.5 overflow-y-auto pr-1 text-sm"
+            style={{ fontFamily: "'Baloo 2', cursive", color: "#3a2210" }}
+          >
+            {chatLog.length === 0 && <p className="text-[#6b4a2c]/70">Le t'chat est vide pour l'instant…</p>}
+            {chatLog.map((m, i) => (
+              <p key={i}>
+                <span className="font-bold text-[#7a3a12]">{m.name} :</span> {m.text}
+              </p>
+            ))}
+          </div>
+          <form onSubmit={handleSendChat} className="mt-1 flex gap-2">
+            <input
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              maxLength={200}
+              placeholder="Écrire un message…"
+              className="flex-1 bg-transparent text-sm outline-none placeholder:text-[#6b4a2c]/50"
+              style={{ color: "#2a180c", fontFamily: "'Baloo 2', cursive" }}
+            />
+            <button type="submit" className="text-sm font-bold text-[#7a3a12] hover:text-[#4a2408]">
+              Envoyer
+            </button>
+          </form>
         </div>
-      ))}
-
-      <h1
-        className="pointer-events-none absolute left-6 top-6 z-30 select-none text-5xl font-extrabold tracking-wide sm:text-6xl"
-        style={{
-          fontFamily: "'Baloo 2', cursive",
-          color: "#fff3d6",
-          textShadow:
-            "0 2px 0 #b4531f, 0 4px 0 rgba(87, 42, 12, 0.55), 0 8px 22px rgba(43, 20, 6, 0.6)",
-          transform: "rotate(-2deg)",
-        }}
-      >
-        {scene.name}
-      </h1>
-
-      <button
-        type="button"
-        onClick={toggleMute}
-        aria-label={muted ? "Activer le son" : "Couper le son"}
-        className="absolute right-5 top-5 z-30 flex h-11 w-11 items-center justify-center rounded-full bg-black/35 text-xl text-[#fff3d6] backdrop-blur-sm transition-colors hover:bg-black/55"
-      >
-        {muted ? "🔇" : "🔊"}
-      </button>
+      </div>
     </div>
   );
 }
+
+function SpeechBubble({ text }: { text: string }) {
+  return (
+    <div
+      className="pointer-events-none absolute bottom-full left-1/2 mb-2 w-max max-w-[220px] -translate-x-1/2 rounded-xl border border-[#7a4a22]/70 bg-[#fff3d6] px-3 py-1.5 text-center text-sm text-[#2a180c] shadow-md"
+      style={{ fontFamily: "'Baloo 2', cursive" }}
+    >
+      {text}
+      <div
+        className="absolute left-1/2 top-full h-0 w-0 -translate-x-1/2 border-x-8 border-t-8 border-x-transparent"
+        style={{ borderTopColor: "#fff3d6" }}
+      />
+    </div>
+  );
+}
+
+export default Index;
