@@ -91,6 +91,9 @@ function Index() {
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [muted, setMuted] = useState(false);
+  // Debug: affiche la zone marchable réellement utilisée par le code (celle
+  // enregistrée en base), pour comparer avec ce qui a été dessiné/voulu.
+  const [showZoneDebug, setShowZoneDebug] = useState(false);
   const [needsInteraction, setNeedsInteraction] = useState(false);
   const mutedRef = useRef(false);
 
@@ -524,6 +527,22 @@ function Index() {
           draggable={false}
         />
 
+        {showZoneDebug && scene.walkable_zone && (
+          <svg
+            className="pointer-events-none absolute inset-0 h-full w-full"
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+          >
+            <polygon
+              points={scene.walkable_zone.map((p) => `${p.x},${p.y}`).join(" ")}
+              fill="rgba(56,189,120,0.3)"
+              stroke="rgba(16,150,72,0.95)"
+              strokeWidth={0.35}
+              vectorEffect="non-scaling-stroke"
+            />
+          </svg>
+        )}
+
         {exits.map((exit) => (
           <button
             key={exit.id}
@@ -611,6 +630,19 @@ function Index() {
           className="absolute right-5 top-5 z-30 flex h-11 w-11 items-center justify-center rounded-full bg-black/35 text-xl text-[#fff3d6] backdrop-blur-sm transition-colors hover:bg-black/55"
         >
           {muted ? "🔇" : "🔊"}
+        </button>
+
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowZoneDebug((v) => !v);
+          }}
+          aria-label="Afficher la zone marchable (debug)"
+          title="Afficher la zone marchable (debug)"
+          className="absolute right-5 top-20 z-30 flex h-11 w-11 items-center justify-center rounded-full bg-black/35 text-xl text-[#fff3d6] backdrop-blur-sm transition-colors hover:bg-black/55"
+        >
+          🗺️
         </button>
       </div>
 
