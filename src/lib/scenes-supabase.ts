@@ -20,11 +20,16 @@ export type Scene = {
   name: string;
   image_url: string;
   music_url: string;
-  walkable_zone: Point[] | null;
-  // Obstacles isolés à l'intérieur de la zone marchable (une table au milieu
-  // d'une pièce, par ex.) : chaque élément est un petit polygone "trou" que le
-  // personnage ne doit pas traverser même s'il est entouré de zone marchable.
-  // Colonne optionnelle — les scènes qui n'en ont pas encore renvoient null.
+  // La zone marchable est une LISTE de pièces : chaque pièce est son propre
+  // polygone. Ça évite d'avoir à dessiner un unique polygone géant qui longe
+  // tous les murs d'un étage entier (fastidieux et casse-gueule) — on dessine
+  // une pièce à la fois, et le personnage peut marcher dans l'union de toutes
+  // les pièces. (Anciennes scènes : un seul polygone à plat, toujours accepté
+  // et automatiquement transformé en liste à une seule pièce.)
+  walkable_zone: Point[][] | null;
+  // Obstacles isolés à l'intérieur d'une pièce (une table au milieu, par ex.) :
+  // chaque élément est un petit polygone "trou" que le personnage ne doit pas
+  // traverser même s'il est entouré de zone marchable.
   obstacles: Point[][] | null;
   created_at: string;
 };
@@ -81,7 +86,9 @@ export type PresenceChannel = RealtimeChannel;
 // NOTE: pour l'instant, connexion anonyme. Le jour où on passe à une vraie connexion
 // (Discord / Twitch), c'est cette fonction qui changera — le reste du code n'a pas
 // à bouger puisqu'il ne connaît que "un userId".
-async function ensureUserId(): Promise<string> {
+// Exportée : la page /admin en a aussi besoin pour pouvoir écrire les zones
+// (la policy RLS d'update exige un utilisateur connecté, même anonyme).
+export async function ensureUserId(): Promise<string> {
   const { data } = await scenesClient.auth.getSession();
   if (data.session?.user) return data.session.user.id;
 
@@ -91,12 +98,11 @@ async function ensureUserId(): Promise<string> {
 }
 
 // ---------- Scènes ----------
-// La zone marchable a été générée à l'origine sous forme de paires [x, y]
+// Un seul polygone a été généré à l'origine sous forme de paires [x, y]
 // (sortie brute de l'extraction OpenCV), mais le reste du code (positions de
-// personnage, de sorties) utilise des objets {x, y}. On normalise ici une fois
-// pour toutes, en acceptant les deux formats au cas où une scène aurait déjà
-// été ressaisie en objets.
-function normalizeWalkableZone(raw: unknown): Point[] | null {
+// personnage, de sorties) utilise des objets {x, y}. On normalise ici une
+// polygone à la fois, en acceptant les deux formats.
+function normalizePolygon(raw: unknown): Point[] | null {
   if (!raw || !Array.isArray(raw) || raw.length === 0) return null;
   const first = raw[0] as unknown;
   if (Array.isArray(first)) {
@@ -105,13 +111,25 @@ function normalizeWalkableZone(raw: unknown): Point[] | null {
   return raw as Point[];
 }
 
-// Un obstacle est enregistré comme un tableau de petits polygones (même format
-// que walkable_zone chacun). La colonne peut ne pas encore exister / être vide
-// selon les scènes.
-function normalizeObstacles(raw: unknown): Point[][] | null {
+// Un point de polygone est soit [x, y] (tuple), soit {x, y} (objet).
+function looksLikePoint(v: unknown): boolean {
+  if (Array.isArray(v)) return typeof v[0] === "number";
+  return !!v && typeof v === "object" && "x" in (v as Record<string, unknown>);
+}
+
+// walkable_zone et obstacles ont désormais tous les deux le même format côté
+// base : une LISTE de polygones (une pièce ou un obstacle chacun). On accepte
+// aussi l'ancien format "un seul polygone à plat" pour ne pas casser les
+// scènes pas encore ré-enregistrées, en le remettant dans une liste à un
+// élément.
+function normalizePolygonList(raw: unknown): Point[][] | null {
   if (!raw || !Array.isArray(raw) || raw.length === 0) return null;
+  if (looksLikePoint(raw[0])) {
+    const poly = normalizePolygon(raw);
+    return poly && poly.length >= 3 ? [poly] : null;
+  }
   const polys = (raw as unknown[])
-    .map((poly) => normalizeWalkableZone(poly))
+    .map((poly) => normalizePolygon(poly))
     .filter((poly): poly is Point[] => !!poly && poly.length >= 3);
   return polys.length > 0 ? polys : null;
 }
@@ -119,8 +137,8 @@ function normalizeObstacles(raw: unknown): Point[][] | null {
 function normalizeScene(row: any): Scene {
   return {
     ...row,
-    walkable_zone: normalizeWalkableZone(row.walkable_zone),
-    obstacles: normalizeObstacles(row.obstacles),
+    walkable_zone: normalizePolygonList(row.walkable_zone),
+    obstacles: normalizePolygonList(row.obstacles),
   } as Scene;
 }
 
@@ -138,6 +156,30 @@ export async function fetchScene(id: string): Promise<Scene> {
   const { data, error } = await scenesClient.from("scenes").select("*").eq("id", id).single();
   if (error) throw error;
   return normalizeScene(data);
+}
+
+// Pour la page /admin : liste de toutes les scènes, pour le sélecteur.
+export async function fetchAllScenes(): Promise<Scene[]> {
+  const { data, error } = await scenesClient.from("scenes").select("*").order("name", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(normalizeScene);
+}
+
+function polygonToRaw(poly: Point[]): [number, number][] {
+  return poly.map((p) => [Math.round(p.x * 10) / 10, Math.round(p.y * 10) / 10]);
+}
+
+// Écrit directement les pièces (zone marchable) et les obstacles d'une scène.
+// Appelée uniquement depuis la page /admin.
+export async function updateSceneZones(sceneId: string, rooms: Point[][], obstacles: Point[][]) {
+  const { error } = await scenesClient
+    .from("scenes")
+    .update({
+      walkable_zone: rooms.map(polygonToRaw),
+      obstacles: obstacles.map(polygonToRaw),
+    })
+    .eq("id", sceneId);
+  if (error) throw error;
 }
 
 export async function fetchSceneExits(sceneId: string): Promise<SceneExit[]> {

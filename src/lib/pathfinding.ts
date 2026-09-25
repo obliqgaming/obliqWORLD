@@ -48,18 +48,20 @@ function pointInPolygon(p: Pt, polygon: Pt[]): boolean {
   return inside;
 }
 
-function buildGrid(polygon: Pt[], obstacles: Pt[][]): Grid {
+function buildGrid(rooms: Pt[][], obstacles: Pt[][]): Grid {
   let minX = Infinity,
     maxX = -Infinity,
     minY = Infinity,
     maxY = -Infinity;
-  for (const p of polygon) {
-    if (p.x < minX) minX = p.x;
-    if (p.x > maxX) maxX = p.x;
-    if (p.y < minY) minY = p.y;
-    if (p.y > maxY) maxY = p.y;
+  for (const room of rooms) {
+    for (const p of room) {
+      if (p.x < minX) minX = p.x;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.y > maxY) maxY = p.y;
+    }
   }
-  // petite marge pour ne pas rogner les coins du polygone
+  // petite marge pour ne pas rogner les coins des pièces
   const mx = (maxX - minX) * 0.02 || 1;
   const my = (maxY - minY) * 0.02 || 1;
   minX -= mx;
@@ -78,9 +80,9 @@ function buildGrid(polygon: Pt[], obstacles: Pt[][]): Grid {
     for (let i = 0; i < cols; i++) {
       const cx = minX + (i + 0.5) * cellW;
       const p = { x: cx, y: cy };
-      if (!pointInPolygon(p, polygon)) continue;
-      // une case dans un obstacle (table, meuble isolé...) reste non-marchable
-      // même si elle est à l'intérieur du contour principal
+      // marchable si dans AU MOINS une pièce...
+      if (!rooms.some((room) => pointInPolygon(p, room))) continue;
+      // ...et dans AUCUN obstacle (table, meuble isolé...)
       if (obstacles.some((hole) => pointInPolygon(p, hole))) continue;
       cells[j * cols + i] = 1;
     }
@@ -89,14 +91,14 @@ function buildGrid(polygon: Pt[], obstacles: Pt[][]): Grid {
   return { cols, rows, cells, minX, maxX, minY, maxY };
 }
 
-// La grille est mise en cache par référence du polygone principal : tant que
-// la scène n'est pas re-fetchée, `polygon` et `obstacles` viennent du même
-// objet Scene et changent toujours ensemble, donc c'est une clé suffisante.
-function getGrid(polygon: Pt[], obstacles: Pt[][]): Grid {
-  const cached = gridCache.get(polygon);
+// La grille est mise en cache par référence de la liste de pièces : tant que
+// la scène n'est pas re-fetchée, `rooms` et `obstacles` viennent du même objet
+// Scene et changent toujours ensemble, donc c'est une clé suffisante.
+function getGrid(rooms: Pt[][], obstacles: Pt[][]): Grid {
+  const cached = gridCache.get(rooms);
   if (cached) return cached;
-  const grid = buildGrid(polygon, obstacles);
-  gridCache.set(polygon, grid);
+  const grid = buildGrid(rooms, obstacles);
+  gridCache.set(rooms, grid);
   return grid;
 }
 
@@ -287,19 +289,19 @@ function simplifyPath(grid: Grid, points: Pt[]): Pt[] {
 /**
  * Renvoie la liste des points intermédiaires (sans le départ, avec l'arrivée
  * en dernier) à suivre pour aller de `start` à `target` sans sortir de
- * `polygon` et sans traverser un des polygones d'`obstacles` (tables, meubles
- * isolés au milieu de la pièce...). Si la ligne droite convient déjà, renvoie
- * simplement [target].
+ * l'union des pièces de `rooms` et sans traverser un des polygones
+ * d'`obstacles` (tables, meubles isolés...). Si la ligne droite convient déjà,
+ * renvoie simplement [target].
  */
 export function findPath(
   start: Pt,
   target: Pt,
-  polygon: Pt[] | null | undefined,
+  rooms: Pt[][] | null | undefined,
   obstacles?: Pt[][] | null,
 ): Pt[] {
-  if (!polygon || polygon.length < 3) return [target];
+  if (!rooms || rooms.length === 0) return [target];
 
-  const grid = getGrid(polygon, obstacles ?? []);
+  const grid = getGrid(rooms, obstacles ?? []);
 
   // trajet direct possible ? (cas le plus fréquent, aucun calcul en plus)
   if (hasLineOfSight(grid, start, target)) return [target];
