@@ -92,6 +92,28 @@ function Index() {
   const [duration, setDuration] = useState(0);
   const [peers, setPeers] = useState<Record<string, PeerState>>({});
 
+  // ---- Ratio réel de l'image de scène (fix du bug "objet-cover recadre l'image,
+  // mais les % de position/zone marchable sont calculés sur l'image d'origine") ----
+  const [imgNatural, setImgNatural] = useState<{ w: number; h: number } | null>(null);
+  const [viewport, setViewport] = useState(() => ({
+    w: typeof window !== "undefined" ? window.innerWidth : 1280,
+    h: typeof window !== "undefined" ? window.innerHeight : 720,
+  }));
+  useEffect(() => {
+    const onResize = () => setViewport({ w: window.innerWidth, h: window.innerHeight });
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  useEffect(() => {
+    setImgNatural(null); // on réinitialise le temps que la nouvelle image de scène se charge
+  }, [scene.image_url]);
+  const sceneBoxSize = imgNatural
+    ? (() => {
+        const scale = Math.min(viewport.w / imgNatural.w, viewport.h / imgNatural.h);
+        return { width: Math.round(imgNatural.w * scale), height: Math.round(imgNatural.h * scale) };
+      })()
+    : { width: viewport.w, height: viewport.h };
+
   // ---- Marche des autres joueurs, calculée localement (fix téléportation) ----
   const prevPeerPosRef = useRef<Record<string, Point>>({});
   const peerWalkTimers = useRef<Record<string, number>>({});
@@ -432,12 +454,18 @@ function Index() {
   }
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden">
-      <div ref={sceneRef} onClick={handleSceneClick} className="relative h-full w-full cursor-pointer">
+    <div className="relative flex h-screen w-screen items-center justify-center overflow-hidden bg-black">
+      <div
+        ref={sceneRef}
+        onClick={handleSceneClick}
+        className="relative cursor-pointer overflow-hidden"
+        style={{ width: sceneBoxSize.width, height: sceneBoxSize.height }}
+      >
         <style>{`@keyframes auberge-walk{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg)}}`}</style>
         <img
           src={scene.image_url}
           alt={scene.name}
+          onLoad={(e) => setImgNatural({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
           className="absolute inset-0 h-full w-full object-cover"
           draggable={false}
         />
