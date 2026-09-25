@@ -523,22 +523,25 @@ function Index() {
         </button>
       </div>
 
-      {/* ---------- Chat bas centré, habillé avec le cadre parchemin ---------- */}
-      <div className="pointer-events-none absolute bottom-2 left-1/2 z-40 w-[min(640px,94vw)] -translate-x-1/2">
+      {/* ---------- Chat bas centré, habillé avec le cadre parchemin ----------
+          IMPORTANT : ce conteneur décoratif est pointer-events-none — seuls le
+          log (pour le scroll) et le formulaire (input + bouton) réactivent les
+          clics. Ça évite que le cadre (même s'il est plus grand que ce qu'on
+          voit) ne vole des clics destinés au sol de la scène. */}
+      <div className="pointer-events-none absolute bottom-2 left-1/2 z-40 w-[min(700px,92vw)] -translate-x-1/2">
         <div
-          className="pointer-events-auto flex flex-col"
+          className="pointer-events-none flex flex-col justify-center"
           style={{
+            minHeight: 150, // réserve assez de place pour voir le parchemin, pas juste le bois
             borderStyle: "solid",
-            // Valeurs de départ, à ajuster une fois vu en vrai (dis-moi si un coin
-            // du cadre est étiré ou coupé et je retouche border-image-slice).
-            borderWidth: "34px 58px 30px 70px",
+            borderWidth: "40px 62px 36px 74px",
             borderImageSource: "url('/ui/chat-frame.png')",
             borderImageSlice: "130 230 120 260 fill",
             borderImageRepeat: "stretch",
           }}
         >
           <div
-            className="flex max-h-28 flex-col gap-0.5 overflow-y-auto pr-1 text-sm"
+            className="pointer-events-auto flex max-h-24 flex-col gap-0.5 overflow-y-auto pr-1 text-sm"
             style={{ fontFamily: "'Baloo 2', cursive", color: "#3a2210" }}
           >
             {chatLog.length === 0 && <p className="text-[#6b4a2c]/70">Le t'chat est vide pour l'instant…</p>}
@@ -548,7 +551,7 @@ function Index() {
               </p>
             ))}
           </div>
-          <form onSubmit={handleSendChat} className="mt-1 flex gap-2">
+          <form onSubmit={handleSendChat} className="pointer-events-auto mt-1 flex gap-2">
             <input
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
