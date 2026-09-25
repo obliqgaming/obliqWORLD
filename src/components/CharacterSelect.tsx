@@ -1,13 +1,21 @@
-import { useState } from "react";
+import { useState, type ChangeEvent, type MouseEvent } from "react";
 import { uploadDrawingAsCharacterAsset, type VisualAsset } from "../lib/scenes-supabase";
 import { DrawingCanvas } from "./DrawingCanvas";
 
 export function CharacterSelect({
   assets,
   onChoose,
+  muted,
+  onToggleMute,
+  volume,
+  onVolumeChange,
 }: {
   assets: VisualAsset[];
   onChoose: (visualAssetId: string, name: string) => void;
+  muted: boolean;
+  onToggleMute: (e: MouseEvent) => void;
+  volume: number;
+  onVolumeChange: (e: ChangeEvent<HTMLInputElement>) => void;
 }) {
   const [tab, setTab] = useState<"existing" | "draw">("existing");
   const [name, setName] = useState("");
@@ -31,7 +39,28 @@ export function CharacterSelect({
   };
 
   return (
-    <div className="flex h-screen w-screen items-center justify-center bg-[#1a0f07] p-4">
+    <div className="relative flex h-screen w-screen items-center justify-center bg-[#1a0f07] p-4">
+      <div className="absolute right-5 top-5 z-10 flex items-center gap-2 rounded-full bg-black/35 px-3 py-2 backdrop-blur-sm">
+        <button
+          type="button"
+          onClick={onToggleMute}
+          aria-label={muted ? "Activer le son" : "Couper le son"}
+          className="flex h-7 w-7 items-center justify-center text-xl text-[#fff3d6]"
+        >
+          {muted ? "🔇" : "🔊"}
+        </button>
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.05}
+          value={volume}
+          onChange={onVolumeChange}
+          aria-label="Volume"
+          className="h-1 w-20 cursor-pointer accent-[#fff3d6]"
+        />
+      </div>
+
       <div
         className="w-full max-w-3xl text-[#3a2210]"
         style={{
@@ -39,10 +68,12 @@ export function CharacterSelect({
           // Nouveau cadre (rectangle simple, sans lanterne/bannière qui dépassait du
           // cadre en bois de l'ancienne image et provoquait le chevauchement du texte
           // au rendu). Bordure mesurée directement sur le fichier source
-          // (1672x941 px) : gauche 242, droite 244, haut 89, bas 101 — proportions
-          // conservées ici pour que rien ne déborde ni ne soit tronqué quelle que
-          // soit la taille finale à l'écran.
-          borderWidth: "5.7% 7.3% 6.4% 7.2%",
+          // (1672x941 px) : gauche 242, droite 244, haut 89, bas 101.
+          // Important : border-width en % n'est pas fiable sur toutes les tailles
+          // (le navigateur peut l'ignorer/l'écraser, ce qui rendait le cadre en bois
+          // quasi invisible) — on utilise des valeurs fixes en px à la place, dans
+          // les mêmes proportions que le fichier source.
+          borderWidth: "48px 62px 54px 61px",
           borderImageSource: "url('/ui/character-frame.webp')",
           borderImageSlice: "89 244 101 242 fill",
           borderImageRepeat: "stretch",
@@ -57,7 +88,7 @@ export function CharacterSelect({
           onChange={(e) => setName(e.target.value)}
           placeholder="Nom du personnage"
           maxLength={30}
-          className="mb-4 w-full rounded-lg border border-[#7a4a22]/40 bg-black/5 px-3 py-2 text-sm text-[#3a2210] outline-none placeholder:text-[#7a4a22]/50"
+          className="mb-4 w-full rounded-lg border-2 border-[#7a4a22]/70 bg-white/60 px-3 py-2 text-sm font-medium text-[#3a2210] outline-none placeholder:font-normal placeholder:text-[#7a4a22]/80"
         />
 
         <div className="mb-4 flex justify-center gap-2">

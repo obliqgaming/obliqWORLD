@@ -634,7 +634,16 @@ function Index() {
   }
 
   if (!character) {
-    return <CharacterSelect assets={characterAssets} onChoose={handleCharacterChosen} />;
+    return (
+      <CharacterSelect
+        assets={characterAssets}
+        onChoose={handleCharacterChosen}
+        muted={muted}
+        onToggleMute={toggleMute}
+        volume={volume}
+        onVolumeChange={handleVolumeChange}
+      />
+    );
   }
 
   return (
