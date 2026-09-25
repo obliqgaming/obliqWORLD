@@ -92,9 +92,6 @@ function Index() {
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [muted, setMuted] = useState(false);
-  // Debug: affiche la zone marchable réellement utilisée par le code (celle
-  // enregistrée en base), pour comparer avec ce qui a été dessiné/voulu.
-  const [showZoneDebug, setShowZoneDebug] = useState(false);
   const [needsInteraction, setNeedsInteraction] = useState(false);
   const mutedRef = useRef(false);
 
@@ -224,6 +221,90 @@ function Index() {
       audio.play().then(() => setNeedsInteraction(false)).catch(() => {});
     }
   };
+
+  // ---------- Pas de marche : petit bruit de pas discret, synthétisé (pas de
+  // fichier audio à gérer) ----------
+  // Un seul son générique pour l'instant (pas de variante par matière — trop
+  // de travail pour le moment, comme convenu). Bruit filtré très bref avec une
+  // extinction rapide, pour rester discret et ne pas devenir pénible même sur
+  // un trajet long. Ne joue que pour SON PROPRE personnage (pas les autres
+  // joueurs), pour éviter que ça devienne bruyant à plusieurs.
+  const footstepCtxRef = useRef<AudioContext | null>(null);
+  const footstepTimer = useRef<number | null>(null);
+
+  const getFootstepCtx = (): AudioContext | null => {
+    if (footstepCtxRef.current) return footstepCtxRef.current;
+    const Ctor = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext })
+      .webkitAudioContext;
+    if (!Ctor) return null;
+    footstepCtxRef.current = new Ctor();
+    return footstepCtxRef.current;
+  };
+
+  // Débloque le contexte audio dès la première interaction (nécessaire dans la
+  // plupart des navigateurs) — comme le clic sert de toute façon à se
+  // déplacer, ça se fait sans effort supplémentaire pour la personne.
+  useEffect(() => {
+    const unlock = () => {
+      getFootstepCtx()?.resume().catch(() => {});
+    };
+    window.addEventListener("pointerdown", unlock, { once: true });
+    window.addEventListener("keydown", unlock, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+    };
+  }, []);
+
+  const playFootstep = () => {
+    if (mutedRef.current) return;
+    const ctx = getFootstepCtx();
+    if (!ctx || ctx.state !== "running") return;
+
+    const duration = 0.09;
+    const bufferSize = Math.max(1, Math.floor(ctx.sampleRate * duration));
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+    }
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = 650 + Math.random() * 200; // légère variation, pour pas que ça sonne robotique
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.06, ctx.currentTime); // volume volontairement bas, discret
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+    noise.start();
+    noise.stop(ctx.currentTime + duration);
+  };
+
+  useEffect(() => {
+    if (!walking) {
+      if (footstepTimer.current) {
+        window.clearInterval(footstepTimer.current);
+        footstepTimer.current = null;
+      }
+      return;
+    }
+    playFootstep();
+    footstepTimer.current = window.setInterval(playFootstep, 260);
+    return () => {
+      if (footstepTimer.current) {
+        window.clearInterval(footstepTimer.current);
+        footstepTimer.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [walking]);
 
   // ---------- Personnage : on vérifie s'il existe déjà, sinon on demande à en choisir un ----------
   useEffect(() => {
@@ -537,35 +618,6 @@ function Index() {
           draggable={false}
         />
 
-        {showZoneDebug && (
-          <svg
-            className="pointer-events-none absolute inset-0 h-full w-full"
-            viewBox="0 0 100 100"
-            preserveAspectRatio="none"
-          >
-            {(scene.walkable_zone ?? []).map((room, i) => (
-              <polygon
-                key={`room-${i}`}
-                points={room.map((p) => `${p.x},${p.y}`).join(" ")}
-                fill="rgba(56,189,120,0.3)"
-                stroke="rgba(16,150,72,0.95)"
-                strokeWidth={0.35}
-                vectorEffect="non-scaling-stroke"
-              />
-            ))}
-            {(scene.obstacles ?? []).map((hole, i) => (
-              <polygon
-                key={`obstacle-${i}`}
-                points={hole.map((p) => `${p.x},${p.y}`).join(" ")}
-                fill="rgba(220,38,38,0.35)"
-                stroke="rgba(180,20,20,0.95)"
-                strokeWidth={0.35}
-                vectorEffect="non-scaling-stroke"
-              />
-            ))}
-          </svg>
-        )}
-
         {exits.map((exit) => (
           <button
             key={exit.id}
@@ -668,19 +720,6 @@ function Index() {
           className="absolute right-5 top-5 z-30 flex h-11 w-11 items-center justify-center rounded-full bg-black/35 text-xl text-[#fff3d6] backdrop-blur-sm transition-colors hover:bg-black/55"
         >
           {muted ? "🔇" : "🔊"}
-        </button>
-
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            setShowZoneDebug((v) => !v);
-          }}
-          aria-label="Afficher la zone marchable (debug)"
-          title="Afficher la zone marchable (debug)"
-          className="absolute right-5 top-20 z-30 flex h-11 w-11 items-center justify-center rounded-full bg-black/35 text-xl text-[#fff3d6] backdrop-blur-sm transition-colors hover:bg-black/55"
-        >
-          🗺️
         </button>
       </div>
 
