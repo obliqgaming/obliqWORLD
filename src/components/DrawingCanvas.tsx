@@ -325,7 +325,7 @@ export function DrawingCanvas({
 
   const toolBtn = (active: boolean) =>
     `flex h-8 w-8 items-center justify-center rounded border ${
-      active ? "border-[#e8b168] bg-[#7a4a22] text-white" : "border-transparent bg-black/20 text-[#fff3d6] hover:bg-black/30"
+      active ? "border-[#4a2408] bg-[#7a4a22] text-[#fff3d6]" : "border-transparent bg-black/10 text-[#3a2210] hover:bg-black/20"
     }`;
 
   return (
@@ -408,12 +408,12 @@ export function DrawingCanvas({
           </button>
         </div>
 
-        <label className="flex items-center gap-2 text-xs text-[#fff3d6]">
+        <label className="flex items-center gap-2 text-xs text-[#3a2210]">
           Taille
           <input type="range" min={1} max={24} value={brushSize} onChange={(e) => setBrushSize(Number(e.target.value))} className="flex-1" />
           <span className="w-4 text-right">{brushSize}</span>
         </label>
-        <label className="flex items-center gap-2 text-xs text-[#fff3d6]">
+        <label className="flex items-center gap-2 text-xs text-[#3a2210]">
           Opacité
           <input
             type="range"
@@ -432,7 +432,7 @@ export function DrawingCanvas({
             <button
               key={c}
               type="button"
-              className={`h-6 w-6 rounded-sm border-2 ${color === c && tool !== "eraser" ? "border-[#fff3d6]" : "border-transparent"}`}
+              className={`h-6 w-6 rounded-sm border-2 ${color === c && tool !== "eraser" ? "border-[#4a2408]" : "border-transparent"}`}
               style={{ backgroundColor: c }}
               onClick={() => {
                 setColor(c);

@@ -32,7 +32,19 @@ export function CharacterSelect({
 
   return (
     <div className="flex h-screen w-screen items-center justify-center bg-[#1a0f07] p-4">
-      <div className="w-full max-w-lg rounded-xl border border-[#7a4a22]/70 bg-[#2a180c] p-5 text-[#fff3d6]">
+      <div
+        className="w-full max-w-2xl text-[#3a2210]"
+        style={{
+          borderStyle: "solid",
+          // Cadre "lanterne + médaillon" fourni par Lils. Valeurs de découpe estimées
+          // à partir des dimensions réelles du fichier (1491x1055) — à ajuster si un
+          // coin (lanterne à gauche, médaillon à droite) est étiré ou coupé au rendu.
+          borderWidth: "70px 90px 60px 130px",
+          borderImageSource: "url('/ui/character-frame.png')",
+          borderImageSlice: "150 220 140 300 fill",
+          borderImageRepeat: "stretch",
+        }}
+      >
         <h2 className="mb-4 text-center text-2xl font-bold" style={{ fontFamily: "'Baloo 2', cursive" }}>
           Choisis ton personnage
         </h2>
@@ -42,21 +54,25 @@ export function CharacterSelect({
           onChange={(e) => setName(e.target.value)}
           placeholder="Nom du personnage"
           maxLength={30}
-          className="mb-4 w-full rounded-lg border border-[#7a4a22]/70 bg-black/20 px-3 py-2 text-sm text-[#fff3d6] outline-none placeholder:text-[#c9a877]/50"
+          className="mb-4 w-full rounded-lg border border-[#7a4a22]/40 bg-black/5 px-3 py-2 text-sm text-[#3a2210] outline-none placeholder:text-[#7a4a22]/50"
         />
 
         <div className="mb-4 flex justify-center gap-2">
           <button
             type="button"
             onClick={() => setTab("existing")}
-            className={`rounded-full px-3 py-1 text-sm ${tab === "existing" ? "bg-[#7a4a22]" : "bg-black/20"}`}
+            className={`rounded-full px-3 py-1 text-sm font-bold ${
+              tab === "existing" ? "bg-[#7a4a22] text-[#fff3d6]" : "bg-black/10 text-[#3a2210]"
+            }`}
           >
             Personnage existant
           </button>
           <button
             type="button"
             onClick={() => setTab("draw")}
-            className={`rounded-full px-3 py-1 text-sm ${tab === "draw" ? "bg-[#7a4a22]" : "bg-black/20"}`}
+            className={`rounded-full px-3 py-1 text-sm font-bold ${
+              tab === "draw" ? "bg-[#7a4a22] text-[#fff3d6]" : "bg-black/10 text-[#3a2210]"
+            }`}
           >
             Dessiner le mien
           </button>
@@ -70,7 +86,9 @@ export function CharacterSelect({
                   key={a.id}
                   type="button"
                   onClick={() => setSelected(a.id)}
-                  className={`overflow-hidden rounded-lg border-2 ${selected === a.id ? "border-[#e8b168]" : "border-transparent"}`}
+                  className={`overflow-hidden rounded-lg border-2 ${
+                    selected === a.id ? "border-[#7a4a22]" : "border-transparent"
+                  }`}
                 >
                   <img src={a.image_url} alt={a.name} className="aspect-square w-full object-cover" />
                 </button>
@@ -80,7 +98,7 @@ export function CharacterSelect({
               type="button"
               disabled={!selected}
               onClick={confirmExisting}
-              className="mt-4 w-full rounded-lg bg-[#7a4a22] py-2 font-bold disabled:opacity-40"
+              className="mt-4 w-full rounded-lg bg-[#7a4a22] py-2 font-bold text-[#fff3d6] disabled:opacity-40"
             >
               Confirmer
             </button>
