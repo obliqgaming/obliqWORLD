@@ -56,7 +56,7 @@ export const Route = createFileRoute("/")({
 // (~90% de moins que l'origine) à 0.2 (~80% de moins) car à 90% l'accélération
 // ne se sentait plus du tout.
 const BASE_WALK_SPEED_PX_PER_SEC = 140; // vitesse "de base" sur courte distance
-const ACCEL_INTENSITY = 0.28; // ~70% de moins que l'accélération d'origine (remonté de 10% depuis 0.2)
+const ACCEL_INTENSITY = 0.35; // remonté à nouveau (0.2 -> 0.28 -> 0.35)
 const ACCEL_REFERENCE_PX = 900; // distance à partir de laquelle le bonus est à fond
 const MIN_WALK_MS = 300;
 const CHAT_BUBBLE_MS = 4500;
@@ -94,6 +94,32 @@ function Index() {
   const [muted, setMuted] = useState(false);
   const [needsInteraction, setNeedsInteraction] = useState(false);
   const mutedRef = useRef(false);
+
+  // ---------- Volume général (musique + son de pas), réglable via un curseur.
+  // Mémorisé dans le navigateur pour que le réglage reste d'une visite à
+  // l'autre. 1 = volume normal (comportement d'avant), 0 = silence. ----------
+  const [volume, setVolume] = useState<number>(() => {
+    try {
+      const raw = localStorage.getItem("obliqworld-volume");
+      const v = raw != null ? parseFloat(raw) : 1;
+      return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 1;
+    } catch {
+      return 1;
+    }
+  });
+  const volumeRef = useRef(volume);
+  volumeRef.current = volume;
+
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = Math.min(1, Math.max(0, parseFloat(e.target.value)));
+    setVolume(v);
+    if (audioRef.current) audioRef.current.volume = v;
+    try {
+      localStorage.setItem("obliqworld-volume", String(v));
+    } catch {
+      /* ignore */
+    }
+  };
 
   const [scene, setScene] = useState<Scene>(initialScene);
   const [exits, setExits] = useState<SceneExit[]>([]);
@@ -169,7 +195,7 @@ function Index() {
     const next = new Audio(url);
     next.loop = true;
     next.muted = mutedRef.current;
-    next.volume = fade ? 0 : 1;
+    next.volume = fade ? 0 : volumeRef.current;
 
     next.play().catch(() => {
       setNeedsInteraction(true);
@@ -189,8 +215,8 @@ function Index() {
       let i = 0;
       const fadeIn = window.setInterval(() => {
         i++;
-        next.volume = Math.min(1, i / steps);
-        if (prev) prev.volume = Math.max(0, 1 - i / steps);
+        next.volume = Math.min(volumeRef.current, (i / steps) * volumeRef.current);
+        if (prev) prev.volume = Math.max(0, (1 - i / steps) * volumeRef.current);
         if (i >= steps) {
           window.clearInterval(fadeIn);
           if (prev) prev.pause();
@@ -276,8 +302,10 @@ function Index() {
     filter.type = "lowpass";
     filter.frequency.value = 650 + Math.random() * 200; // légère variation, pour pas que ça sonne robotique
 
+    const baseGain = 0.06 * volumeRef.current; // volume volontairement bas, discret, module par le curseur général
+    if (baseGain <= 0) return;
     const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.06, ctx.currentTime); // volume volontairement bas, discret
+    gain.gain.setValueAtTime(baseGain, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
 
     noise.connect(filter);
@@ -344,6 +372,14 @@ function Index() {
     Object.values(peerWalkTimers.current).forEach((t) => window.clearTimeout(t));
     Object.values(bubbleTimers.current).forEach((t) => window.clearTimeout(t));
   }, []);
+
+  // ---------- Tchat propre à chaque scène : on vide le log affiché quand on
+  // change de scène (le canal réseau était déjà séparé par scène, mais le
+  // log local gardait les anciens messages affichés par-dessus) ----------
+  useEffect(() => {
+    setChatLog([]);
+    setChatInput("");
+  }, [scene.id]);
 
   // ---------- Sorties de la scène courante ----------
   useEffect(() => {
@@ -713,14 +749,26 @@ function Index() {
           {scene.name}
         </h1>
 
-        <button
-          type="button"
-          onClick={toggleMute}
-          aria-label={muted ? "Activer le son" : "Couper le son"}
-          className="absolute right-5 top-5 z-30 flex h-11 w-11 items-center justify-center rounded-full bg-black/35 text-xl text-[#fff3d6] backdrop-blur-sm transition-colors hover:bg-black/55"
-        >
-          {muted ? "🔇" : "🔊"}
-        </button>
+        <div className="absolute right-5 top-5 z-30 flex items-center gap-2 rounded-full bg-black/35 px-3 py-2 backdrop-blur-sm">
+          <button
+            type="button"
+            onClick={toggleMute}
+            aria-label={muted ? "Activer le son" : "Couper le son"}
+            className="flex h-7 w-7 items-center justify-center text-xl text-[#fff3d6]"
+          >
+            {muted ? "🔇" : "🔊"}
+          </button>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={volume}
+            onChange={handleVolumeChange}
+            aria-label="Volume"
+            className="h-1 w-20 cursor-pointer accent-[#fff3d6]"
+          />
+        </div>
       </div>
 
       {/* ---------- Chat calé en bas à gauche, habillé avec le cadre parchemin ----------
