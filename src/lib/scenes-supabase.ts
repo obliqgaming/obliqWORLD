@@ -86,6 +86,24 @@ async function ensureUserId(): Promise<string> {
 }
 
 // ---------- Scènes ----------
+// La zone marchable a été générée à l'origine sous forme de paires [x, y]
+// (sortie brute de l'extraction OpenCV), mais le reste du code (positions de
+// personnage, de sorties) utilise des objets {x, y}. On normalise ici une fois
+// pour toutes, en acceptant les deux formats au cas où une scène aurait déjà
+// été ressaisie en objets.
+function normalizeWalkableZone(raw: unknown): Point[] | null {
+  if (!raw || !Array.isArray(raw) || raw.length === 0) return null;
+  const first = raw[0] as unknown;
+  if (Array.isArray(first)) {
+    return (raw as [number, number][]).map(([x, y]) => ({ x, y }));
+  }
+  return raw as Point[];
+}
+
+function normalizeScene(row: any): Scene {
+  return { ...row, walkable_zone: normalizeWalkableZone(row.walkable_zone) } as Scene;
+}
+
 export async function fetchSceneByName(name: string): Promise<Scene> {
   const { data, error } = await scenesClient
     .from("scenes")
@@ -93,13 +111,13 @@ export async function fetchSceneByName(name: string): Promise<Scene> {
     .ilike("name", name)
     .single();
   if (error) throw error;
-  return data as Scene;
+  return normalizeScene(data);
 }
 
 export async function fetchScene(id: string): Promise<Scene> {
   const { data, error } = await scenesClient.from("scenes").select("*").eq("id", id).single();
   if (error) throw error;
-  return data as Scene;
+  return normalizeScene(data);
 }
 
 export async function fetchSceneExits(sceneId: string): Promise<SceneExit[]> {
