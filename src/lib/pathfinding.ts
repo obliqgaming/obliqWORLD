@@ -48,7 +48,7 @@ function pointInPolygon(p: Pt, polygon: Pt[]): boolean {
   return inside;
 }
 
-function buildGrid(polygon: Pt[]): Grid {
+function buildGrid(polygon: Pt[], obstacles: Pt[][]): Grid {
   let minX = Infinity,
     maxX = -Infinity,
     minY = Infinity,
@@ -77,17 +77,25 @@ function buildGrid(polygon: Pt[]): Grid {
     const cy = minY + (j + 0.5) * cellH;
     for (let i = 0; i < cols; i++) {
       const cx = minX + (i + 0.5) * cellW;
-      if (pointInPolygon({ x: cx, y: cy }, polygon)) cells[j * cols + i] = 1;
+      const p = { x: cx, y: cy };
+      if (!pointInPolygon(p, polygon)) continue;
+      // une case dans un obstacle (table, meuble isolé...) reste non-marchable
+      // même si elle est à l'intérieur du contour principal
+      if (obstacles.some((hole) => pointInPolygon(p, hole))) continue;
+      cells[j * cols + i] = 1;
     }
   }
 
   return { cols, rows, cells, minX, maxX, minY, maxY };
 }
 
-function getGrid(polygon: Pt[]): Grid {
+// La grille est mise en cache par référence du polygone principal : tant que
+// la scène n'est pas re-fetchée, `polygon` et `obstacles` viennent du même
+// objet Scene et changent toujours ensemble, donc c'est une clé suffisante.
+function getGrid(polygon: Pt[], obstacles: Pt[][]): Grid {
   const cached = gridCache.get(polygon);
   if (cached) return cached;
-  const grid = buildGrid(polygon);
+  const grid = buildGrid(polygon, obstacles);
   gridCache.set(polygon, grid);
   return grid;
 }
@@ -279,12 +287,19 @@ function simplifyPath(grid: Grid, points: Pt[]): Pt[] {
 /**
  * Renvoie la liste des points intermédiaires (sans le départ, avec l'arrivée
  * en dernier) à suivre pour aller de `start` à `target` sans sortir de
- * `polygon`. Si la ligne droite convient déjà, renvoie simplement [target].
+ * `polygon` et sans traverser un des polygones d'`obstacles` (tables, meubles
+ * isolés au milieu de la pièce...). Si la ligne droite convient déjà, renvoie
+ * simplement [target].
  */
-export function findPath(start: Pt, target: Pt, polygon: Pt[] | null | undefined): Pt[] {
+export function findPath(
+  start: Pt,
+  target: Pt,
+  polygon: Pt[] | null | undefined,
+  obstacles?: Pt[][] | null,
+): Pt[] {
   if (!polygon || polygon.length < 3) return [target];
 
-  const grid = getGrid(polygon);
+  const grid = getGrid(polygon, obstacles ?? []);
 
   // trajet direct possible ? (cas le plus fréquent, aucun calcul en plus)
   if (hasLineOfSight(grid, start, target)) return [target];

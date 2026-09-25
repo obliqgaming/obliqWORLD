@@ -21,6 +21,11 @@ export type Scene = {
   image_url: string;
   music_url: string;
   walkable_zone: Point[] | null;
+  // Obstacles isolés à l'intérieur de la zone marchable (une table au milieu
+  // d'une pièce, par ex.) : chaque élément est un petit polygone "trou" que le
+  // personnage ne doit pas traverser même s'il est entouré de zone marchable.
+  // Colonne optionnelle — les scènes qui n'en ont pas encore renvoient null.
+  obstacles: Point[][] | null;
   created_at: string;
 };
 
@@ -100,8 +105,23 @@ function normalizeWalkableZone(raw: unknown): Point[] | null {
   return raw as Point[];
 }
 
+// Un obstacle est enregistré comme un tableau de petits polygones (même format
+// que walkable_zone chacun). La colonne peut ne pas encore exister / être vide
+// selon les scènes.
+function normalizeObstacles(raw: unknown): Point[][] | null {
+  if (!raw || !Array.isArray(raw) || raw.length === 0) return null;
+  const polys = (raw as unknown[])
+    .map((poly) => normalizeWalkableZone(poly))
+    .filter((poly): poly is Point[] => !!poly && poly.length >= 3);
+  return polys.length > 0 ? polys : null;
+}
+
 function normalizeScene(row: any): Scene {
-  return { ...row, walkable_zone: normalizeWalkableZone(row.walkable_zone) } as Scene;
+  return {
+    ...row,
+    walkable_zone: normalizeWalkableZone(row.walkable_zone),
+    obstacles: normalizeObstacles(row.obstacles),
+  } as Scene;
 }
 
 export async function fetchSceneByName(name: string): Promise<Scene> {

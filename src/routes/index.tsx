@@ -94,6 +94,12 @@ function Index() {
   // Debug: affiche la zone marchable réellement utilisée par le code (celle
   // enregistrée en base), pour comparer avec ce qui a été dessiné/voulu.
   const [showZoneDebug, setShowZoneDebug] = useState(false);
+  // Outil debug : dessiner des obstacles (tables, meubles isolés) à la souris,
+  // pour récupérer un JSON prêt à coller dans Supabase (colonne `obstacles`)
+  // sans avoir à redigitaliser une image à part.
+  const [obstacleMode, setObstacleMode] = useState(false);
+  const [obstacleDraft, setObstacleDraft] = useState<Point[]>([]);
+  const [savedObstacles, setSavedObstacles] = useState<Point[][]>([]);
   const [needsInteraction, setNeedsInteraction] = useState(false);
   const mutedRef = useRef(false);
 
@@ -422,24 +428,65 @@ function Index() {
     }
 
     const origin = walking && charSpriteRef.current ? currentSpritePercent(charSpriteRef.current, rect) : pos;
-    const waypoints = scene.walkable_zone ? findPath(origin, target, scene.walkable_zone) : [target];
+    const waypoints = scene.walkable_zone
+      ? findPath(origin, target, scene.walkable_zone, scene.obstacles)
+      : [target];
     walkQueueRef.current = waypoints;
     stepWalk(rect, onArrive);
   };
 
   // ---------- Déplacement classique (clic au sol) ----------
   const handleSceneClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!character || !scene.walkable_zone || !sceneRef.current) return;
-
+    if (!sceneRef.current) return;
     const rect = sceneRef.current.getBoundingClientRect();
     const target = {
       x: ((e.clientX - rect.left) / rect.width) * 100,
       y: ((e.clientY - rect.top) / rect.height) * 100,
     };
+
+    // Outil debug : en mode "dessiner un obstacle", un clic ajoute un point à
+    // la forme en cours au lieu de faire marcher le personnage.
+    if (obstacleMode) {
+      setObstacleDraft((pts) => [...pts, target]);
+      return;
+    }
+
+    if (!character || !scene.walkable_zone) return;
     if (!pointInPolygon(target, scene.walkable_zone)) return;
+    if ((scene.obstacles ?? []).some((hole) => pointInPolygon(target, hole))) return;
 
     startWalk(target);
   };
+
+  // ---------- Outil debug : dessiner des obstacles (tables, meubles isolés) ----------
+  const finishObstacleShape = () => {
+    if (obstacleDraft.length >= 3) {
+      setSavedObstacles((list) => [...list, obstacleDraft]);
+    }
+    setObstacleDraft([]);
+  };
+  const cancelObstacleShape = () => setObstacleDraft([]);
+  const undoLastObstacle = () => setSavedObstacles((list) => list.slice(0, -1));
+  const copyObstaclesJson = async () => {
+    const round = (n: number) => Math.round(n * 10) / 10;
+    const json = JSON.stringify(
+      savedObstacles.map((poly) => poly.map((p) => [round(p.x), round(p.y)])),
+    );
+    try {
+      await navigator.clipboard.writeText(json);
+    } catch {
+      // clipboard indisponible (ex: contexte non sécurisé) — au moins visible dans la console
+      console.log("Obstacles JSON :", json);
+    }
+  };
+
+  // Les obstacles dessinés en debug sont propres à une scène : on repart de
+  // zéro en changeant de scène pour ne pas mélanger les formes.
+  useEffect(() => {
+    setObstacleDraft([]);
+    setSavedObstacles([]);
+    setObstacleMode(false);
+  }, [scene.id]);
 
   // ---------- Changement de scène (appelé une fois la marche jusqu'à la sortie terminée) ----------
   const changeScene = async (exit: SceneExit) => {
@@ -527,19 +574,56 @@ function Index() {
           draggable={false}
         />
 
-        {showZoneDebug && scene.walkable_zone && (
+        {(showZoneDebug || obstacleMode) && (
           <svg
             className="pointer-events-none absolute inset-0 h-full w-full"
             viewBox="0 0 100 100"
             preserveAspectRatio="none"
           >
-            <polygon
-              points={scene.walkable_zone.map((p) => `${p.x},${p.y}`).join(" ")}
-              fill="rgba(56,189,120,0.3)"
-              stroke="rgba(16,150,72,0.95)"
-              strokeWidth={0.35}
-              vectorEffect="non-scaling-stroke"
-            />
+            {showZoneDebug && scene.walkable_zone && (
+              <polygon
+                points={scene.walkable_zone.map((p) => `${p.x},${p.y}`).join(" ")}
+                fill="rgba(56,189,120,0.3)"
+                stroke="rgba(16,150,72,0.95)"
+                strokeWidth={0.35}
+                vectorEffect="non-scaling-stroke"
+              />
+            )}
+            {showZoneDebug &&
+              (scene.obstacles ?? []).map((hole, i) => (
+                <polygon
+                  key={`db-obstacle-${i}`}
+                  points={hole.map((p) => `${p.x},${p.y}`).join(" ")}
+                  fill="rgba(220,38,38,0.35)"
+                  stroke="rgba(180,20,20,0.95)"
+                  strokeWidth={0.35}
+                  vectorEffect="non-scaling-stroke"
+                />
+              ))}
+            {obstacleMode &&
+              savedObstacles.map((hole, i) => (
+                <polygon
+                  key={`saved-obstacle-${i}`}
+                  points={hole.map((p) => `${p.x},${p.y}`).join(" ")}
+                  fill="rgba(220,38,38,0.35)"
+                  stroke="rgba(180,20,20,0.95)"
+                  strokeWidth={0.35}
+                  vectorEffect="non-scaling-stroke"
+                />
+              ))}
+            {obstacleMode && obstacleDraft.length > 0 && (
+              <polyline
+                points={obstacleDraft.map((p) => `${p.x},${p.y}`).join(" ")}
+                fill="none"
+                stroke="rgba(250,204,21,0.95)"
+                strokeWidth={0.4}
+                vectorEffect="non-scaling-stroke"
+              />
+            )}
+            {obstacleMode &&
+              obstacleDraft.map((p, i) => (
+                <circle key={`draft-pt-${i}`} cx={p.x} cy={p.y} r={0.5} fill="rgba(250,204,21,1)" />
+              ))}
           </svg>
         )}
 
@@ -644,6 +728,69 @@ function Index() {
         >
           🗺️
         </button>
+
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setObstacleMode((v) => !v);
+            setObstacleDraft([]);
+          }}
+          aria-label="Dessiner un obstacle (debug)"
+          title="Dessiner un obstacle (debug)"
+          className={`absolute right-5 top-[8.75rem] z-30 flex h-11 w-11 items-center justify-center rounded-full text-xl text-[#fff3d6] backdrop-blur-sm transition-colors ${
+            obstacleMode ? "bg-red-700/70 hover:bg-red-700/85" : "bg-black/35 hover:bg-black/55"
+          }`}
+        >
+          🪑
+        </button>
+
+        {obstacleMode && (
+          <div
+            className="pointer-events-auto absolute right-5 top-[12.5rem] z-30 w-64 rounded-xl bg-black/70 p-3 text-sm text-[#fff3d6] backdrop-blur-sm"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="mb-2 text-xs opacity-80">
+              Clique sur chaque coin de l'obstacle (table, meuble...), puis "Terminer la forme". Répète pour
+              chaque obstacle, puis copie le JSON pour la colonne <code>obstacles</code>.
+            </p>
+            <div className="mb-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={finishObstacleShape}
+                disabled={obstacleDraft.length < 3}
+                className="rounded-lg bg-emerald-700/80 px-2 py-1 text-xs disabled:opacity-40"
+              >
+                Terminer la forme
+              </button>
+              <button
+                type="button"
+                onClick={cancelObstacleShape}
+                disabled={obstacleDraft.length === 0}
+                className="rounded-lg bg-black/40 px-2 py-1 text-xs disabled:opacity-40"
+              >
+                Annuler la forme
+              </button>
+              <button
+                type="button"
+                onClick={undoLastObstacle}
+                disabled={savedObstacles.length === 0}
+                className="rounded-lg bg-black/40 px-2 py-1 text-xs disabled:opacity-40"
+              >
+                Retirer le dernier
+              </button>
+            </div>
+            <p className="mb-2 text-xs opacity-80">{savedObstacles.length} obstacle(s) prêt(s)</p>
+            <button
+              type="button"
+              onClick={copyObstaclesJson}
+              disabled={savedObstacles.length === 0}
+              className="w-full rounded-lg bg-amber-700/80 px-2 py-1 text-xs font-semibold disabled:opacity-40"
+            >
+              Copier le JSON
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ---------- Chat calé en bas à gauche, habillé avec le cadre parchemin ----------
