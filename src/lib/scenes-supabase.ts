@@ -15,11 +15,20 @@ export const scenesClient = createClient(SCENES_SUPABASE_URL, SCENES_SUPABASE_PU
 
 export type Point = { x: number; y: number };
 
+// Calibration de la taille du personnage selon sa profondeur dans le décor :
+// y80/y100/y120 sont les positions verticales (% de la scène) où le personnage
+// doit mesurer respectivement 80%, 100% et 120% de sa taille normale. Entre
+// ces trois repères, la taille est interpolée en continu (voir
+// computeDepthScale) pour un effet progressif, pas de paliers. null = scène pas
+// encore calibrée -> taille fixe à 100% partout.
+export type DepthScale = { y80: number; y100: number; y120: number };
+
 export type Scene = {
   id: string;
   name: string;
   image_url: string;
   music_url: string;
+  depth_scale: DepthScale | null;
   // La zone marchable est une LISTE de pièces : chaque pièce est son propre
   // polygone. Ça évite d'avoir à dessiner un unique polygone géant qui longe
   // tous les murs d'un étage entier (fastidieux et casse-gueule) — on dessine
@@ -134,12 +143,33 @@ function normalizePolygonList(raw: unknown): Point[][] | null {
   return polys.length > 0 ? polys : null;
 }
 
+function normalizeDepthScale(raw: unknown): DepthScale | null {
+  if (!raw || typeof raw !== "object") return null;
+  const { y80, y100, y120 } = raw as Record<string, unknown>;
+  if (typeof y80 !== "number" || typeof y100 !== "number" || typeof y120 !== "number") return null;
+  return { y80, y100, y120 };
+}
+
 function normalizeScene(row: any): Scene {
   return {
     ...row,
     walkable_zone: normalizePolygonList(row.walkable_zone),
     obstacles: normalizePolygonList(row.obstacles),
+    depth_scale: normalizeDepthScale(row.depth_scale),
   } as Scene;
+}
+
+// Taille du personnage (en multiplicateur, 1 = taille normale) selon sa
+// position verticale dans le décor. Interpolation continue entre les 3
+// repères pour un effet progressif, sans palier visible ("pas de gras").
+// Scène pas encore calibrée (depth_scale null) -> toujours 1.
+export function computeDepthScale(y: number, depthScale: DepthScale | null | undefined): number {
+  if (!depthScale) return 1;
+  const { y80, y100, y120 } = depthScale;
+  if (y <= y80) return 0.8;
+  if (y <= y100) return 0.8 + ((y - y80) / (y100 - y80 || 1)) * 0.2;
+  if (y <= y120) return 1.0 + ((y - y100) / (y120 - y100 || 1)) * 0.2;
+  return 1.2;
 }
 
 export async function fetchSceneByName(name: string): Promise<Scene> {
@@ -169,14 +199,20 @@ function polygonToRaw(poly: Point[]): [number, number][] {
   return poly.map((p) => [Math.round(p.x * 10) / 10, Math.round(p.y * 10) / 10]);
 }
 
-// Écrit directement les pièces (zone marchable) et les obstacles d'une scène.
-// Appelée uniquement depuis la page /admin.
-export async function updateSceneZones(sceneId: string, rooms: Point[][], obstacles: Point[][]) {
+// Écrit directement les pièces (zone marchable), les obstacles et la
+// calibration de profondeur d'une scène. Appelée uniquement depuis /admin.
+export async function updateSceneZones(
+  sceneId: string,
+  rooms: Point[][],
+  obstacles: Point[][],
+  depthScale: DepthScale | null,
+) {
   const { error } = await scenesClient
     .from("scenes")
     .update({
       walkable_zone: rooms.map(polygonToRaw),
       obstacles: obstacles.map(polygonToRaw),
+      depth_scale: depthScale,
     })
     .eq("id", sceneId);
   if (error) throw error;

@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import {
   broadcastChatMessage,
+  computeDepthScale,
   createCharacterWithAsset,
   fetchCharacterAssets,
   fetchMyCharacter,
@@ -55,7 +56,7 @@ export const Route = createFileRoute("/")({
 // (~90% de moins que l'origine) à 0.2 (~80% de moins) car à 90% l'accélération
 // ne se sentait plus du tout.
 const BASE_WALK_SPEED_PX_PER_SEC = 140; // vitesse "de base" sur courte distance
-const ACCEL_INTENSITY = 0.2; // ~80% de moins que l'accélération d'origine
+const ACCEL_INTENSITY = 0.28; // ~70% de moins que l'accélération d'origine (remonté de 10% depuis 0.2)
 const ACCEL_REFERENCE_PX = 900; // distance à partir de laquelle le bonus est à fond
 const MIN_WALK_MS = 300;
 const CHAT_BUBBLE_MS = 4500;
@@ -585,8 +586,20 @@ function Index() {
               left: `${pos.x}%`,
               top: `${pos.y}%`,
               width: 120,
-              transform: "translate(-50%, -100%)",
-              transition: walking ? `left ${duration}ms linear, top ${duration}ms linear` : "none",
+              // Échelle de profondeur : plus petit en haut du décor (loin), plus
+              // grand en bas (près), interpolée en continu depuis la calibration
+              // de la scène (computeDepthScale). On anime `transform: scale()`
+              // (traité par la carte graphique, aucun recalcul de mise en page à
+              // chaque frame) plutôt que `width` (qui, elle, force un recalcul de
+              // layout à chaque frame) — c'est la façon fiable d'avoir un
+              // grossissement garanti fluide, jamais saccadé. transformOrigin à
+              // "50% 100%" (les pieds) pour que l'agrandissement se fasse à
+              // partir du point au sol, sans faire dériver la position.
+              transformOrigin: "50% 100%",
+              transform: `translate(-50%, -100%) scale(${computeDepthScale(pos.y, scene.depth_scale)})`,
+              transition: walking
+                ? `left ${duration}ms linear, top ${duration}ms linear, transform ${duration}ms linear`
+                : "none",
             }}
           >
             {bubbles[character.id] && <SpeechBubble text={bubbles[character.id].text} />}
@@ -614,8 +627,11 @@ function Index() {
                 left: `${peer.position.x}%`,
                 top: `${peer.position.y}%`,
                 width: 120,
-                transform: "translate(-50%, -100%)",
-                transition: isWalking ? `left ${ms}ms linear, top ${ms}ms linear` : "none",
+                transformOrigin: "50% 100%",
+                transform: `translate(-50%, -100%) scale(${computeDepthScale(peer.position.y, scene.depth_scale)})`,
+                transition: isWalking
+                  ? `left ${ms}ms linear, top ${ms}ms linear, transform ${ms}ms linear`
+                  : "none",
               }}
             >
               {bubbles[peer.characterId] && <SpeechBubble text={bubbles[peer.characterId].text} />}
