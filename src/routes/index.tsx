@@ -326,13 +326,21 @@ function Index() {
 
   // ---------- Déplacement classique (clic au sol) ----------
   const handleSceneClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!character || walking || !scene.walkable_zone || !sceneRef.current) return;
+    // Logs temporaires pour diagnostiquer le blocage des clics au sol — à retirer
+    // une fois le problème identifié.
+    if (!character) { console.log("[clic scène] bloqué : pas de personnage"); return; }
+    if (walking) { console.log("[clic scène] bloqué : déjà en train de marcher"); return; }
+    if (!scene.walkable_zone) { console.log("[clic scène] bloqué : walkable_zone vide pour la scène", scene.name, scene); return; }
+    if (!sceneRef.current) { console.log("[clic scène] bloqué : sceneRef.current est null"); return; }
+
     const rect = sceneRef.current.getBoundingClientRect();
     const target = {
       x: ((e.clientX - rect.left) / rect.width) * 100,
       y: ((e.clientY - rect.top) / rect.height) * 100,
     };
-    if (!pointInPolygon(target, scene.walkable_zone)) return;
+    const inside = pointInPolygon(target, scene.walkable_zone);
+    console.log("[clic scène] point cliqué", target, "dans la zone marchable ?", inside);
+    if (!inside) return;
 
     const dist = distanceInPx(rect, pos, target);
     const ms = walkDurationMs(dist);
@@ -532,7 +540,7 @@ function Index() {
         <div
           className="pointer-events-none flex flex-col justify-center"
           style={{
-            minHeight: 150, // réserve assez de place pour voir le parchemin, pas juste le bois
+            minHeight: 260, // deux fois plus d'espace utile qu'avant pour lire plusieurs lignes
             borderStyle: "solid",
             borderWidth: "40px 62px 36px 74px",
             borderImageSource: "url('/ui/chat-frame.png')",
@@ -541,7 +549,7 @@ function Index() {
           }}
         >
           <div
-            className="pointer-events-auto flex max-h-24 flex-col gap-0.5 overflow-y-auto pr-1 text-sm"
+            className="pointer-events-auto flex max-h-36 flex-col gap-0.5 overflow-y-auto pr-1 text-sm"
             style={{ fontFamily: "'Baloo 2', cursive", color: "#3a2210" }}
           >
             {chatLog.length === 0 && <p className="text-[#6b4a2c]/70">Le t'chat est vide pour l'instant…</p>}
