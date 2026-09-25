@@ -24,6 +24,7 @@ import {
   type VisualAsset,
 } from "../lib/scenes-supabase";
 import { CharacterSelect } from "../components/CharacterSelect";
+import { findPath } from "../lib/pathfinding";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -49,18 +50,18 @@ export const Route = createFileRoute("/")({
 });
 
 // ---------- Vitesse de marche ----------
-// Avant : durée quasi plate (~400-600ms) quelle que soit la distance -> le perso
-// semblait sprinter sur les longs clics. Lils voulait GARDER cette petite
-// accélération sur la distance (elle trouvait ça sympa), juste la rendre beaucoup
-// plus légère (~90% de moins), pas la supprimer complètement.
-// -> vitesse de base + un léger bonus de vitesse qui monte avec la distance,
-//    plafonné à ACCEL_INTENSITY (0 = vitesse constante, 1 = comportement d'origine).
+// Vitesse de base + un bonus qui monte avec la distance (ACCEL_INTENSITY : 0 =
+// vitesse constante, 1 = comportement d'origine très marqué). Passé de 0.12
+// (~90% de moins que l'origine) à 0.2 (~80% de moins) car à 90% l'accélération
+// ne se sentait plus du tout.
 const BASE_WALK_SPEED_PX_PER_SEC = 140; // vitesse "de base" sur courte distance
-const ACCEL_INTENSITY = 0.12; // ~90% de moins que l'accélération d'origine
+const ACCEL_INTENSITY = 0.2; // ~80% de moins que l'accélération d'origine
 const ACCEL_REFERENCE_PX = 900; // distance à partir de laquelle le bonus est à fond
 const MIN_WALK_MS = 300;
 const CHAT_BUBBLE_MS = 4500;
 const CHAT_LOG_SIZE = 30;
+const CHAT_IDLE_MS = 15000; // délai avant que le tchat devienne quasi transparent
+const CHAT_IDLE_OPACITY = 0.1;
 
 function distanceInPx(rect: DOMRect, a: Point, b: Point) {
   const dxPx = ((b.x - a.x) / 100) * rect.width;
@@ -72,6 +73,17 @@ function walkDurationMs(distPx: number) {
   const accel = Math.min(1, distPx / ACCEL_REFERENCE_PX);
   const speed = BASE_WALK_SPEED_PX_PER_SEC * (1 + ACCEL_INTENSITY * accel);
   return Math.max(MIN_WALK_MS, Math.round((distPx / speed) * 1000));
+}
+
+// Position ACTUELLE (celle où la transition CSS en est, pas l'ancienne cible
+// stockée dans le state React) du sprite du personnage — nécessaire pour que
+// "le dernier clic prime" reparte du bon endroit visuel, pas de l'ancienne
+// destination.
+function currentSpritePercent(el: HTMLElement, sceneRect: DOMRect): Point {
+  const style = getComputedStyle(el);
+  const leftPx = parseFloat(style.left) || 0;
+  const topPx = parseFloat(style.top) || 0;
+  return { x: (leftPx / sceneRect.width) * 100, y: (topPx / sceneRect.height) * 100 };
 }
 
 function Index() {
@@ -125,8 +137,25 @@ function Index() {
   const [chatInput, setChatInput] = useState("");
   const [bubbles, setBubbles] = useState<Record<string, { text: string; expiresAt: number }>>({});
   const bubbleTimers = useRef<Record<string, number>>({});
+  const [chatIdle, setChatIdle] = useState(false);
+  const [chatHovered, setChatHovered] = useState(false);
+  const chatIdleTimer = useRef<number | null>(null);
+  const bumpChatActivity = () => {
+    setChatIdle(false);
+    if (chatIdleTimer.current) window.clearTimeout(chatIdleTimer.current);
+    chatIdleTimer.current = window.setTimeout(() => setChatIdle(true), CHAT_IDLE_MS);
+  };
+  useEffect(() => {
+    bumpChatActivity();
+    return () => {
+      if (chatIdleTimer.current) window.clearTimeout(chatIdleTimer.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const walkTimer = useRef<number | null>(null);
+  const walkQueueRef = useRef<Point[]>([]);
+  const charSpriteRef = useRef<HTMLDivElement | null>(null);
   const sceneRef = useRef<HTMLDivElement | null>(null);
   const channelRef = useRef<PresenceChannel | null>(null);
   const userIdRef = useRef<string | null>(null);
@@ -294,6 +323,7 @@ function Index() {
   const handleChatReceived = (msg: ChatMessage) => {
     setChatLog((log) => [...log.slice(-(CHAT_LOG_SIZE - 1)), msg]);
     showBubble(msg.characterId, msg.text);
+    bumpChatActivity();
   };
 
   // ---------- Présence multijoueur : rejoint le canal de la scène courante ----------
@@ -346,37 +376,66 @@ function Index() {
     } satisfies PeerState);
   };
 
+  // ---------- Marche : avance la file d'attente de points (pathfinding) un par un ----------
+  const stepWalk = (rect: DOMRect, onArrive?: () => void) => {
+    if (!character) return;
+    const next = walkQueueRef.current.shift();
+    if (!next) {
+      setWalking(false);
+      onArrive?.();
+      return;
+    }
+
+    const origin = charSpriteRef.current ? currentSpritePercent(charSpriteRef.current, rect) : pos;
+    const dist = distanceInPx(rect, origin, next);
+    const ms = walkDurationMs(dist);
+
+    setDuration(ms);
+    setWalking(true);
+    setPos(next);
+    trackPresence(next, ms, true);
+
+    walkTimer.current = window.setTimeout(() => {
+      const isLast = walkQueueRef.current.length === 0;
+      if (isLast) {
+        saveCharacterPosition(character.id, next);
+        trackPresence(next, 0, false);
+      }
+      stepWalk(rect, onArrive);
+    }, ms);
+  };
+
+  // Point d'entrée unique pour se déplacer : calcule un chemin (contourne les
+  // zones non marchables via findPath) et le suit pas à pas. Le dernier clic
+  // prime toujours — s'il y avait déjà une marche en cours, on l'interrompt et
+  // on repart de la position visuelle ACTUELLE (pas de l'ancienne destination).
+  const startWalk = (target: Point, onArrive?: () => void) => {
+    if (!character || !sceneRef.current) return;
+    const rect = sceneRef.current.getBoundingClientRect();
+
+    if (walkTimer.current) {
+      window.clearTimeout(walkTimer.current);
+      walkTimer.current = null;
+    }
+
+    const origin = walking && charSpriteRef.current ? currentSpritePercent(charSpriteRef.current, rect) : pos;
+    const waypoints = scene.walkable_zone ? findPath(origin, target, scene.walkable_zone) : [target];
+    walkQueueRef.current = waypoints;
+    stepWalk(rect, onArrive);
+  };
+
   // ---------- Déplacement classique (clic au sol) ----------
   const handleSceneClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    // Logs temporaires pour diagnostiquer le blocage des clics au sol — à retirer
-    // une fois le problème identifié.
-    if (!character) { console.log("[clic scène] bloqué : pas de personnage"); return; }
-    if (walking) { console.log("[clic scène] bloqué : déjà en train de marcher"); return; }
-    if (!scene.walkable_zone) { console.log("[clic scène] bloqué : walkable_zone vide pour la scène", scene.name, scene); return; }
-    if (!sceneRef.current) { console.log("[clic scène] bloqué : sceneRef.current est null"); return; }
+    if (!character || !scene.walkable_zone || !sceneRef.current) return;
 
     const rect = sceneRef.current.getBoundingClientRect();
     const target = {
       x: ((e.clientX - rect.left) / rect.width) * 100,
       y: ((e.clientY - rect.top) / rect.height) * 100,
     };
-    const inside = pointInPolygon(target, scene.walkable_zone);
-    console.log("[clic scène] point cliqué", target, "dans la zone marchable ?", inside);
-    if (!inside) return;
+    if (!pointInPolygon(target, scene.walkable_zone)) return;
 
-    const dist = distanceInPx(rect, pos, target);
-    const ms = walkDurationMs(dist);
-
-    setDuration(ms);
-    setWalking(true);
-    setPos(target);
-    trackPresence(target, ms, true);
-
-    walkTimer.current = window.setTimeout(() => {
-      setWalking(false);
-      saveCharacterPosition(character.id, target);
-      trackPresence(target, 0, false);
-    }, ms);
+    startWalk(target);
   };
 
   // ---------- Changement de scène (appelé une fois la marche jusqu'à la sortie terminée) ----------
@@ -411,25 +470,19 @@ function Index() {
   // ---------- Clic sur une sortie : on marche jusqu'à elle, PUIS on change de scène ----------
   const handleExitClick = (e: React.MouseEvent, exit: SceneExit) => {
     e.stopPropagation();
-    if (!character || walking || !sceneRef.current) return;
+    if (!character || !sceneRef.current) return;
 
     const rect = sceneRef.current.getBoundingClientRect();
-    const dist = distanceInPx(rect, pos, exit.position);
+    const origin = walking && charSpriteRef.current ? currentSpritePercent(charSpriteRef.current, rect) : pos;
+    const dist = distanceInPx(rect, origin, exit.position);
 
     if (dist < 4) {
+      if (walkTimer.current) window.clearTimeout(walkTimer.current);
       changeScene(exit);
       return;
     }
 
-    const ms = walkDurationMs(dist);
-    setDuration(ms);
-    setWalking(true);
-    setPos(exit.position);
-    trackPresence(exit.position, ms, true);
-
-    walkTimer.current = window.setTimeout(() => {
-      changeScene(exit);
-    }, ms);
+    startWalk(exit.position, () => changeScene(exit));
   };
 
   // ---------- Chat ----------
@@ -484,6 +537,7 @@ function Index() {
 
         {character?.image_url && (
           <div
+            ref={charSpriteRef}
             className="pointer-events-none absolute z-20"
             style={{
               left: `${pos.x}%`,
@@ -559,14 +613,17 @@ function Index() {
         </button>
       </div>
 
-      {/* ---------- Chat bas centré, habillé avec le cadre parchemin ----------
+      {/* ---------- Chat calé en bas à gauche, habillé avec le cadre parchemin ----------
           IMPORTANT : ce conteneur décoratif est pointer-events-none — seuls le
           log (pour le scroll) et le formulaire (input + bouton) réactivent les
           clics. Ça évite que le cadre (même s'il est plus grand que ce qu'on
-          voit) ne vole des clics destinés au sol de la scène. */}
-      <div className="pointer-events-none absolute bottom-2 left-1/2 z-40 w-[min(700px,92vw)] -translate-x-1/2">
+          voit) ne vole des clics destinés au sol de la scène.
+          Devient ~90% transparent après 15s sans nouveau message, et repasse
+          net dès qu'on le survole (le survol relance aussi les 15s au moment
+          où la souris ressort). */}
+      <div className="pointer-events-none absolute bottom-3 left-3 z-40 w-[min(560px,88vw)]">
         <div
-          className="pointer-events-none flex flex-col justify-center"
+          className="flex flex-col justify-center transition-opacity duration-300"
           style={{
             minHeight: 260, // deux fois plus d'espace utile qu'avant pour lire plusieurs lignes
             borderStyle: "solid",
@@ -574,6 +631,13 @@ function Index() {
             borderImageSource: "url('/ui/chat-frame.png')",
             borderImageSlice: "130 230 120 260 fill",
             borderImageRepeat: "stretch",
+            opacity: chatIdle && !chatHovered ? CHAT_IDLE_OPACITY : 1,
+            pointerEvents: "auto",
+          }}
+          onMouseEnter={() => setChatHovered(true)}
+          onMouseLeave={() => {
+            setChatHovered(false);
+            bumpChatActivity();
           }}
         >
           <div
