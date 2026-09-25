@@ -33,15 +33,18 @@ export function CharacterSelect({
   return (
     <div className="flex h-screen w-screen items-center justify-center bg-[#1a0f07] p-4">
       <div
-        className="w-full max-w-2xl text-[#3a2210]"
+        className="w-full max-w-3xl text-[#3a2210]"
         style={{
           borderStyle: "solid",
-          // Cadre "lanterne + médaillon" fourni par Lils. Valeurs de découpe estimées
-          // à partir des dimensions réelles du fichier (1491x1055) — à ajuster si un
-          // coin (lanterne à gauche, médaillon à droite) est étiré ou coupé au rendu.
-          borderWidth: "70px 90px 60px 130px",
-          borderImageSource: "url('/ui/character-frame.png')",
-          borderImageSlice: "150 220 140 300 fill",
+          // Nouveau cadre (rectangle simple, sans lanterne/bannière qui dépassait du
+          // cadre en bois de l'ancienne image et provoquait le chevauchement du texte
+          // au rendu). Bordure mesurée directement sur le fichier source
+          // (1672x941 px) : gauche 242, droite 244, haut 89, bas 101 — proportions
+          // conservées ici pour que rien ne déborde ni ne soit tronqué quelle que
+          // soit la taille finale à l'écran.
+          borderWidth: "5.7% 7.3% 6.4% 7.2%",
+          borderImageSource: "url('/ui/character-frame.webp')",
+          borderImageSlice: "89 244 101 242 fill",
           borderImageRepeat: "stretch",
         }}
       >

@@ -331,7 +331,7 @@ export function DrawingCanvas({
   return (
     <div className="flex flex-col gap-3 sm:flex-row">
       <div
-        className="relative aspect-square w-full max-w-[320px] overflow-hidden rounded-md border border-[#7a4a22]/70"
+        className="relative aspect-square w-full max-w-[420px] overflow-hidden rounded-md border border-[#7a4a22]/70"
         style={{
           backgroundImage: `
             linear-gradient(45deg, #ccc 25%, transparent 25%),
