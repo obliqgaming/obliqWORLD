@@ -254,9 +254,9 @@ function AdminPage() {
   };
 
   const depthLabel: Record<DepthKey, string> = {
-    y80: "80% (loin)",
+    y80: "65% (loin)",
     y100: "100% (normal)",
-    y120: "120% (près)",
+    y120: "135% (près)",
   };
   const depthColor: Record<DepthKey, string> = {
     y80: "rgba(96,165,250,0.95)",

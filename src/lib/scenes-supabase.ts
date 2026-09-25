@@ -163,13 +163,22 @@ function normalizeScene(row: any): Scene {
 // position verticale dans le décor. Interpolation continue entre les 3
 // repères pour un effet progressif, sans palier visible ("pas de gras").
 // Scène pas encore calibrée (depth_scale null) -> toujours 1.
+//
+// NOTE : les clés y80/y100/y120 sont juste des identifiants internes
+// (loin/normal/près) — les échelles réelles associées sont 65%/100%/135% (pas
+// besoin de replacer les points si on retouche encore ces valeurs plus tard,
+// seuls les multiplicateurs ci-dessous changent).
+const DEPTH_FAR_SCALE = 0.65;
+const DEPTH_MID_SCALE = 1.0;
+const DEPTH_NEAR_SCALE = 1.35;
+
 export function computeDepthScale(y: number, depthScale: DepthScale | null | undefined): number {
   if (!depthScale) return 1;
   const { y80, y100, y120 } = depthScale;
-  if (y <= y80) return 0.8;
-  if (y <= y100) return 0.8 + ((y - y80) / (y100 - y80 || 1)) * 0.2;
-  if (y <= y120) return 1.0 + ((y - y100) / (y120 - y100 || 1)) * 0.2;
-  return 1.2;
+  if (y <= y80) return DEPTH_FAR_SCALE;
+  if (y <= y100) return DEPTH_FAR_SCALE + ((y - y80) / (y100 - y80 || 1)) * (DEPTH_MID_SCALE - DEPTH_FAR_SCALE);
+  if (y <= y120) return DEPTH_MID_SCALE + ((y - y100) / (y120 - y100 || 1)) * (DEPTH_NEAR_SCALE - DEPTH_MID_SCALE);
+  return DEPTH_NEAR_SCALE;
 }
 
 export async function fetchSceneByName(name: string): Promise<Scene> {
