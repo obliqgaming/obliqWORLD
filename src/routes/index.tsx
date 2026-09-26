@@ -25,6 +25,7 @@ import {
   type VisualAsset,
 } from "../lib/scenes-supabase";
 import { CharacterSelect } from "../components/CharacterSelect";
+import { SoundControl } from "../components/SoundControl";
 import { findPath } from "../lib/pathfinding";
 
 export const Route = createFileRoute("/")({
@@ -59,6 +60,14 @@ const BASE_WALK_SPEED_PX_PER_SEC = 140; // vitesse "de base" sur courte distance
 const ACCEL_INTENSITY = 0.35; // remonté à nouveau (0.2 -> 0.28 -> 0.35)
 const ACCEL_REFERENCE_PX = 900; // distance à partir de laquelle le bonus est à fond
 const MIN_WALK_MS = 300;
+// Largeur du personnage exprimée en fraction de la largeur AFFICHÉE de la
+// scène (sceneBoxSize.width), plutôt qu'en pixels fixes. Avant, un
+// redimensionnement de la fenêtre changeait la taille de la scène sans changer
+// celle du personnage, qui devenait alors trop petit/trop grand par rapport
+// au décor. 120px sur une scène affichée à ~1333px de large (cas courant en
+// fenêtré) donne ce ratio ; il reproduit donc l'apparence déjà validée tout en
+// suivant les changements de taille de fenêtre.
+const CHARACTER_WIDTH_RATIO = 120 / 1333;
 const CHAT_BUBBLE_MS = 4500;
 const CHAT_LOG_SIZE = 30;
 const CHAT_IDLE_MS = 15000; // délai avant que le tchat devienne quasi transparent
@@ -158,6 +167,14 @@ function Index() {
   const peerWalkTimers = useRef<Record<string, number>>({});
   const [peerWalking, setPeerWalking] = useState<Record<string, boolean>>({});
   const [peerDuration, setPeerDuration] = useState<Record<string, number>>({});
+
+  // ---- Sens du personnage (miroir horizontal selon la direction de marche) ----
+  // Le sprite de base est dessiné "vers la gauche" : on ne le retourne pas
+  // quand il se dirige vers la gauche, et on le retourne en miroir (scaleX(-1))
+  // quand il se dirige vers la droite. false = pas retourné (regarde à
+  // gauche), true = retourné (regarde à droite).
+  const [facingRight, setFacingRight] = useState(false);
+  const [peerFacingRight, setPeerFacingRight] = useState<Record<string, boolean>>({});
 
   // ---- Chat ----
   const [chatLog, setChatLog] = useState<ChatMessage[]>([]);
@@ -410,6 +427,10 @@ function Index() {
       if (dist < 1) return;
       const ms = walkDurationMs(dist);
 
+      if (Math.abs(peer.position.x - prev.x) > 0.01) {
+        setPeerFacingRight((f) => ({ ...f, [key]: peer.position.x > prev.x }));
+      }
+
       setPeerDuration((d) => ({ ...d, [key]: ms }));
       setPeerWalking((w) => ({ ...w, [key]: true }));
 
@@ -510,6 +531,13 @@ function Index() {
     const origin = charSpriteRef.current ? currentSpritePercent(charSpriteRef.current, rect) : pos;
     const dist = distanceInPx(rect, origin, next);
     const ms = walkDurationMs(dist);
+
+    // Sens du sprite : seul le déplacement horizontal compte (un pas purement
+    // vertical garde le sens précédent plutôt que de retourner le personnage
+    // sans raison).
+    if (Math.abs(next.x - origin.x) > 0.01) {
+      setFacingRight(next.x > origin.x);
+    }
 
     setDuration(ms);
     setWalking(true);
@@ -651,10 +679,22 @@ function Index() {
       <div
         ref={sceneRef}
         onClick={handleSceneClick}
-        className="relative cursor-pointer overflow-hidden"
-        style={{ width: sceneBoxSize.width, height: sceneBoxSize.height }}
+        className="relative overflow-hidden"
+        style={{
+          width: sceneBoxSize.width,
+          height: sceneBoxSize.height,
+          // Curseur custom "par défaut" pour toute la scène (remplace le
+          // curseur système). Hotspot (pointe active) réglé sur le coin
+          // haut-gauche de la flèche dessinée. La classe .cursor-creature
+          // (voir plus bas) est prête pour plus tard, quand on pourra
+          // inspecter une créature ou un objet — pas encore utilisée.
+          cursor: "url('/cursors/cursor-default.png') 2 2, pointer",
+        }}
       >
-        <style>{`@keyframes auberge-walk{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg)}}`}</style>
+        <style>{`
+          @keyframes auberge-walk{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg)}}
+          .cursor-creature{cursor:url('/cursors/cursor-creature.png') 24 24, pointer;}
+        `}</style>
         <img
           src={scene.image_url}
           alt={scene.name}
@@ -682,7 +722,10 @@ function Index() {
             style={{
               left: `${pos.x}%`,
               top: `${pos.y}%`,
-              width: 120,
+              // Largeur en fraction de la largeur RÉELLE de la scène affichée
+              // (pas en pixels fixes) pour que le personnage suive les
+              // changements de taille de la fenêtre en mode fenêtré.
+              width: sceneBoxSize.width * CHARACTER_WIDTH_RATIO,
               // Échelle de profondeur : plus petit en haut du décor (loin), plus
               // grand en bas (près), interpolée en continu depuis la calibration
               // de la scène (computeDepthScale). On anime `transform: scale()`
@@ -707,6 +750,10 @@ function Index() {
               className="block w-full"
               style={{
                 transformOrigin: "50% 100%",
+                // Miroir horizontal : le sprite de base regarde vers la gauche,
+                // donc on le retourne uniquement quand le personnage se dirige
+                // vers la droite.
+                transform: facingRight ? "scaleX(-1)" : "none",
                 animation: walking ? "auberge-walk 250ms linear infinite" : "none",
               }}
             />
@@ -716,6 +763,7 @@ function Index() {
         {Object.entries(peers).map(([key, peer]) => {
           const isWalking = !!peerWalking[key];
           const ms = peerDuration[key] ?? 0;
+          const isFacingRight = !!peerFacingRight[key];
           return (
             <div
               key={key}
@@ -723,7 +771,7 @@ function Index() {
               style={{
                 left: `${peer.position.x}%`,
                 top: `${peer.position.y}%`,
-                width: 120,
+                width: sceneBoxSize.width * CHARACTER_WIDTH_RATIO,
                 transformOrigin: "50% 100%",
                 transform: `translate(-50%, -100%) scale(${computeDepthScale(peer.position.y, scene.depth_scale)})`,
                 transition: isWalking
@@ -739,6 +787,7 @@ function Index() {
                 className="block w-full"
                 style={{
                   transformOrigin: "50% 100%",
+                  transform: isFacingRight ? "scaleX(-1)" : "none",
                   animation: isWalking ? "auberge-walk 250ms linear infinite" : "none",
                 }}
               />
@@ -758,26 +807,13 @@ function Index() {
           {scene.name}
         </h1>
 
-        <div className="absolute right-5 top-5 z-30 flex items-center gap-2 rounded-full bg-black/35 px-3 py-2 backdrop-blur-sm">
-          <button
-            type="button"
-            onClick={toggleMute}
-            aria-label={muted ? "Activer le son" : "Couper le son"}
-            className="flex h-7 w-7 items-center justify-center text-xl text-[#fff3d6]"
-          >
-            {muted ? "🔇" : "🔊"}
-          </button>
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.05}
-            value={volume}
-            onChange={handleVolumeChange}
-            aria-label="Volume"
-            className="h-1 w-20 cursor-pointer accent-[#fff3d6]"
-          />
-        </div>
+        <SoundControl
+          muted={muted}
+          onToggleMute={toggleMute}
+          volume={volume}
+          onVolumeChange={handleVolumeChange}
+          className="absolute right-5 top-5 z-30"
+        />
       </div>
 
       {/* ---------- Chat calé en bas à gauche, habillé avec le cadre parchemin ----------
