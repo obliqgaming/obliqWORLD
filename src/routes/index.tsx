@@ -762,20 +762,24 @@ function Index() {
             }}
           >
             {bubbles[character.id] && <SpeechBubble text={bubbles[character.id].text} />}
-            <img
-              src={character.image_url}
-              alt={character.name}
-              draggable={false}
-              className="block w-full"
-              style={{
-                transformOrigin: "50% 100%",
-                // Miroir horizontal : le sprite de base regarde vers la gauche,
-                // donc on le retourne uniquement quand le personnage se dirige
-                // vers la droite.
-                transform: facingRight ? "scaleX(-1)" : "none",
-                animation: walking ? "auberge-walk 250ms linear infinite" : "none",
-              }}
-            />
+            {/* Le miroir (scaleX) est sur ce wrapper, séparé de l'<img> qui porte
+                l'animation d'oscillation de marche : l'animation CSS prend le
+                contrôle total de `transform` sur l'élément qu'elle anime, donc
+                mettre les deux transforms sur la même balise faisait disparaître
+                le miroir tant que le personnage marchait (il ne redevenait
+                visible qu'à l'arrêt, une fois l'animation coupée). */}
+            <div style={{ transform: facingRight ? "scaleX(-1)" : "none" }}>
+              <img
+                src={character.image_url}
+                alt={character.name}
+                draggable={false}
+                className="block w-full"
+                style={{
+                  transformOrigin: "50% 100%",
+                  animation: walking ? "auberge-walk 250ms linear infinite" : "none",
+                }}
+              />
+            </div>
           </div>
         )}
 
@@ -799,17 +803,18 @@ function Index() {
               }}
             >
               {bubbles[peer.characterId] && <SpeechBubble text={bubbles[peer.characterId].text} />}
-              <img
-                src={peer.image_url}
-                alt={peer.name}
-                draggable={false}
-                className="block w-full"
-                style={{
-                  transformOrigin: "50% 100%",
-                  transform: isFacingRight ? "scaleX(-1)" : "none",
-                  animation: isWalking ? "auberge-walk 250ms linear infinite" : "none",
-                }}
-              />
+              <div style={{ transform: isFacingRight ? "scaleX(-1)" : "none" }}>
+                <img
+                  src={peer.image_url}
+                  alt={peer.name}
+                  draggable={false}
+                  className="block w-full"
+                  style={{
+                    transformOrigin: "50% 100%",
+                    animation: isWalking ? "auberge-walk 250ms linear infinite" : "none",
+                  }}
+                />
+              </div>
             </div>
           );
         })}
