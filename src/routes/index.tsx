@@ -199,6 +199,14 @@ function Index() {
 
   const walkTimer = useRef<number | null>(null);
   const walkQueueRef = useRef<Point[]>([]);
+  // Dernière position LOGIQUE connue du personnage (indépendante du DOM), pour
+  // calculer le sens du sprite de façon fiable (voir stepWalk plus bas) : lire
+  // getComputedStyle pendant une transition CSS en cours peut renvoyer une
+  // valeur légèrement en avance/retard sur l'animation réelle, ce qui, sur un
+  // chemin à plusieurs petits segments, pouvait rendre le signe de la
+  // direction incohérent d'un segment à l'autre et donner l'impression que le
+  // personnage ne se retournait qu'une fois arrivé à destination.
+  const lastLogicalPosRef = useRef<Point>({ x: 50, y: 70 });
   const charSpriteRef = useRef<HTMLDivElement | null>(null);
   const sceneRef = useRef<HTMLDivElement | null>(null);
   const channelRef = useRef<PresenceChannel | null>(null);
@@ -361,6 +369,7 @@ function Index() {
           setCharacter(c);
           characterRef.current = c;
           setPos(c.position);
+          lastLogicalPosRef.current = c.position;
         } else {
           fetchCharacterAssets().then((assets) => {
             if (!cancelled) setCharacterAssets(assets);
@@ -382,6 +391,7 @@ function Index() {
     setCharacter(c);
     characterRef.current = c;
     setPos(c.position);
+    lastLogicalPosRef.current = c.position;
   };
 
   useEffect(() => () => {
@@ -534,10 +544,18 @@ function Index() {
 
     // Sens du sprite : seul le déplacement horizontal compte (un pas purement
     // vertical garde le sens précédent plutôt que de retourner le personnage
-    // sans raison).
-    if (Math.abs(next.x - origin.x) > 0.01) {
-      setFacingRight(next.x > origin.x);
+    // sans raison). On compare à la position LOGIQUE précédente (lastLogicalPosRef),
+    // pas à une lecture DOM (getComputedStyle) : sur un chemin à plusieurs
+    // petits segments, lire le DOM pendant que la transition CSS du segment
+    // précédent est encore en train de se terminer donnait un signal de
+    // direction bruité d'un segment à l'autre, et seul le dernier segment
+    // (vers la destination finale) donnait une direction nette — d'où
+    // l'impression que le personnage ne se retournait qu'une fois arrivé.
+    const facingFrom = lastLogicalPosRef.current;
+    if (Math.abs(next.x - facingFrom.x) > 0.01) {
+      setFacingRight(next.x > facingFrom.x);
     }
+    lastLogicalPosRef.current = next;
 
     setDuration(ms);
     setWalking(true);
@@ -612,6 +630,7 @@ function Index() {
       setScene(newScene);
       setExits(newExits);
       setPos(arrival);
+      lastLogicalPosRef.current = arrival;
       setWalking(false);
 
       const updated = { ...character, scene_id: newScene.id, position: arrival };
