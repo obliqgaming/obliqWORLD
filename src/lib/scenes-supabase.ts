@@ -236,6 +236,14 @@ export async function fetchSceneExits(sceneId: string): Promise<SceneExit[]> {
   return (data ?? []) as SceneExit[];
 }
 
+export async function updateSceneExitPosition(exitId: string, position: Point): Promise<void> {
+  const { error } = await scenesClient
+    .from("scene_exits")
+    .update({ position: { x: Math.round(position.x * 10) / 10, y: Math.round(position.y * 10) / 10 } })
+    .eq("id", exitId);
+  if (error) throw error;
+}
+
 // ---------- Personnages / assets visuels ----------
 function flattenCharacter(row: any): Character {
   return {

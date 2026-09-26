@@ -4,10 +4,13 @@ import {
   ensureUserId,
   fetchAllScenes,
   fetchScene,
+  fetchSceneExits,
+  updateSceneExitPosition,
   updateSceneZones,
   type DepthScale,
   type Point,
   type Scene,
+  type SceneExit,
 } from "../lib/scenes-supabase";
 
 // Page d'admin volontairement non reliée au menu du jeu (accessible seulement
@@ -25,7 +28,7 @@ export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
-type Mode = "room" | "obstacle" | "depth";
+type Mode = "room" | "obstacle" | "depth" | "exit";
 type DepthKey = "y80" | "y100" | "y120";
 type DepthDraft = { y80: number | null; y100: number | null; y120: number | null };
 
@@ -65,6 +68,11 @@ function AdminPage() {
   const [obstacles, setObstacles] = useState<Point[][]>([]);
   const [depthDraft, setDepthDraft] = useState<DepthDraft>(EMPTY_DEPTH);
   const [armedDepthKey, setArmedDepthKey] = useState<DepthKey | null>(null);
+
+  const [exits, setExits] = useState<SceneExit[]>([]);
+  const [draggingExitId, setDraggingExitId] = useState<string | null>(null);
+  const [savingExitId, setSavingExitId] = useState<string | null>(null);
+  const [exitStatus, setExitStatus] = useState<string | null>(null);
 
   const [mode, setMode] = useState<Mode>("room");
   const [draft, setDraft] = useState<Point[]>([]);
@@ -110,6 +118,8 @@ function AdminPage() {
     setArmedDepthKey(null);
     setStatus(null);
     setRecoverable(null);
+    setExitStatus(null);
+    setExits([]);
     fetchScene(sceneId)
       .then((s) => {
         setScene(s);
@@ -132,6 +142,9 @@ function AdminPage() {
         }
       })
       .catch((err) => console.error("fetchScene a échoué", err));
+    fetchSceneExits(sceneId)
+      .then(setExits)
+      .catch((err) => console.error("fetchSceneExits a échoué", err));
   }, [sceneId]);
 
   // Sauvegarde locale automatique à chaque modification — y compris les points
@@ -192,6 +205,7 @@ function AdminPage() {
 
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!boxRef.current) return;
+    if (mode === "exit") return; // les portails se déplacent par glisser-déposer, pas par clic
     const rect = boxRef.current.getBoundingClientRect();
     const p: Point = {
       x: ((e.clientX - rect.left) / rect.width) * 100,
@@ -206,6 +220,55 @@ function AdminPage() {
     }
 
     setDraft((pts) => [...pts, p]);
+  };
+
+  // ---------- Portails : glisser-déposer directement sur l'image, sauvegarde
+  // immédiate en base au relâchement (indépendante du bouton "Enregistrer"
+  // global, qui ne couvre que pièces/obstacles/profondeur) ----------
+  const dragExit = (exitId: string, clientX: number, clientY: number) => {
+    if (!boxRef.current) return;
+    const rect = boxRef.current.getBoundingClientRect();
+    const p: Point = {
+      x: Math.min(100, Math.max(0, ((clientX - rect.left) / rect.width) * 100)),
+      y: Math.min(100, Math.max(0, ((clientY - rect.top) / rect.height) * 100)),
+    };
+    setExits((list) => list.map((x) => (x.id === exitId ? { ...x, position: p } : x)));
+  };
+
+  const startDragExit = (e: React.MouseEvent, exitId: string) => {
+    e.stopPropagation();
+    setDraggingExitId(exitId);
+    setExitStatus(null);
+
+    const onMove = (ev: MouseEvent) => dragExit(exitId, ev.clientX, ev.clientY);
+    const onUp = async (ev: MouseEvent) => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      setDraggingExitId(null);
+      dragExit(exitId, ev.clientX, ev.clientY);
+
+      // On relit la position finale depuis le state juste mis à jour n'est pas
+      // synchrone ; on recalcule la même valeur ici pour l'envoyer à Supabase.
+      if (!boxRef.current) return;
+      const rect = boxRef.current.getBoundingClientRect();
+      const finalPos: Point = {
+        x: Math.min(100, Math.max(0, ((ev.clientX - rect.left) / rect.width) * 100)),
+        y: Math.min(100, Math.max(0, ((ev.clientY - rect.top) / rect.height) * 100)),
+      };
+      setSavingExitId(exitId);
+      try {
+        await updateSceneExitPosition(exitId, finalPos);
+        setExitStatus("Portail déplacé ✅");
+      } catch (err) {
+        console.error(err);
+        setExitStatus("Erreur en déplaçant le portail — regarde la console (F12).");
+      } finally {
+        setSavingExitId(null);
+      }
+    };
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
   };
 
   const finishShape = () => {
@@ -334,6 +397,17 @@ function AdminPage() {
           >
             📏 Profondeur
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMode("exit");
+              setDraft([]);
+              setArmedDepthKey(null);
+            }}
+            className={`rounded px-3 py-1 text-sm ${mode === "exit" ? "bg-purple-700" : "bg-neutral-800"}`}
+          >
+            🚪 Portails
+          </button>
         </div>
 
         {mode !== "depth" && (
@@ -401,7 +475,15 @@ function AdminPage() {
         </div>
       )}
 
+      {mode === "exit" && (
+        <div className="mb-4 rounded bg-neutral-800 px-3 py-2 text-sm opacity-70">
+          Glisse-dépose un portail (rond violet) directement sur l'image pour le repositionner. Sauvegardé
+          automatiquement dès que tu le relâches — pas besoin de cliquer sur "Enregistrer".
+        </div>
+      )}
+
       {status && <p className="mb-3 text-sm">{status}</p>}
+      {exitStatus && <p className="mb-3 text-sm">{exitStatus}</p>}
 
       <div className="flex flex-wrap gap-6">
         {scene && (
@@ -472,6 +554,25 @@ function AdminPage() {
                   ) : null,
                 )}
             </svg>
+
+            {exits.map((ex) => (
+              <div
+                key={ex.id}
+                onMouseDown={(e) => mode === "exit" && startDragExit(e, ex.id)}
+                title={ex.label ?? "Portail"}
+                className="absolute flex h-6 w-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 text-xs"
+                style={{
+                  left: `${ex.position.x}%`,
+                  top: `${ex.position.y}%`,
+                  background: draggingExitId === ex.id ? "rgba(168,85,247,0.9)" : "rgba(168,85,247,0.6)",
+                  borderColor: "rgba(216,180,254,0.95)",
+                  cursor: mode === "exit" ? (draggingExitId === ex.id ? "grabbing" : "grab") : "default",
+                  boxShadow: savingExitId === ex.id ? "0 0 0 2px rgba(250,204,21,0.9)" : "none",
+                }}
+              >
+                🚪
+              </div>
+            ))}
           </div>
         )}
 
@@ -511,12 +612,22 @@ function AdminPage() {
           </ul>
 
           <p className="mb-1 font-semibold">Profondeur</p>
-          <ul className="space-y-1">
+          <ul className="mb-4 space-y-1">
             {(["y80", "y100", "y120"] as DepthKey[]).map((key) => (
               <li key={key} className="rounded bg-neutral-800 px-2 py-1">
                 {depthLabel[key]} : {depthDraft[key] != null ? `${depthDraft[key]!.toFixed(1)}%` : "non placé"}
               </li>
             ))}
+          </ul>
+
+          <p className="mb-1 font-semibold">Portails ({exits.length})</p>
+          <ul className="space-y-1">
+            {exits.map((ex) => (
+              <li key={ex.id} className="rounded bg-neutral-800 px-2 py-1">
+                {ex.label ?? "Portail"} — {ex.position.x.toFixed(1)}%, {ex.position.y.toFixed(1)}%
+              </li>
+            ))}
+            {exits.length === 0 && <li className="opacity-50">Aucun pour cette scène</li>}
           </ul>
         </div>
       </div>

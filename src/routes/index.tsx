@@ -729,7 +729,7 @@ function Index() {
             onClick={(e) => handleExitClick(e, exit)}
             aria-label={exit.label ?? "Sortie"}
             title={exit.label ?? undefined}
-            className="absolute z-10 h-9 w-9 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#fff3d6]/80 bg-black/30 backdrop-blur-sm transition-transform hover:scale-110"
+            className="cursor-creature absolute z-10 h-9 w-9 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#fff3d6]/80 bg-black/30 backdrop-blur-sm transition-transform hover:scale-110"
             style={{ left: `${exit.position.x}%`, top: `${exit.position.y}%` }}
           />
         ))}
