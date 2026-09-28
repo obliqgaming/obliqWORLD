@@ -72,6 +72,16 @@ const CHAT_BUBBLE_MS = 4500;
 const CHAT_LOG_SIZE = 30;
 const CHAT_IDLE_MS = 15000; // délai avant que le tchat devienne quasi transparent
 const CHAT_IDLE_OPACITY = 0.1;
+// ---------- État "absent" ----------
+// Au bout de AWAY_AFTER_MS sans que le joueur ait bougé (clic de déplacement)
+// ni écrit dans le tchat, son personnage passe "absent" : "(ABS)" s'affiche à
+// côté de son pseudo chez tout le monde. Il repasse actif dès son prochain
+// déplacement ou message. Coût réseau : 1 seul envoi de présence à l'entrée
+// en absence, 1 seul à la sortie (le prochain déplacement l'embarque déjà).
+const AWAY_AFTER_MS = 2 * 60 * 1000;
+// true = le pseudo est affiché sous chaque personnage (avec "(ABS)" en plus
+// si absent). false = seul "(ABS)" apparaît, sans pseudo.
+const SHOW_NAME_LABELS = true;
 
 function distanceInPx(rect: DOMRect, a: Point, b: Point) {
   const dxPx = ((b.x - a.x) / 100) * rect.width;
@@ -199,6 +209,10 @@ function Index() {
 
   const walkTimer = useRef<number | null>(null);
   const walkQueueRef = useRef<Point[]>([]);
+  // État absent : ref pour les timers/réseau, state pour l'affichage.
+  const awayRef = useRef(false);
+  const awayTimer = useRef<number | null>(null);
+  const [selfAway, setSelfAway] = useState(false);
   // Dernière position LOGIQUE connue du personnage (indépendante du DOM), pour
   // calculer le sens du sprite de façon fiable (voir stepWalk plus bas) : lire
   // getComputedStyle pendant une transition CSS en cours peut renvoyer une
@@ -488,6 +502,9 @@ function Index() {
     setPeerWalking({});
     setPeerDuration({});
 
+    awayRef.current = false;
+    setSelfAway(false);
+
     let cancelled = false;
     scenesClient.auth.getSession().then(({ data }) => {
       if (cancelled || !data.session?.user) return;
@@ -504,11 +521,14 @@ function Index() {
         position: pos,
         duration: 0,
         walking: false,
+        away: false,
       } satisfies PeerState);
+      armAwayTimer();
     });
 
     return () => {
       cancelled = true;
+      if (awayTimer.current) window.clearTimeout(awayTimer.current);
       leaveScenePresence(channelRef.current);
       channelRef.current = null;
       setPeers({});
@@ -525,7 +545,32 @@ function Index() {
       position: nextPos,
       duration: ms,
       walking: isWalking,
+      away: awayRef.current,
     } satisfies PeerState);
+  };
+
+  // ---------- État absent : (ré)arme le compte à rebours de 2 minutes ----------
+  const armAwayTimer = () => {
+    if (awayTimer.current) window.clearTimeout(awayTimer.current);
+    awayTimer.current = window.setTimeout(() => {
+      if (awayRef.current) return;
+      awayRef.current = true;
+      setSelfAway(true);
+      trackPresence(lastLogicalPosRef.current, 0, false);
+    }, AWAY_AFTER_MS);
+  };
+
+  // À appeler à chaque vraie action du joueur (déplacement, message).
+  const markActive = () => {
+    if (awayRef.current) {
+      awayRef.current = false;
+      setSelfAway(false);
+      // Si le joueur repart à pied, le trackPresence du pas suivant écrase
+      // aussitôt cet envoi ; pour un simple message tchat, c'est lui qui
+      // annonce le retour.
+      trackPresence(lastLogicalPosRef.current, 0, false);
+    }
+    armAwayTimer();
   };
 
   // ---------- Marche : avance la file d'attente de points (pathfinding) un par un ----------
@@ -579,6 +624,7 @@ function Index() {
   const startWalk = (target: Point, onArrive?: () => void) => {
     if (!character || !sceneRef.current) return;
     const rect = sceneRef.current.getBoundingClientRect();
+    markActive();
 
     if (walkTimer.current) {
       window.clearTimeout(walkTimer.current);
@@ -674,6 +720,7 @@ function Index() {
     broadcastChatMessage(channelRef.current, msg);
     setChatInput("");
     bumpChatActivity();
+    markActive();
   };
 
   if (checkingCharacter) {
@@ -780,6 +827,7 @@ function Index() {
                 }}
               />
             </div>
+            <NameTag name={character.name} away={selfAway} showName={SHOW_NAME_LABELS} />
           </div>
         )}
 
@@ -815,6 +863,7 @@ function Index() {
                   }}
                 />
               </div>
+              <NameTag name={peer.name} away={!!peer.away} showName={SHOW_NAME_LABELS} />
             </div>
           );
         })}
@@ -908,6 +957,26 @@ function SpeechBubble({ text }: { text: string }) {
         className="absolute left-1/2 top-full h-0 w-0 -translate-x-1/2 border-x-8 border-t-8 border-x-transparent"
         style={{ borderTopColor: "#fff3d6" }}
       />
+    </div>
+  );
+}
+
+// Pseudo affiché sous les pieds du personnage ; "(ABS)" s'y ajoute quand le
+// joueur est absent (aucun déplacement ni message depuis AWAY_AFTER_MS).
+function NameTag({ name, away, showName }: { name: string; away: boolean; showName: boolean }) {
+  const text = [showName ? name : "", away ? "(ABS)" : ""].filter(Boolean).join(" ");
+  if (!text) return null;
+  return (
+    <div
+      className="pointer-events-none absolute left-1/2 top-full mt-1 w-max max-w-[220px] -translate-x-1/2 truncate text-center text-sm font-bold"
+      style={{
+        fontFamily: "'Baloo 2', cursive",
+        color: "#fff3d6",
+        opacity: away ? 0.75 : 1,
+        textShadow: "0 1px 0 #572a0c, 0 0 6px rgba(43, 20, 6, 0.8)",
+      }}
+    >
+      {text}
     </div>
   );
 }

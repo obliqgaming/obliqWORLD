@@ -80,6 +80,7 @@ export type PeerState = {
   position: Point;
   duration: number;
   walking: boolean;
+  away?: boolean; // true = absent (aucune action depuis 2 min) → "(ABS)" affiché
 };
 
 export type ChatMessage = {
