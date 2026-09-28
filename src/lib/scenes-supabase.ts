@@ -373,14 +373,7 @@ export function joinScenePresence(
 
   channel
     .on("presence", { event: "sync" }, () => {
-      const state = channel.presenceState<PeerState>();
-      const peers: Record<string, PeerState> = {};
-      Object.entries(state).forEach(([key, presences]) => {
-        if (key === userId) return; // on ne s'affiche pas soi-même comme "peer"
-        const latest = presences[presences.length - 1];
-        if (latest) peers[key] = latest as unknown as PeerState;
-      });
-      onUpdate(peers);
+      onUpdate(readPeersFromChannel(channel, userId));
     })
     .on("broadcast", { event: "chat" }, ({ payload }) => {
       if (onChatMessage) onChatMessage(payload as ChatMessage);
@@ -388,6 +381,22 @@ export function joinScenePresence(
     .subscribe();
 
   return channel;
+}
+
+// Relit l'état de présence connu du navigateur pour cette scène (aucun appel
+// réseau : c'est un cache local déjà tenu à jour par le client Supabase).
+// Utilisé à la fois par le "sync" ci-dessus et par un recalage périodique
+// côté appelant, en filet de sécurité si jamais un événement "sync" est
+// manqué (micro-accroc réseau).
+export function readPeersFromChannel(channel: PresenceChannel, selfUserId: string): Record<string, PeerState> {
+  const state = channel.presenceState<PeerState>();
+  const peers: Record<string, PeerState> = {};
+  Object.entries(state).forEach(([key, presences]) => {
+    if (key === selfUserId) return;
+    const latest = presences[presences.length - 1];
+    if (latest) peers[key] = latest as unknown as PeerState;
+  });
+  return peers;
 }
 
 export function leaveScenePresence(channel: PresenceChannel | null) {

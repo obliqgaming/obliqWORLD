@@ -10,6 +10,7 @@ import {
   fetchSceneByName,
   fetchSceneExits,
   joinScenePresence,
+  readPeersFromChannel,
   leaveScenePresence,
   moveCharacterToScene,
   pointInPolygon,
@@ -79,6 +80,14 @@ const CHAT_IDLE_OPACITY = 0.1;
 // déplacement ou message. Coût réseau : 1 seul envoi de présence à l'entrée
 // en absence, 1 seul à la sortie (le prochain déplacement l'embarque déjà).
 const AWAY_AFTER_MS = 2 * 60 * 1000;
+// Un pair qui disparaît de la synchro n'est pas retiré tout de suite : on
+// attend PEER_GONE_GRACE_MS au cas où c'est un simple accroc réseau (le
+// WebSocket qui rate un battement). S'il revient avant, rien ne se voit.
+const PEER_GONE_GRACE_MS = 5000;
+// Filet de sécurité, sans coût réseau : toutes les PRESENCE_RESYNC_MS, on
+// relit l'état de présence déjà en cache dans le navigateur (aucune requête)
+// pour se remettre d'aplomb si jamais un événement "sync" a été manqué.
+const PRESENCE_RESYNC_MS = 4000;
 // true = le pseudo est affiché sous chaque personnage (avec "(ABS)" en plus
 // si absent). false = seul "(ABS)" apparaît, sans pseudo.
 const SHOW_NAME_LABELS = true;
@@ -175,6 +184,7 @@ function Index() {
   // ---- Marche des autres joueurs, calculée localement (fix téléportation) ----
   const prevPeerPosRef = useRef<Record<string, Point>>({});
   const peerWalkTimers = useRef<Record<string, number>>({});
+  const peerRemoveTimers = useRef<Record<string, number>>({});
   const [peerWalking, setPeerWalking] = useState<Record<string, boolean>>({});
   const [peerDuration, setPeerDuration] = useState<Record<string, number>>({});
 
@@ -437,7 +447,10 @@ function Index() {
 
   // ---------- Mise à jour locale des pairs (marche calculée nous-mêmes, pas confiance au réseau) ----------
   const handlePeerUpdate = (newPeers: Record<string, PeerState>) => {
-    setPeers(newPeers);
+    // On fusionne plutôt que de remplacer : un pair en attente de retrait
+    // (grâce ci-dessous) doit rester affiché même s'il n'est plus dans
+    // newPeers pour l'instant.
+    setPeers((prev) => ({ ...prev, ...newPeers }));
     const rect = sceneRef.current?.getBoundingClientRect();
 
     Object.entries(newPeers).forEach(([key, peer]) => {
@@ -465,11 +478,26 @@ function Index() {
     });
 
     Object.keys(prevPeerPosRef.current).forEach((key) => {
-      if (!(key in newPeers)) {
+      if (key in newPeers) {
+        // De retour avant la fin du délai de grâce : on annule le retrait prévu.
+        if (peerRemoveTimers.current[key]) {
+          window.clearTimeout(peerRemoveTimers.current[key]);
+          delete peerRemoveTimers.current[key];
+        }
+        return;
+      }
+      if (peerRemoveTimers.current[key]) return; // retrait déjà programmé
+      peerRemoveTimers.current[key] = window.setTimeout(() => {
+        delete peerRemoveTimers.current[key];
         delete prevPeerPosRef.current[key];
         if (peerWalkTimers.current[key]) window.clearTimeout(peerWalkTimers.current[key]);
         delete peerWalkTimers.current[key];
-      }
+        setPeers((p) => {
+          const next = { ...p };
+          delete next[key];
+          return next;
+        });
+      }, PEER_GONE_GRACE_MS);
     });
   };
 
@@ -499,6 +527,8 @@ function Index() {
     prevPeerPosRef.current = {};
     Object.values(peerWalkTimers.current).forEach((t) => window.clearTimeout(t));
     peerWalkTimers.current = {};
+    Object.values(peerRemoveTimers.current).forEach((t) => window.clearTimeout(t));
+    peerRemoveTimers.current = {};
     setPeerWalking({});
     setPeerDuration({});
 
@@ -529,12 +559,54 @@ function Index() {
     return () => {
       cancelled = true;
       if (awayTimer.current) window.clearTimeout(awayTimer.current);
+      Object.values(peerRemoveTimers.current).forEach((t) => window.clearTimeout(t));
+      peerRemoveTimers.current = {};
       leaveScenePresence(channelRef.current);
       channelRef.current = null;
       setPeers({});
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scene.id, character?.id]);
+
+  // ---------- Filet de sécurité : recalage local périodique ----------
+  // Relit toutes les PRESENCE_RESYNC_MS l'état de présence déjà en cache dans
+  // le navigateur (aucune requête réseau, c'est juste une relecture locale du
+  // client Supabase) et le refusionne. Corrige silencieusement tout pair
+  // resté "coincé" si jamais un événement "sync" avait été manqué.
+  useEffect(() => {
+    if (!character) return;
+    const id = window.setInterval(() => {
+      if (!channelRef.current || !userIdRef.current) return;
+      handlePeerUpdate(readPeersFromChannel(channelRef.current, userIdRef.current));
+    }, PRESENCE_RESYNC_MS);
+    return () => window.clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scene.id, character?.id]);
+
+  // ---------- Réannonce au retour d'onglet / de réseau ----------
+  // Un onglet mis en arrière-plan peut voir son WebSocket ralenti ou coupé
+  // par le navigateur. Dès qu'il redevient actif (onglet revisible, réseau
+  // qui revient), on renvoie une seule fois notre position — ça déclenche un
+  // "sync" frais pour tout le monde — et on se recale localement tout de
+  // suite plutôt que d'attendre le prochain passage du minuteur ci-dessus.
+  useEffect(() => {
+    const reannounce = () => {
+      if (!channelRef.current || !characterRef.current) return;
+      trackPresence(lastLogicalPosRef.current, 0, false);
+      if (userIdRef.current) {
+        handlePeerUpdate(readPeersFromChannel(channelRef.current, userIdRef.current));
+      }
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") reannounce();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("online", reannounce);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("online", reannounce);
+    };
+  }, []);
 
   const trackPresence = (nextPos: Point, ms: number, isWalking: boolean) => {
     if (!channelRef.current || !characterRef.current) return;
