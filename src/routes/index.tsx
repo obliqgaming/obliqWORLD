@@ -597,11 +597,16 @@ function Index() {
     setSelfAway(false);
 
     let cancelled = false;
-    scenesClient.auth.getSession().then(({ data }) => {
-      if (cancelled || !data.session?.user) return;
-      const userId = data.session.user.id;
-      userIdRef.current = userId;
+    let reconnectTimer: number | null = null;
+    let reconnectAttempt = 0;
 
+    // On prend la reconnexion en main nous-mêmes plutôt que de compter sur
+    // Supabase pour rejoindre le canal tout seul après une coupure : les
+    // journaux de test montrent un canal qui passe à CLOSED et ne retente
+    // ensuite plus jamais rien, même après plus d'une minute. Délai croissant
+    // (1s, 2s, 4s, 8s, plafonné à 10s) pour ne pas marteler le serveur.
+    const connect = (userId: string) => {
+      if (cancelled) return;
       leaveScenePresence(channelRef.current);
       channelRef.current = joinScenePresence(
         scene.id,
@@ -610,19 +615,37 @@ function Index() {
         handleChatReceived,
         // Chaque changement d'état du canal, visible dans le journal à
         // l'écran. Sur "SUBSCRIBED" (première fois ou après une coupure), on
-        // republie systématiquement notre position pour rester visible.
+        // republie systématiquement notre position pour rester visible et on
+        // réinitialise le compteur de tentatives. Sur une fermeture, on
+        // programme nous-mêmes une reconnexion.
         (status, err) => {
+          if (cancelled) return;
           logPresence(`état du canal : ${status}${err ? ` (${err.message})` : ""}`);
           if (status === "SUBSCRIBED") {
+            reconnectAttempt = 0;
             trackPresence(lastLogicalPosRef.current, 0, false);
             armAwayTimer();
+          } else if (status === "CLOSED" || status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+            reconnectAttempt += 1;
+            const delayMs = Math.min(1000 * 2 ** (reconnectAttempt - 1), 10000);
+            logPresence(`reconnexion dans ${Math.round(delayMs / 1000)}s (tentative ${reconnectAttempt})`);
+            if (reconnectTimer) window.clearTimeout(reconnectTimer);
+            reconnectTimer = window.setTimeout(() => connect(userId), delayMs);
           }
         },
       );
+    };
+
+    scenesClient.auth.getSession().then(({ data }) => {
+      if (cancelled || !data.session?.user) return;
+      const userId = data.session.user.id;
+      userIdRef.current = userId;
+      connect(userId);
     });
 
     return () => {
       cancelled = true;
+      if (reconnectTimer) window.clearTimeout(reconnectTimer);
       if (awayTimer.current) window.clearTimeout(awayTimer.current);
       Object.values(peerRemoveTimers.current).forEach((t) => window.clearTimeout(t));
       peerRemoveTimers.current = {};
