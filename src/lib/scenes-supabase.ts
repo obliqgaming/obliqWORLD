@@ -5,6 +5,12 @@ const SCENES_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_gfJOIX_L5Iq1y-4vMFKAHA_x
 
 const isBrowser = typeof window !== "undefined";
 
+// Journalise dans la console (F12) chaque étape de la présence temps réel :
+// connexions/reconnexions du canal et contenu de chaque synchro reçue. Utile
+// pour diagnostiquer un "je disparais pour les autres" avec des preuves
+// concrètes plutôt qu'en devinant. À repasser à false une fois le souci réglé.
+export const DEBUG_PRESENCE = true;
+
 export const scenesClient = createClient(SCENES_SUPABASE_URL, SCENES_SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     persistSession: isBrowser,
@@ -428,6 +434,14 @@ export function joinScenePresence(
   userId: string,
   onUpdate: (peers: Record<string, PeerState>) => void,
   onChatMessage?: (msg: ChatMessage) => void,
+  // Appelé à CHAQUE fois que ce canal devient "SUBSCRIBED" — la toute
+  // première fois, mais aussi à chaque RECONNEXION après une coupure réseau.
+  // C'est le seul endroit fiable pour savoir "je dois republier ma position
+  // maintenant" : le socket Supabase se reconnecte tout seul en interne,
+  // mais il ne renvoie jamais automatiquement le dernier track() envoyé — si
+  // personne ne le refait, on reste invisible pour les autres après une
+  // coupure, même quand tout a l'air normal de notre côté.
+  onSubscribed?: () => void,
 ): PresenceChannel {
   const channel = scenesClient.channel(`scene:${sceneId}`, {
     config: { presence: { key: userId } },
@@ -435,12 +449,19 @@ export function joinScenePresence(
 
   channel
     .on("presence", { event: "sync" }, () => {
-      onUpdate(readPeersFromChannel(channel, userId));
+      const peers = readPeersFromChannel(channel, userId);
+      if (DEBUG_PRESENCE) {
+        console.debug(`[presence] sync scene=${sceneId} peers=${Object.keys(peers).length}`, Object.keys(peers));
+      }
+      onUpdate(peers);
     })
     .on("broadcast", { event: "chat" }, ({ payload }) => {
       if (onChatMessage) onChatMessage(payload as ChatMessage);
     })
-    .subscribe();
+    .subscribe((status, err) => {
+      if (DEBUG_PRESENCE) console.debug(`[presence] channel status=${status} scene=${sceneId}`, err ?? "");
+      if (status === "SUBSCRIBED") onSubscribed?.();
+    });
 
   return channel;
 }

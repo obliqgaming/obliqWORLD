@@ -11,6 +11,7 @@ import {
   fetchScene,
   fetchSceneByName,
   fetchSceneExits,
+  DEBUG_PRESENCE,
   joinScenePresence,
   readPeersFromChannel,
   leaveScenePresence,
@@ -530,6 +531,7 @@ function Index() {
       }
       if (peerRemoveTimers.current[key]) return; // retrait déjà programmé
       peerRemoveTimers.current[key] = window.setTimeout(() => {
+        if (DEBUG_PRESENCE) console.debug(`[presence] retrait définitif après délai de grâce: ${key}`);
         delete peerRemoveTimers.current[key];
         delete prevPeerPosRef.current[key];
         if (peerWalkTimers.current[key]) window.clearTimeout(peerWalkTimers.current[key]);
@@ -584,18 +586,19 @@ function Index() {
       userIdRef.current = userId;
 
       leaveScenePresence(channelRef.current);
-      channelRef.current = joinScenePresence(scene.id, userId, handlePeerUpdate, handleChatReceived);
-
-      channelRef.current.track({
-        characterId: character.id,
-        name: character.name,
-        image_url: character.image_url,
-        position: pos,
-        duration: 0,
-        walking: false,
-        away: false,
-      } satisfies PeerState);
-      armAwayTimer();
+      channelRef.current = joinScenePresence(
+        scene.id,
+        userId,
+        handlePeerUpdate,
+        handleChatReceived,
+        // (Re)connexion confirmée — première fois ou après une coupure : on
+        // republie systématiquement notre position pour rester visible.
+        () => {
+          if (DEBUG_PRESENCE) console.debug("[presence] (re)connecté, republication de ma position");
+          trackPresence(lastLogicalPosRef.current, 0, false);
+          armAwayTimer();
+        },
+      );
     });
 
     return () => {
