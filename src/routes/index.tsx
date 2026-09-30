@@ -12,6 +12,7 @@ import {
   fetchSceneByName,
   fetchSceneExits,
   DEBUG_PRESENCE,
+  isChannelReady,
   joinScenePresence,
   readPeersFromChannel,
   leaveScenePresence,
@@ -160,6 +161,14 @@ function Index() {
   const [character, setCharacter] = useState<Character | null>(null);
   const [checkingCharacter, setCheckingCharacter] = useState(true);
   const [authIdentity, setAuthIdentity] = useState<AuthIdentity | null>(null);
+  // Journal visible à l'écran (dernières lignes), pour diagnostiquer sans
+  // avoir besoin d'ouvrir la console du navigateur (F12).
+  const [presenceLog, setPresenceLog] = useState<string[]>([]);
+  const lastLoggedPeerKeysRef = useRef<string>("");
+  const logPresence = (line: string) => {
+    if (DEBUG_PRESENCE) console.debug(`[presence] ${line}`);
+    setPresenceLog((l) => [...l.slice(-19), `${new Date().toLocaleTimeString()} ${line}`]);
+  };
   const [characterAssets, setCharacterAssets] = useState<VisualAsset[]>([]);
   const [pos, setPos] = useState<Point>({ x: 50, y: 70 });
   const [walking, setWalking] = useState(false);
@@ -490,6 +499,14 @@ function Index() {
 
   // ---------- Mise à jour locale des pairs (marche calculée nous-mêmes, pas confiance au réseau) ----------
   const handlePeerUpdate = (newPeers: Record<string, PeerState>) => {
+    // On ne journalise que si la liste change vraiment (sinon le recalage
+    // périodique, silencieux et sans coût réseau, noierait le journal sous
+    // des lignes identiques toutes les 4 secondes).
+    const keys = Object.keys(newPeers).sort().join(",");
+    if (keys !== lastLoggedPeerKeysRef.current) {
+      lastLoggedPeerKeysRef.current = keys;
+      logPresence(`pairs vus : ${Object.keys(newPeers).length}${keys ? ` [${keys.slice(0, 40)}]` : ""}`);
+    }
     // On fusionne plutôt que de remplacer : un pair en attente de retrait
     // (grâce ci-dessous) doit rester affiché même s'il n'est plus dans
     // newPeers pour l'instant.
@@ -531,7 +548,7 @@ function Index() {
       }
       if (peerRemoveTimers.current[key]) return; // retrait déjà programmé
       peerRemoveTimers.current[key] = window.setTimeout(() => {
-        if (DEBUG_PRESENCE) console.debug(`[presence] retrait définitif après délai de grâce: ${key}`);
+        logPresence(`retrait définitif après délai de grâce: ${key.slice(0, 8)}…`);
         delete peerRemoveTimers.current[key];
         delete prevPeerPosRef.current[key];
         if (peerWalkTimers.current[key]) window.clearTimeout(peerWalkTimers.current[key]);
@@ -591,12 +608,15 @@ function Index() {
         userId,
         handlePeerUpdate,
         handleChatReceived,
-        // (Re)connexion confirmée — première fois ou après une coupure : on
+        // Chaque changement d'état du canal, visible dans le journal à
+        // l'écran. Sur "SUBSCRIBED" (première fois ou après une coupure), on
         // republie systématiquement notre position pour rester visible.
-        () => {
-          if (DEBUG_PRESENCE) console.debug("[presence] (re)connecté, republication de ma position");
-          trackPresence(lastLogicalPosRef.current, 0, false);
-          armAwayTimer();
+        (status, err) => {
+          logPresence(`état du canal : ${status}${err ? ` (${err.message})` : ""}`);
+          if (status === "SUBSCRIBED") {
+            trackPresence(lastLogicalPosRef.current, 0, false);
+            armAwayTimer();
+          }
         },
       );
     });
@@ -655,6 +675,10 @@ function Index() {
 
   const trackPresence = (nextPos: Point, ms: number, isWalking: boolean) => {
     if (!channelRef.current || !characterRef.current) return;
+    if (!isChannelReady(channelRef.current)) {
+      logPresence(`position NON envoyée (canal pas encore ouvert, state=${channelRef.current.state})`);
+      return;
+    }
     channelRef.current.track({
       characterId: characterRef.current.id,
       name: characterRef.current.name,
@@ -834,7 +858,8 @@ function Index() {
     const msg: ChatMessage = { characterId: character.id, name: character.name, text, ts: Date.now() };
     setChatLog((log) => [...log.slice(-(CHAT_LOG_SIZE - 1)), msg]);
     showBubble(character.id, text);
-    broadcastChatMessage(channelRef.current, msg);
+    const sent = broadcastChatMessage(channelRef.current, msg);
+    if (!sent) logPresence(`message NON envoyé (canal pas encore ouvert, state=${channelRef.current.state})`);
     setChatInput("");
     bumpChatActivity();
     markActive();
@@ -1013,6 +1038,14 @@ function Index() {
           onDisconnect={handleDisconnect}
           className="absolute left-5 top-5 z-30"
         />
+        {DEBUG_PRESENCE && (
+          <div
+            className="pointer-events-none absolute bottom-2 left-2 z-30 max-w-[280px] rounded-md bg-black/70 p-2 font-mono text-[10px] leading-tight text-[#9effa0]"
+            style={{ whiteSpace: "pre-wrap" }}
+          >
+            {presenceLog.length === 0 ? "(journal de présence — en attente)" : presenceLog.join("\n")}
+          </div>
+        )}
       </div>
 
       {/* ---------- Chat calé en bas à gauche, habillé avec le cadre parchemin ----------

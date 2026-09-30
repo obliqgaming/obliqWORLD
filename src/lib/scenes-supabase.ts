@@ -434,14 +434,15 @@ export function joinScenePresence(
   userId: string,
   onUpdate: (peers: Record<string, PeerState>) => void,
   onChatMessage?: (msg: ChatMessage) => void,
-  // Appelé à CHAQUE fois que ce canal devient "SUBSCRIBED" — la toute
-  // première fois, mais aussi à chaque RECONNEXION après une coupure réseau.
-  // C'est le seul endroit fiable pour savoir "je dois republier ma position
-  // maintenant" : le socket Supabase se reconnecte tout seul en interne,
-  // mais il ne renvoie jamais automatiquement le dernier track() envoyé — si
-  // personne ne le refait, on reste invisible pour les autres après une
-  // coupure, même quand tout a l'air normal de notre côté.
-  onSubscribed?: () => void,
+  // Appelé à CHAQUE changement d'état du canal ("joining", "SUBSCRIBED",
+  // "CLOSED", "CHANNEL_ERROR", "TIMED_OUT"...) — pas seulement au premier
+  // succès. C'est le seul endroit fiable pour savoir "je dois republier ma
+  // position maintenant" (sur "SUBSCRIBED", y compris après une RECONNEXION
+  // suite à une coupure) : le socket Supabase se reconnecte tout seul en
+  // interne, mais il ne renvoie jamais automatiquement le dernier track()
+  // envoyé — si personne ne le refait, on reste invisible pour les autres
+  // après une coupure, même quand tout a l'air normal de notre côté.
+  onStatusChange?: (status: string, err?: Error) => void,
 ): PresenceChannel {
   const channel = scenesClient.channel(`scene:${sceneId}`, {
     config: { presence: { key: userId } },
@@ -460,10 +461,23 @@ export function joinScenePresence(
     })
     .subscribe((status, err) => {
       if (DEBUG_PRESENCE) console.debug(`[presence] channel status=${status} scene=${sceneId}`, err ?? "");
-      if (status === "SUBSCRIBED") onSubscribed?.();
+      onStatusChange?.(status, err);
     });
 
   return channel;
+}
+
+// Vrai seulement quand le canal est confirmé ouvert par le serveur
+// ("joined"). Sert de garde avant chaque track()/send() : si ce n'est pas
+// encore le cas, la bibliothèque Supabase peut basculer en douce sur une
+// requête REST de secours au lieu du WebSocket temps réel — un comportement
+// que la bibliothèque annonce elle-même comme bientôt supprimé, et qui ne
+// remet pas forcément à jour l'état de présence partagé de la même façon
+// qu'un vrai message WebSocket. On préfère sauter cet envoi et laisser la
+// reconnexion suivante (onSubscribed) republier l'état correct, plutôt que
+// risquer cette voie de secours peu fiable.
+export function isChannelReady(channel: PresenceChannel | null): boolean {
+  return channel?.state === "joined";
 }
 
 // Relit l'état de présence connu du navigateur pour cette scène (aucun appel
@@ -486,6 +500,11 @@ export function leaveScenePresence(channel: PresenceChannel | null) {
   if (channel) scenesClient.removeChannel(channel);
 }
 
-export function broadcastChatMessage(channel: PresenceChannel, msg: ChatMessage) {
+// Renvoie true si le message est parti, false s'il a été sauté faute de
+// canal ouvert (voir isChannelReady) — l'appelant peut alors prévenir le
+// joueur plutôt que de le laisser croire que le message est parti.
+export function broadcastChatMessage(channel: PresenceChannel, msg: ChatMessage): boolean {
+  if (!isChannelReady(channel)) return false;
   channel.send({ type: "broadcast", event: "chat", payload: msg });
+  return true;
 }
