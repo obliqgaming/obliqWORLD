@@ -1,5 +1,6 @@
 import { useState, type ChangeEvent, type MouseEvent } from "react";
-import { uploadDrawingAsCharacterAsset, type VisualAsset } from "../lib/scenes-supabase";
+import { uploadDrawingAsCharacterAsset, type AuthIdentity, type VisualAsset } from "../lib/scenes-supabase";
+import { AccountBadge } from "./AccountBadge";
 import { DrawingCanvas } from "./DrawingCanvas";
 import { SoundControl } from "./SoundControl";
 
@@ -10,6 +11,9 @@ export function CharacterSelect({
   onToggleMute,
   volume,
   onVolumeChange,
+  authIdentity,
+  onConnect,
+  onDisconnect,
 }: {
   assets: VisualAsset[];
   onChoose: (visualAssetId: string, name: string) => void;
@@ -17,6 +21,9 @@ export function CharacterSelect({
   onToggleMute: (e: MouseEvent) => void;
   volume: number;
   onVolumeChange: (e: ChangeEvent<HTMLInputElement>) => void;
+  authIdentity: AuthIdentity | null;
+  onConnect: (provider: "twitch" | "discord") => void;
+  onDisconnect: () => void;
 }) {
   const [tab, setTab] = useState<"existing" | "draw">("existing");
   const [name, setName] = useState("");
@@ -47,6 +54,12 @@ export function CharacterSelect({
         volume={volume}
         onVolumeChange={onVolumeChange}
         className="absolute right-5 top-5 z-10"
+      />
+      <AccountBadge
+        identity={authIdentity}
+        onConnect={onConnect}
+        onDisconnect={onDisconnect}
+        className="absolute left-5 top-5 z-10"
       />
 
       <div

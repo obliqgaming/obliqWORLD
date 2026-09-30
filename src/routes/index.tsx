@@ -3,7 +3,9 @@ import { useEffect, useRef, useState } from "react";
 import {
   broadcastChatMessage,
   computeDepthScale,
+  connectIdentityProvider,
   createCharacterWithAsset,
+  getAuthIdentity,
   fetchCharacterAssets,
   fetchMyCharacter,
   fetchScene,
@@ -16,6 +18,8 @@ import {
   pointInPolygon,
   saveCharacterPosition,
   scenesClient,
+  signOutToGuest,
+  type AuthIdentity,
   type Character,
   type ChatMessage,
   type PeerState,
@@ -25,6 +29,7 @@ import {
   type SceneExit,
   type VisualAsset,
 } from "../lib/scenes-supabase";
+import { AccountBadge } from "../components/AccountBadge";
 import { CharacterSelect } from "../components/CharacterSelect";
 import { SoundControl } from "../components/SoundControl";
 import { findPath } from "../lib/pathfinding";
@@ -153,6 +158,7 @@ function Index() {
   const [exits, setExits] = useState<SceneExit[]>([]);
   const [character, setCharacter] = useState<Character | null>(null);
   const [checkingCharacter, setCheckingCharacter] = useState(true);
+  const [authIdentity, setAuthIdentity] = useState<AuthIdentity | null>(null);
   const [characterAssets, setCharacterAssets] = useState<VisualAsset[]>([]);
   const [pos, setPos] = useState<Point>({ x: 50, y: 70 });
   const [walking, setWalking] = useState(false);
@@ -382,6 +388,42 @@ function Index() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [walking]);
+
+  // ---------- Statut de connexion (invité / Twitch / Discord), pour le badge ----------
+  useEffect(() => {
+    let cancelled = false;
+    getAuthIdentity()
+      .then((id) => {
+        if (!cancelled) setAuthIdentity(id);
+      })
+      .catch((e) => console.error("Auth identity lookup failed", e));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleConnectProvider = async (provider: "twitch" | "discord") => {
+    try {
+      await connectIdentityProvider(provider);
+      // connectIdentityProvider redirige la page entière vers Twitch/Discord ;
+      // on ne revient ici que si ça a échoué avant la redirection.
+    } catch (e) {
+      console.error("Connexion échouée", e);
+      window.alert(
+        "La connexion a échoué. Si tu es dans l'aperçu Lovable, ouvre le site publié et réessaie depuis là.",
+      );
+    }
+  };
+
+  const handleDisconnect = async () => {
+    try {
+      await signOutToGuest();
+    } finally {
+      // Une nouvelle session invité doit être recréée proprement : on
+      // recharge plutôt que de tenter de tout réinitialiser à la main.
+      window.location.reload();
+    }
+  };
 
   // ---------- Personnage : on vérifie s'il existe déjà, sinon on demande à en choisir un ----------
   useEffect(() => {
@@ -808,6 +850,9 @@ function Index() {
         onToggleMute={toggleMute}
         volume={volume}
         onVolumeChange={handleVolumeChange}
+        authIdentity={authIdentity}
+        onConnect={handleConnectProvider}
+        onDisconnect={handleDisconnect}
       />
     );
   }
@@ -958,6 +1003,12 @@ function Index() {
           volume={volume}
           onVolumeChange={handleVolumeChange}
           className="absolute right-5 top-5 z-30"
+        />
+        <AccountBadge
+          identity={authIdentity}
+          onConnect={handleConnectProvider}
+          onDisconnect={handleDisconnect}
+          className="absolute left-5 top-5 z-30"
         />
       </div>
 

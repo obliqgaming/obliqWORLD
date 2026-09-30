@@ -107,6 +107,68 @@ export async function ensureUserId(): Promise<string> {
   return signIn.user.id;
 }
 
+// ---------- Connexion Twitch / Discord (par-dessus le mode invité anonyme) ----------
+
+export type AuthIdentity = {
+  isAnonymous: boolean;
+  provider: "twitch" | "discord" | null;
+  displayName: string | null;
+  avatarUrl: string | null;
+};
+
+// Qui est connecté en ce moment (invité anonyme, ou via Twitch/Discord), pour
+// afficher un badge de statut. N'appelle aucune API externe : relit juste la
+// session déjà en cache localement.
+export async function getAuthIdentity(): Promise<AuthIdentity> {
+  const { data } = await scenesClient.auth.getSession();
+  const user = data.session?.user;
+  if (!user) return { isAnonymous: true, provider: null, displayName: null, avatarUrl: null };
+  const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
+  const rawProvider = user.app_metadata?.["provider"];
+  const provider = rawProvider === "twitch" || rawProvider === "discord" ? rawProvider : null;
+  const pick = (...keys: string[]) => keys.map((k) => meta[k]).find((v) => typeof v === "string") as string | undefined;
+  return {
+    isAnonymous: !!user.is_anonymous,
+    provider,
+    displayName: pick("full_name", "name", "user_name", "preferred_username") ?? null,
+    avatarUrl: pick("avatar_url", "picture") ?? null,
+  };
+}
+
+// Connecte le joueur avec Twitch ou Discord. Redirige la page entière vers le
+// fournisseur puis revient ici (impossible à tester dans l'aperçu Lovable en
+// iframe : il faut tester sur le site publié).
+//
+// S'il jouait déjà en invité (session anonyme), on RATTACHE ce compte à la
+// session en cours (linkIdentity) plutôt que d'en ouvrir une nouvelle : même
+// user_id qu'avant, donc le personnage déjà créé est conservé tel quel.
+// Exception : si ce compte Twitch/Discord est déjà rattaché à un AUTRE compte
+// (reconnexion depuis un nouvel appareil), linkIdentity refuse — on se
+// connecte alors normalement à ce compte existant, ce qui abandonne le
+// personnage invité actuel de cet appareil (son historique n'est pas perdu,
+// juste plus accessible sans se reconnecter en invité avant de lier un autre
+// compte).
+export async function connectIdentityProvider(provider: "twitch" | "discord"): Promise<void> {
+  await ensureUserId();
+  const { data } = await scenesClient.auth.getSession();
+  const redirectTo = window.location.href.split("#")[0];
+
+  if (data.session?.user?.is_anonymous) {
+    const { error } = await scenesClient.auth.linkIdentity({ provider, options: { redirectTo } });
+    if (!error) return;
+  }
+
+  const { error } = await scenesClient.auth.signInWithOAuth({ provider, options: { redirectTo } });
+  if (error) throw error;
+}
+
+// Retour au mode invité : ferme la session connectée. Le personnage lié au
+// compte Twitch/Discord n'est pas supprimé, juste laissé de côté tant qu'on
+// ne se reconnecte pas avec ce compte.
+export async function signOutToGuest(): Promise<void> {
+  await scenesClient.auth.signOut();
+}
+
 // ---------- Scènes ----------
 // Un seul polygone a été généré à l'origine sous forme de paires [x, y]
 // (sortie brute de l'extraction OpenCV), mais le reste du code (positions de
