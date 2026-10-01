@@ -5,11 +5,28 @@ const SCENES_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_gfJOIX_L5Iq1y-4vMFKAHA_x
 
 const isBrowser = typeof window !== "undefined";
 
-// Journalise dans la console (F12) chaque étape de la présence temps réel :
-// connexions/reconnexions du canal et contenu de chaque synchro reçue. Utile
-// pour diagnostiquer un "je disparais pour les autres" avec des preuves
-// concrètes plutôt qu'en devinant. À repasser à false une fois le souci réglé.
-export const DEBUG_PRESENCE = true;
+// Journalise (console F12 + panneau à l'écran) chaque étape de la présence
+// temps réel : connexions/reconnexions du canal, contenu de chaque synchro
+// reçue. Désactivé par défaut pour ne pas l'imposer à tout le monde (viewers
+// du stream inclus) ; activable à la volée en jeu via le bouton discret à
+// côté du son, ou en tapant "/debug" dans le tchat. Mémorisé par navigateur.
+const DEBUG_PRESENCE_KEY = "auberge-debug-presence";
+let debugPresenceEnabled = isBrowser && localStorage.getItem(DEBUG_PRESENCE_KEY) === "1";
+
+export function isPresenceDebugEnabled(): boolean {
+  return debugPresenceEnabled;
+}
+
+export function setPresenceDebugEnabled(enabled: boolean): void {
+  debugPresenceEnabled = enabled;
+  if (!isBrowser) return;
+  try {
+    localStorage.setItem(DEBUG_PRESENCE_KEY, enabled ? "1" : "0");
+  } catch {
+    // stockage indisponible (navigation privée très restrictive) : tant pis,
+    // le réglage ne survivra juste pas à un rechargement.
+  }
+}
 
 export const scenesClient = createClient(SCENES_SUPABASE_URL, SCENES_SUPABASE_PUBLISHABLE_KEY, {
   auth: {
@@ -451,7 +468,7 @@ export function joinScenePresence(
   channel
     .on("presence", { event: "sync" }, () => {
       const peers = readPeersFromChannel(channel, userId);
-      if (DEBUG_PRESENCE) {
+      if (isPresenceDebugEnabled()) {
         console.debug(`[presence] sync scene=${sceneId} peers=${Object.keys(peers).length}`, Object.keys(peers));
       }
       onUpdate(peers);
@@ -460,7 +477,7 @@ export function joinScenePresence(
       if (onChatMessage) onChatMessage(payload as ChatMessage);
     })
     .subscribe((status, err) => {
-      if (DEBUG_PRESENCE) console.debug(`[presence] channel status=${status} scene=${sceneId}`, err ?? "");
+      if (isPresenceDebugEnabled()) console.debug(`[presence] channel status=${status} scene=${sceneId}`, err ?? "");
       onStatusChange?.(status, err);
     });
 

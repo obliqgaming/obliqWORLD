@@ -14,6 +14,8 @@ export function CharacterSelect({
   authIdentity,
   onConnect,
   onDisconnect,
+  error,
+  busy,
 }: {
   assets: VisualAsset[];
   onChoose: (visualAssetId: string, name: string) => void;
@@ -24,6 +26,10 @@ export function CharacterSelect({
   authIdentity: AuthIdentity | null;
   onConnect: (provider: "twitch" | "discord") => void;
   onDisconnect: () => void;
+  // Message à afficher si le chargement/la création du personnage a échoué,
+  // et si une création est en cours (désactive "Confirmer" entre-temps).
+  error?: string | null;
+  busy?: boolean;
 }) {
   const [tab, setTab] = useState<"existing" | "draw">("existing");
   const [name, setName] = useState("");
@@ -84,6 +90,12 @@ export function CharacterSelect({
           Choisis ton personnage
         </h2>
 
+        {error && (
+          <p className="mb-4 rounded-lg border-2 border-red-700/60 bg-red-900/20 px-3 py-2 text-center text-sm font-bold text-red-800">
+            {error}
+          </p>
+        )}
+
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -131,11 +143,11 @@ export function CharacterSelect({
             </div>
             <button
               type="button"
-              disabled={!selected}
+              disabled={!selected || !!busy}
               onClick={confirmExisting}
               className="mt-4 w-full rounded-lg bg-[#7a4a22] py-2 font-bold text-[#fff3d6] disabled:opacity-40"
             >
-              Confirmer
+              {busy ? "Création…" : "Confirmer"}
             </button>
           </div>
         ) : (

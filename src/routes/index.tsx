@@ -11,8 +11,8 @@ import {
   fetchScene,
   fetchSceneByName,
   fetchSceneExits,
-  DEBUG_PRESENCE,
   isChannelReady,
+  isPresenceDebugEnabled,
   joinScenePresence,
   readPeersFromChannel,
   leaveScenePresence,
@@ -20,6 +20,7 @@ import {
   pointInPolygon,
   saveCharacterPosition,
   scenesClient,
+  setPresenceDebugEnabled,
   signOutToGuest,
   type AuthIdentity,
   type Character,
@@ -160,14 +161,26 @@ function Index() {
   const [exits, setExits] = useState<SceneExit[]>([]);
   const [character, setCharacter] = useState<Character | null>(null);
   const [checkingCharacter, setCheckingCharacter] = useState(true);
+  // Message affiché si le chargement ou la création de personnage échoue
+  // (session invitée impossible, réseau, etc.) — avant, ces échecs n'étaient
+  // visibles que dans la console, donnant l'impression d'un écran qui ne
+  // réagit à rien (c'est ce qu'on soupçonne pour le souci sur iPad).
+  const [characterError, setCharacterError] = useState<string | null>(null);
+  const [creatingCharacter, setCreatingCharacter] = useState(false);
   const [authIdentity, setAuthIdentity] = useState<AuthIdentity | null>(null);
   // Journal visible à l'écran (dernières lignes), pour diagnostiquer sans
   // avoir besoin d'ouvrir la console du navigateur (F12).
   const [presenceLog, setPresenceLog] = useState<string[]>([]);
+  const [presenceDebugOn, setPresenceDebugOnState] = useState(() => isPresenceDebugEnabled());
   const lastLoggedPeerKeysRef = useRef<string>("");
   const logPresence = (line: string) => {
-    if (DEBUG_PRESENCE) console.debug(`[presence] ${line}`);
+    if (isPresenceDebugEnabled()) console.debug(`[presence] ${line}`);
     setPresenceLog((l) => [...l.slice(-19), `${new Date().toLocaleTimeString()} ${line}`]);
+  };
+  const togglePresenceDebug = () => {
+    const next = !isPresenceDebugEnabled();
+    setPresenceDebugEnabled(next);
+    setPresenceDebugOnState(next);
   };
   const [characterAssets, setCharacterAssets] = useState<VisualAsset[]>([]);
   const [pos, setPos] = useState<Point>({ x: 50, y: 70 });
@@ -452,7 +465,10 @@ function Index() {
           });
         }
       })
-      .catch((e) => console.error("Character lookup failed", e))
+      .catch((e) => {
+        console.error("Character lookup failed", e);
+        if (!cancelled) setCharacterError("Impossible de charger ton personnage. Vérifie ta connexion et réessaie.");
+      })
       .finally(() => {
         if (!cancelled) setCheckingCharacter(false);
       });
@@ -463,11 +479,20 @@ function Index() {
   }, []);
 
   const handleCharacterChosen = async (visualAssetId: string, name: string) => {
-    const c = await createCharacterWithAsset(scene.id, visualAssetId, name);
-    setCharacter(c);
-    characterRef.current = c;
-    setPos(c.position);
-    lastLogicalPosRef.current = c.position;
+    setCharacterError(null);
+    setCreatingCharacter(true);
+    try {
+      const c = await createCharacterWithAsset(scene.id, visualAssetId, name);
+      setCharacter(c);
+      characterRef.current = c;
+      setPos(c.position);
+      lastLogicalPosRef.current = c.position;
+    } catch (e) {
+      console.error("Character creation failed", e);
+      setCharacterError("La création du personnage a échoué. Vérifie ta connexion et réessaie.");
+    } finally {
+      setCreatingCharacter(false);
+    }
   };
 
   useEffect(() => () => {
@@ -598,13 +623,23 @@ function Index() {
 
     let cancelled = false;
     let reconnectTimer: number | null = null;
+    let stableTimer: number | null = null;
     let reconnectAttempt = 0;
+    // Délai minimum qu'une connexion doit tenir avant qu'on considère qu'elle
+    // est vraiment stable et qu'on remette le compteur de tentatives à zéro.
+    // SANS ce délai, un canal qui se referme aussitôt après chaque
+    // "SUBSCRIBED" (vu en test : boucle toutes les 1s, indéfiniment) fait
+    // repartir le compteur à 0 à chaque fois → le délai de reconnexion ne
+    // dépasse jamais 1s et on martèle le serveur sans jamais laisser une
+    // vraie chance à la connexion de se stabiliser.
+    const STABLE_AFTER_MS = 8000;
 
     // On prend la reconnexion en main nous-mêmes plutôt que de compter sur
     // Supabase pour rejoindre le canal tout seul après une coupure : les
     // journaux de test montrent un canal qui passe à CLOSED et ne retente
-    // ensuite plus jamais rien, même après plus d'une minute. Délai croissant
-    // (1s, 2s, 4s, 8s, plafonné à 10s) pour ne pas marteler le serveur.
+    // ensuite plus jamais rien tout seul. Délai croissant (1s, 2s, 4s, 8s,
+    // plafonné à 10s), qui n'est remis à zéro qu'après STABLE_AFTER_MS de
+    // connexion effective — pas à chaque "SUBSCRIBED" isolé.
     const connect = (userId: string) => {
       if (cancelled) return;
       leaveScenePresence(channelRef.current);
@@ -615,17 +650,20 @@ function Index() {
         handleChatReceived,
         // Chaque changement d'état du canal, visible dans le journal à
         // l'écran. Sur "SUBSCRIBED" (première fois ou après une coupure), on
-        // republie systématiquement notre position pour rester visible et on
-        // réinitialise le compteur de tentatives. Sur une fermeture, on
-        // programme nous-mêmes une reconnexion.
+        // republie systématiquement notre position pour rester visible. Sur
+        // une fermeture, on programme nous-mêmes une reconnexion.
         (status, err) => {
           if (cancelled) return;
           logPresence(`état du canal : ${status}${err ? ` (${err.message})` : ""}`);
           if (status === "SUBSCRIBED") {
-            reconnectAttempt = 0;
+            if (stableTimer) window.clearTimeout(stableTimer);
+            stableTimer = window.setTimeout(() => {
+              reconnectAttempt = 0;
+            }, STABLE_AFTER_MS);
             trackPresence(lastLogicalPosRef.current, 0, false);
             armAwayTimer();
           } else if (status === "CLOSED" || status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+            if (stableTimer) window.clearTimeout(stableTimer);
             reconnectAttempt += 1;
             const delayMs = Math.min(1000 * 2 ** (reconnectAttempt - 1), 10000);
             logPresence(`reconnexion dans ${Math.round(delayMs / 1000)}s (tentative ${reconnectAttempt})`);
@@ -646,6 +684,7 @@ function Index() {
     return () => {
       cancelled = true;
       if (reconnectTimer) window.clearTimeout(reconnectTimer);
+      if (stableTimer) window.clearTimeout(stableTimer);
       if (awayTimer.current) window.clearTimeout(awayTimer.current);
       Object.values(peerRemoveTimers.current).forEach((t) => window.clearTimeout(t));
       peerRemoveTimers.current = {};
@@ -878,6 +917,15 @@ function Index() {
     const text = chatInput.trim();
     if (!text || !character || !channelRef.current) return;
 
+    // Petite commande cachée pour activer/désactiver le panneau de diagnostic
+    // de présence sans passer par le bouton — pratique en live. Ne part pas
+    // dans le tchat des autres joueurs.
+    if (text === "/debug") {
+      togglePresenceDebug();
+      setChatInput("");
+      return;
+    }
+
     const msg: ChatMessage = { characterId: character.id, name: character.name, text, ts: Date.now() };
     setChatLog((log) => [...log.slice(-(CHAT_LOG_SIZE - 1)), msg]);
     showBubble(character.id, text);
@@ -904,6 +952,8 @@ function Index() {
         authIdentity={authIdentity}
         onConnect={handleConnectProvider}
         onDisconnect={handleDisconnect}
+        error={characterError}
+        busy={creatingCharacter}
       />
     );
   }
@@ -1036,18 +1086,6 @@ function Index() {
           );
         })}
 
-        <h1
-          className="pointer-events-none absolute left-6 top-6 z-30 select-none text-5xl font-extrabold tracking-wide sm:text-6xl"
-          style={{
-            fontFamily: "'Baloo 2', cursive",
-            color: "#fff3d6",
-            textShadow: "0 2px 0 #b4531f, 0 4px 0 rgba(87, 42, 12, 0.55), 0 8px 22px rgba(43, 20, 6, 0.6)",
-            transform: "rotate(-2deg)",
-          }}
-        >
-          {scene.name}
-        </h1>
-
         <SoundControl
           muted={muted}
           onToggleMute={toggleMute}
@@ -1055,13 +1093,23 @@ function Index() {
           onVolumeChange={handleVolumeChange}
           className="absolute right-5 top-5 z-30"
         />
+        {/* Bouton très discret pour activer/désactiver le panneau de
+            diagnostic réseau — mêmes infos que taper "/debug" dans le tchat.
+            Un simple point, pas une icône voyante : pas destiné aux joueurs. */}
+        <button
+          type="button"
+          onClick={togglePresenceDebug}
+          title="Diagnostic réseau (ou tape /debug dans le tchat)"
+          className="absolute right-5 top-16 z-30 h-2.5 w-2.5 rounded-full opacity-40 transition-opacity hover:opacity-90"
+          style={{ background: presenceDebugOn ? "#9effa0" : "#fff3d6" }}
+        />
         <AccountBadge
           identity={authIdentity}
           onConnect={handleConnectProvider}
           onDisconnect={handleDisconnect}
           className="absolute left-5 top-5 z-30"
         />
-        {DEBUG_PRESENCE && (
+        {presenceDebugOn && (
           <div
             className="pointer-events-none absolute bottom-2 left-2 z-30 max-w-[280px] rounded-md bg-black/70 p-2 font-mono text-[10px] leading-tight text-[#9effa0]"
             style={{ whiteSpace: "pre-wrap" }}
@@ -1071,24 +1119,19 @@ function Index() {
         )}
       </div>
 
-      {/* ---------- Chat calé en bas à gauche, habillé avec le cadre parchemin ----------
-          IMPORTANT : ce conteneur décoratif est pointer-events-none — seuls le
-          log (pour le scroll) et le formulaire (input + bouton) réactivent les
-          clics. Ça évite que le cadre (même s'il est plus grand que ce qu'on
-          voit) ne vole des clics destinés au sol de la scène.
+      {/* ---------- Chat calé en bas à gauche, flottant directement sur le décor ----------
+          Plus de cadre parchemin : texte clair + ombre portée pour rester
+          lisible sur n'importe quel fond, sombre ou clair. Conteneur
+          pointer-events-none — seuls le log (pour le scroll) et le formulaire
+          (input + bouton) réactivent les clics, pour ne pas voler de clics
+          destinés au sol de la scène.
           Devient ~90% transparent après 15s sans nouveau message, et repasse
           net dès qu'on le survole (le survol relance aussi les 15s au moment
           où la souris ressort). */}
       <div className="pointer-events-none absolute bottom-3 left-3 z-40 w-[min(560px,88vw)]">
         <div
-          className="flex flex-col justify-center transition-opacity duration-300"
+          className="flex flex-col justify-end gap-1 px-2 py-1 transition-opacity duration-300"
           style={{
-            minHeight: 260, // deux fois plus d'espace utile qu'avant pour lire plusieurs lignes
-            borderStyle: "solid",
-            borderWidth: "40px 62px 36px 74px",
-            borderImageSource: "url('/ui/chat-frame.png')",
-            borderImageSlice: "130 230 120 260 fill",
-            borderImageRepeat: "stretch",
             opacity: chatIdle && !chatHovered ? CHAT_IDLE_OPACITY : 1,
             pointerEvents: "auto",
           }}
@@ -1099,13 +1142,17 @@ function Index() {
           }}
         >
           <div
-            className="pointer-events-auto flex max-h-36 flex-col gap-0.5 overflow-y-auto pr-1 text-sm"
-            style={{ fontFamily: "'Baloo 2', cursive", color: "#3a2210" }}
+            className="no-scrollbar pointer-events-auto flex max-h-36 flex-col gap-0.5 overflow-y-auto pr-1 text-sm"
+            style={{
+              fontFamily: "'Baloo 2', cursive",
+              color: "#fff3d6",
+              textShadow: "0 1px 0 #2b1406, 0 1px 6px rgba(0, 0, 0, 0.85)",
+            }}
           >
-            {chatLog.length === 0 && <p className="text-[#6b4a2c]/70">Le t'chat est vide pour l'instant…</p>}
+            {chatLog.length === 0 && <p className="opacity-70">Le t'chat est vide pour l'instant…</p>}
             {chatLog.map((m, i) => (
               <p key={i}>
-                <span className="font-bold text-[#7a3a12]">{m.name} :</span> {m.text}
+                <span className="font-bold">{m.name} :</span> {m.text}
               </p>
             ))}
           </div>
@@ -1115,10 +1162,18 @@ function Index() {
               onChange={(e) => setChatInput(e.target.value)}
               maxLength={200}
               placeholder="Écrire un message…"
-              className="flex-1 bg-transparent text-sm outline-none placeholder:text-[#6b4a2c]/50"
-              style={{ color: "#2a180c", fontFamily: "'Baloo 2', cursive" }}
+              className="flex-1 rounded-md bg-black/35 px-2 py-1 text-sm outline-none placeholder:text-[#fff3d6]/50"
+              style={{
+                color: "#fff3d6",
+                fontFamily: "'Baloo 2', cursive",
+                textShadow: "0 1px 4px rgba(0, 0, 0, 0.7)",
+              }}
             />
-            <button type="submit" className="text-sm font-bold text-[#7a3a12] hover:text-[#4a2408]">
+            <button
+              type="submit"
+              className="rounded-md bg-black/35 px-3 text-sm font-bold text-[#fff3d6] hover:bg-black/50"
+              style={{ textShadow: "0 1px 4px rgba(0, 0, 0, 0.7)" }}
+            >
               Envoyer
             </button>
           </form>

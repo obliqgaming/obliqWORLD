@@ -142,3 +142,12 @@
     color: var(--color-foreground);
   }
 }
+
+/* Scroll possible mais barre invisible (ex. le log du tchat). */
+.no-scrollbar {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* vieux Edge */
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari */
+}

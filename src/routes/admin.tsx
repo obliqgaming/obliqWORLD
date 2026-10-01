@@ -1,20 +1,22 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import {
+  connectIdentityProvider,
   ensureUserId,
   fetchAllScenes,
   fetchScene,
   fetchSceneExits,
+  getAuthIdentity,
   updateSceneExitPosition,
   updateSceneZones,
+  type AuthIdentity,
   type DepthScale,
   type Point,
   type Scene,
   type SceneExit,
 } from "../lib/scenes-supabase";
 
-// Page d'admin volontairement non reliée au menu du jeu (accessible seulement
-// en tapant l'URL /admin) : permet de dessiner les pièces (zone marchable), les
+// Page d'admin : permet de dessiner les pièces (zone marchable), les
 // obstacles (tables, meubles isolés) et la calibration de profondeur (taille du
 // perso selon sa hauteur dans le décor) directement sur l'image de chaque
 // scène, à la souris, et d'enregistrer en un clic dans Supabase.
@@ -25,8 +27,72 @@ import {
 // scène, le brouillon est toujours là au retour sur cette scène — la page te
 // proposera de le reprendre.
 export const Route = createFileRoute("/admin")({
-  component: AdminPage,
+  component: AdminGate,
 });
+
+// Identifiant Twitch (login, pas le nom d'affichage) du seul compte autorisé
+// à ouvrir cette page. ATTENTION : ce contrôle, à lui seul, n'est qu'un
+// confort d'interface — n'importe qui qui connaît l'API Supabase pourrait
+// contourner cet écran en appelant directement les fonctions d'écriture. La
+// VRAIE protection doit venir de la policy RLS d'écriture sur `scenes` et
+// `scene_exits`, restreinte au même compte côté base de données (voir le
+// message qui accompagne ce correctif pour le SQL à exécuter).
+const ADMIN_TWITCH_LOGIN = "obliqpainting";
+
+function isAuthorizedAdmin(identity: AuthIdentity | null): boolean {
+  if (!identity || identity.isAnonymous || identity.provider !== "twitch") return false;
+  return (identity.displayName ?? "").toLowerCase() === ADMIN_TWITCH_LOGIN;
+}
+
+function AdminGate() {
+  const [identity, setIdentity] = useState<AuthIdentity | null>(null);
+  const [checking, setChecking] = useState(true);
+  const [connecting, setConnecting] = useState(false);
+
+  useEffect(() => {
+    getAuthIdentity()
+      .then(setIdentity)
+      .catch((err) => console.error("admin: lecture identité impossible", err))
+      .finally(() => setChecking(false));
+  }, []);
+
+  if (checking) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-[#1a0f07] text-[#fff3d6]">
+        Vérification…
+      </div>
+    );
+  }
+
+  if (!isAuthorizedAdmin(identity)) {
+    return (
+      <div className="flex h-screen w-screen flex-col items-center justify-center gap-4 bg-[#1a0f07] px-4 text-center text-[#fff3d6]">
+        <p className="text-lg font-bold">Accès réservé</p>
+        <p className="max-w-sm text-sm opacity-80">
+          Cette page n'est accessible qu'au compte Twitch {ADMIN_TWITCH_LOGIN}.
+        </p>
+        <button
+          type="button"
+          disabled={connecting}
+          onClick={async () => {
+            setConnecting(true);
+            try {
+              await connectIdentityProvider("twitch");
+            } catch (err) {
+              console.error("admin: connexion Twitch impossible", err);
+              setConnecting(false);
+            }
+          }}
+          className="rounded-full bg-[#9146FF] px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+        >
+          {connecting ? "…" : "Se connecter avec Twitch"}
+        </button>
+      </div>
+    );
+  }
+
+  return <AdminPage />;
+}
 
 type Mode = "room" | "obstacle" | "depth" | "exit";
 type DepthKey = "y80" | "y100" | "y120";
