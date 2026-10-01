@@ -137,6 +137,11 @@ export type AuthIdentity = {
   provider: "twitch" | "discord" | null;
   displayName: string | null;
   avatarUrl: string | null;
+  // Identifiant Supabase (auth.uid()) de la session en cours — c'est très
+  // exactement ce que vérifie une policy RLS, donc c'est l'identifiant le
+  // plus fiable pour verrouiller une page comme /admin à un seul compte
+  // (plus fiable qu'un nom, qui pourrait changer).
+  userId: string | null;
 };
 
 // Qui est connecté en ce moment (invité anonyme, ou via Twitch/Discord), pour
@@ -145,7 +150,7 @@ export type AuthIdentity = {
 export async function getAuthIdentity(): Promise<AuthIdentity> {
   const { data } = await scenesClient.auth.getSession();
   const user = data.session?.user;
-  if (!user) return { isAnonymous: true, provider: null, displayName: null, avatarUrl: null };
+  if (!user) return { isAnonymous: true, provider: null, displayName: null, avatarUrl: null, userId: null };
   const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
   const rawProvider = user.app_metadata?.["provider"];
   const provider = rawProvider === "twitch" || rawProvider === "discord" ? rawProvider : null;
@@ -153,7 +158,11 @@ export async function getAuthIdentity(): Promise<AuthIdentity> {
   return {
     isAnonymous: !!user.is_anonymous,
     provider,
-    displayName: pick("full_name", "name", "user_name", "preferred_username") ?? null,
+    userId: user.id,
+    // Twitch range le login sous name/slug/nickname/full_name (jamais
+    // user_name/preferred_username malgré ce qu'on pourrait attendre) ;
+    // Discord utilise plutôt user_name/preferred_username. On couvre les deux.
+    displayName: pick("nickname", "slug", "user_name", "preferred_username", "full_name", "name") ?? null,
     avatarUrl: pick("avatar_url", "picture") ?? null,
   };
 }

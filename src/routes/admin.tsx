@@ -30,18 +30,18 @@ export const Route = createFileRoute("/admin")({
   component: AdminGate,
 });
 
-// Identifiant Twitch (login, pas le nom d'affichage) du seul compte autorisé
-// à ouvrir cette page. ATTENTION : ce contrôle, à lui seul, n'est qu'un
-// confort d'interface — n'importe qui qui connaît l'API Supabase pourrait
-// contourner cet écran en appelant directement les fonctions d'écriture. La
-// VRAIE protection doit venir de la policy RLS d'écriture sur `scenes` et
-// `scene_exits`, restreinte au même compte côté base de données (voir le
-// message qui accompagne ce correctif pour le SQL à exécuter).
-const ADMIN_TWITCH_LOGIN = "obliqpainting";
+// Identifiant Supabase (auth.uid(), compte Twitch obliqpainting) du seul
+// compte autorisé à ouvrir cette page. ATTENTION : ce contrôle, à lui seul,
+// n'est qu'un confort d'interface — n'importe qui qui connaît l'API Supabase
+// pourrait contourner cet écran en appelant directement les fonctions
+// d'écriture. La VRAIE protection vient de la policy RLS d'écriture sur
+// `scenes` et `scene_exits`, restreinte au même compte côté base de données
+// (voir "only admin can update scene zones" / "...scene exit position").
+const ADMIN_USER_ID = "03fcd13f-b0a1-4092-ba83-0469c035b09c";
 
 function isAuthorizedAdmin(identity: AuthIdentity | null): boolean {
-  if (!identity || identity.isAnonymous || identity.provider !== "twitch") return false;
-  return (identity.displayName ?? "").toLowerCase() === ADMIN_TWITCH_LOGIN;
+  if (!identity || identity.isAnonymous) return false;
+  return identity.userId === ADMIN_USER_ID;
 }
 
 function AdminGate() {
@@ -69,7 +69,7 @@ function AdminGate() {
       <div className="flex h-screen w-screen flex-col items-center justify-center gap-4 bg-[#1a0f07] px-4 text-center text-[#fff3d6]">
         <p className="text-lg font-bold">Accès réservé</p>
         <p className="max-w-sm text-sm opacity-80">
-          Cette page n'est accessible qu'au compte Twitch {ADMIN_TWITCH_LOGIN}.
+          Cette page n'est accessible qu'au compte Twitch obliqpainting.
         </p>
         <button
           type="button"
