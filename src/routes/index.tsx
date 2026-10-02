@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import {
   broadcastChatMessage,
+  broadcastMove,
   computeDepthScale,
   connectIdentityProvider,
   createCharacterWithAsset,
@@ -523,14 +524,21 @@ function Index() {
   }, [scene.id]);
 
   // ---------- Mise à jour locale des pairs (marche calculée nous-mêmes, pas confiance au réseau) ----------
-  const handlePeerUpdate = (newPeers: Record<string, PeerState>) => {
-    // On ne journalise que si la liste change vraiment (sinon le recalage
-    // périodique, silencieux et sans coût réseau, noierait le journal sous
-    // des lignes identiques toutes les 4 secondes).
-    const keys = Object.keys(newPeers).sort().join(",");
-    if (keys !== lastLoggedPeerKeysRef.current) {
-      lastLoggedPeerKeysRef.current = keys;
-      logPresence(`pairs vus : ${Object.keys(newPeers).length}${keys ? ` [${keys.slice(0, 40)}]` : ""}`);
+  // isFullRoster=true pour un instantané complet (sync Presence, recalage
+  // périodique) : un pair connu absent de newPeers a vraiment quitté. false
+  // pour la position d'un seul pair reçue via Broadcast pendant une marche :
+  // les autres pairs ne sont juste pas concernés par ce message précis et ne
+  // doivent surtout pas être traités comme partis (sinon TOUT le monde se
+  // ferait reprogrammer un retrait à chaque pas de n'importe qui).
+  const handlePeerUpdate = (newPeers: Record<string, PeerState>, isFullRoster: boolean) => {
+    // On ne journalise que les instantanés complets qui changent vraiment
+    // (sinon chaque pas de marche, très fréquent, noierait le journal).
+    if (isFullRoster) {
+      const keys = Object.keys(newPeers).sort().join(",");
+      if (keys !== lastLoggedPeerKeysRef.current) {
+        lastLoggedPeerKeysRef.current = keys;
+        logPresence(`pairs vus : ${Object.keys(newPeers).length}${keys ? ` [${keys.slice(0, 40)}]` : ""}`);
+      }
     }
     // On fusionne plutôt que de remplacer : un pair en attente de retrait
     // (grâce ci-dessous) doit rester affiché même s'il n'est plus dans
@@ -561,6 +569,8 @@ function Index() {
         setPeerWalking((w) => ({ ...w, [key]: false }));
       }, ms);
     });
+
+    if (!isFullRoster) return; // un message Broadcast ne concerne qu'un seul pair, jamais un retrait
 
     Object.keys(prevPeerPosRef.current).forEach((key) => {
       if (key in newPeers) {
@@ -704,7 +714,7 @@ function Index() {
     if (!character) return;
     const id = window.setInterval(() => {
       if (!channelRef.current || !userIdRef.current) return;
-      handlePeerUpdate(readPeersFromChannel(channelRef.current, userIdRef.current));
+      handlePeerUpdate(readPeersFromChannel(channelRef.current, userIdRef.current), true);
     }, PRESENCE_RESYNC_MS);
     return () => window.clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -721,7 +731,7 @@ function Index() {
       if (!channelRef.current || !characterRef.current) return;
       trackPresence(lastLogicalPosRef.current, 0, false);
       if (userIdRef.current) {
-        handlePeerUpdate(readPeersFromChannel(channelRef.current, userIdRef.current));
+        handlePeerUpdate(readPeersFromChannel(channelRef.current, userIdRef.current), true);
       }
     };
     const onVisibility = () => {
@@ -735,21 +745,40 @@ function Index() {
     };
   }, []);
 
+  const buildPeerState = (nextPos: Point, ms: number, isWalking: boolean): PeerState => ({
+    characterId: characterRef.current!.id,
+    name: characterRef.current!.name,
+    image_url: characterRef.current!.image_url,
+    position: nextPos,
+    duration: ms,
+    walking: isWalking,
+    away: awayRef.current,
+  });
+
+  // Presence (track()) — réservée aux événements RARES : arrivée à
+  // destination, (re)connexion, passage absent/de retour. Supabase limite
+  // chaque connexion à 5 track() par 30 secondes et FERME le canal au-delà :
+  // voir broadcastWalkStep ci-dessous pour les mises à jour fréquentes.
   const trackPresence = (nextPos: Point, ms: number, isWalking: boolean) => {
     if (!channelRef.current || !characterRef.current) return;
     if (!isChannelReady(channelRef.current)) {
       logPresence(`position NON envoyée (canal pas encore ouvert, state=${channelRef.current.state})`);
       return;
     }
-    channelRef.current.track({
-      characterId: characterRef.current.id,
-      name: characterRef.current.name,
-      image_url: characterRef.current.image_url,
-      position: nextPos,
-      duration: ms,
-      walking: isWalking,
-      away: awayRef.current,
-    } satisfies PeerState);
+    channelRef.current.track(buildPeerState(nextPos, ms, isWalking));
+  };
+
+  // Broadcast (send()) — pour CHAQUE étape intermédiaire d'un trajet. Pas de
+  // limite de débit de ce type sur Broadcast (il ne maintient aucun état
+  // synchronisé côté serveur, juste un relais de message), contrairement à
+  // Presence ci-dessus.
+  const broadcastWalkStep = (nextPos: Point, ms: number, isWalking: boolean) => {
+    if (!channelRef.current || !characterRef.current || !userIdRef.current) return;
+    if (!isChannelReady(channelRef.current)) {
+      logPresence(`pas NON diffusé (canal pas encore ouvert, state=${channelRef.current.state})`);
+      return;
+    }
+    broadcastMove(channelRef.current, userIdRef.current, buildPeerState(nextPos, ms, isWalking));
   };
 
   // ---------- État absent : (ré)arme le compte à rebours de 2 minutes ----------
@@ -808,7 +837,7 @@ function Index() {
     setDuration(ms);
     setWalking(true);
     setPos(next);
-    trackPresence(next, ms, true);
+    broadcastWalkStep(next, ms, true);
 
     walkTimer.current = window.setTimeout(() => {
       const isLast = walkQueueRef.current.length === 0;

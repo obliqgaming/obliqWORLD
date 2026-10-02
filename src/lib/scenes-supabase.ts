@@ -454,11 +454,32 @@ export function pointInPolygon(point: Point, polygon: Point[]): boolean {
   return inside;
 }
 
-// ---------- Présence + chat temps réel (un seul canal par scène) ----------
+export type MovePayload = { userId: string; state: PeerState };
+
+// ---------- Présence + déplacement + chat temps réel (un seul canal par scène) ----------
+//
+// IMPORTANT — pourquoi deux canaux logiques différents sur le même objet
+// `channel` : Supabase Realtime limite chaque connexion à 5 mises à jour de
+// Presence (track()) par tranche de 30 secondes ; au-delà, le SERVEUR ferme
+// le canal lui-même (erreur ClientPresenceRateLimitReached). Un trajet à
+// plusieurs étapes dépasse cette limite en quelques secondes, ce qui
+// expliquait les fermetures en boucle observées en test. Depuis ce correctif :
+// - Presence (track(), via trackPresenceSnapshot ci-dessous) : réservée aux
+//   événements RARES — arrivée à destination, (re)connexion, passage
+//   absent/de retour. Large marge sous la limite.
+// - Broadcast (send(), via broadcastMove ci-dessous) : pour CHAQUE étape
+//   intermédiaire d'un trajet. Pas de limite de ce type, car Broadcast ne
+//   maintient aucun état synchronisé côté serveur, juste un relais de
+//   message vers les autres abonnés du canal.
 export function joinScenePresence(
   sceneId: string,
   userId: string,
-  onUpdate: (peers: Record<string, PeerState>) => void,
+  // isFullRoster=true pour un instantané complet (sync Presence, recalage
+  // périodique) où un pair absent de `peers` a vraiment quitté la scène ;
+  // false pour la position d'un seul pair reçue via Broadcast, où tous les
+  // AUTRES pairs ne sont simplement pas concernés par ce message précis et ne
+  // doivent surtout pas être traités comme partis.
+  onUpdate: (peers: Record<string, PeerState>, isFullRoster: boolean) => void,
   onChatMessage?: (msg: ChatMessage) => void,
   // Appelé à CHAQUE changement d'état du canal ("joining", "SUBSCRIBED",
   // "CLOSED", "CHANNEL_ERROR", "TIMED_OUT"...) — pas seulement au premier
@@ -480,7 +501,12 @@ export function joinScenePresence(
       if (isPresenceDebugEnabled()) {
         console.debug(`[presence] sync scene=${sceneId} peers=${Object.keys(peers).length}`, Object.keys(peers));
       }
-      onUpdate(peers);
+      onUpdate(peers, true);
+    })
+    .on("broadcast", { event: "move" }, ({ payload }) => {
+      const { userId: senderId, state } = payload as MovePayload;
+      if (senderId === userId) return; // jamais notre propre écho
+      onUpdate({ [senderId]: state }, false);
     })
     .on("broadcast", { event: "chat" }, ({ payload }) => {
       if (onChatMessage) onChatMessage(payload as ChatMessage);
@@ -491,6 +517,14 @@ export function joinScenePresence(
     });
 
   return channel;
+}
+
+// Position à haute fréquence PENDANT une marche — voir l'explication Presence
+// vs Broadcast ci-dessus. Pas de limite de débit de ce type sur Broadcast.
+export function broadcastMove(channel: PresenceChannel, userId: string, state: PeerState): boolean {
+  if (!isChannelReady(channel)) return false;
+  channel.send({ type: "broadcast", event: "move", payload: { userId, state } satisfies MovePayload });
+  return true;
 }
 
 // Vrai seulement quand le canal est confirmé ouvert par le serveur
