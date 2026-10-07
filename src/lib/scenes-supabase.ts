@@ -322,8 +322,10 @@ export async function createScene(name: string, imageFile: File, musicUrl: strin
       name,
       image_url: pub.publicUrl,
       music_url: musicUrl || "",
-      walkable_zone: null,
-      obstacles: null,
+      // La colonne est NOT NULL en base : une scène toute neuve démarre avec
+      // des listes vides (pas de pièce/obstacle dessiné·e encore), pas null.
+      walkable_zone: [],
+      obstacles: [],
       depth_scale: null,
     })
     .select("*")
