@@ -418,6 +418,21 @@ function AdminPage() {
     }
   };
 
+  const handleSaveSceneMusic = async () => {
+    if (!scene) return;
+    setSavingMusic(true);
+    setMusicStatus(null);
+    try {
+      await updateSceneMusic(scene.id, sceneMusicUrl);
+      setMusicStatus("Musique enregistrée ✅");
+    } catch (err) {
+      console.error(err);
+      setMusicStatus("Erreur en enregistrant la musique — regarde la console (F12).");
+    } finally {
+      setSavingMusic(false);
+    }
+  };
+
   // ---------- Portails : glisser-déposer directement sur l'image, sauvegarde
   // immédiate en base au relâchement (indépendante du bouton "Enregistrer"
   // global, qui ne couvre que pièces/obstacles/profondeur) ----------
@@ -648,6 +663,34 @@ function AdminPage() {
         </div>
       </div>
 
+      {scene && (
+        <div className="mb-4 flex flex-wrap items-center gap-3 rounded bg-neutral-800 px-3 py-2 text-sm">
+          <label className="text-xs opacity-70">🎵 Musique de "{scene.name}" :</label>
+          <select
+            value={sceneMusicUrl}
+            onChange={(e) => setSceneMusicUrl(e.target.value)}
+            className="rounded border border-neutral-700 bg-neutral-900 px-2 py-1"
+          >
+            <option value="">— Aucune —</option>
+            {musicFiles.map((f) => (
+              <option key={f.name} value={f.url}>
+                {f.name}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={handleSaveSceneMusic}
+            disabled={savingMusic || sceneMusicUrl === (scene.music_url || "")}
+            className="rounded bg-emerald-700 px-3 py-1 text-xs font-semibold disabled:opacity-40"
+          >
+            {savingMusic ? "Enregistrement…" : "Enregistrer"}
+          </button>
+          {musicStatus && <span className="text-xs">{musicStatus}</span>}
+          {musicError && <span className="text-xs text-red-400">{musicError}</span>}
+        </div>
+      )}
+
       {showNewScene && (
         <div className="mb-4 flex flex-wrap items-end gap-3 rounded bg-neutral-800 px-3 py-3 text-sm">
           <div className="flex flex-col gap-1">
@@ -670,14 +713,19 @@ function AdminPage() {
             />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-xs opacity-70">Musique (URL, optionnel)</label>
-            <input
-              type="text"
+            <label className="text-xs opacity-70">Musique (optionnel)</label>
+            <select
               value={newSceneMusic}
               onChange={(e) => setNewSceneMusic(e.target.value)}
-              placeholder="https://…"
               className="rounded border border-neutral-700 bg-neutral-900 px-2 py-1"
-            />
+            >
+              <option value="">— Aucune —</option>
+              {musicFiles.map((f) => (
+                <option key={f.name} value={f.url}>
+                  {f.name}
+                </option>
+              ))}
+            </select>
           </div>
           <button
             type="button"
