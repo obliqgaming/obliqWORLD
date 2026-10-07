@@ -10,11 +10,14 @@ import {
   fetchScene,
   fetchSceneExits,
   getAuthIdentity,
+  listMusicFiles,
   updateSceneExitDestination,
   updateSceneExitPosition,
+  updateSceneMusic,
   updateSceneZones,
   type AuthIdentity,
   type DepthScale,
+  type MusicFile,
   type Point,
   type Scene,
   type SceneExit,
@@ -147,6 +150,13 @@ function AdminPage() {
   // l'image (plutôt qu'au chargement, pour ne pas en créer un par accident).
   const [placingExit, setPlacingExit] = useState(false);
 
+  // ---------- Musiques disponibles (bucket Supabase `music`) ----------
+  const [musicFiles, setMusicFiles] = useState<MusicFile[]>([]);
+  const [musicError, setMusicError] = useState<string | null>(null);
+  const [sceneMusicUrl, setSceneMusicUrl] = useState("");
+  const [savingMusic, setSavingMusic] = useState(false);
+  const [musicStatus, setMusicStatus] = useState<string | null>(null);
+
   // ---------- Création de nouvelle scène (ex: un étage de l'auberge) ----------
   const [showNewScene, setShowNewScene] = useState(false);
   const [newSceneName, setNewSceneName] = useState("");
@@ -192,6 +202,18 @@ function AdminPage() {
       .catch((err) => console.error("fetchAllScenes a échoué", err));
   }, []);
 
+  // Liste des morceaux disponibles dans le bucket `music`, pour les menus
+  // déroulants (nouvelle scène + musique de la scène courante) plutôt qu'un
+  // copier-coller d'URL.
+  useEffect(() => {
+    listMusicFiles()
+      .then(setMusicFiles)
+      .catch((err) => {
+        console.error("listMusicFiles a échoué", err);
+        setMusicError("Impossible de lister les musiques — regarde la console (F12).");
+      });
+  }, []);
+
   useEffect(() => {
     if (!sceneId) return;
     setImgNatural(null);
@@ -201,9 +223,11 @@ function AdminPage() {
     setRecoverable(null);
     setExitStatus(null);
     setExits([]);
+    setMusicStatus(null);
     fetchScene(sceneId)
       .then((s) => {
         setScene(s);
+        setSceneMusicUrl(s.music_url || "");
         const dbRooms = s.walkable_zone ? s.walkable_zone.map((room) => room.map((p) => ({ ...p }))) : [];
         const dbObstacles = s.obstacles ? s.obstacles.map((hole) => hole.map((p) => ({ ...p }))) : [];
         const dbDepth: DepthDraft = s.depth_scale

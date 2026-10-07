@@ -299,6 +299,31 @@ export async function fetchAllScenes(): Promise<Scene[]> {
   return (data ?? []).map(normalizeScene);
 }
 
+export type MusicFile = { name: string; url: string };
+
+// Liste les morceaux déjà présents dans le bucket de stockage `music`, pour
+// les proposer dans un menu déroulant depuis /admin plutôt que de devoir
+// copier-coller une URL à la main (source d'erreur : URL mal collée, lien
+// expiré, etc.).
+export async function listMusicFiles(): Promise<MusicFile[]> {
+  const { data, error } = await scenesClient.storage.from("music").list("", {
+    sortBy: { column: "name", order: "asc" },
+  });
+  if (error) throw error;
+  return (data ?? [])
+    .filter((f) => f.name && !f.name.endsWith("/")) // ignore les sous-dossiers éventuels
+    .map((f) => ({
+      name: f.name,
+      url: scenesClient.storage.from("music").getPublicUrl(f.name).data.publicUrl,
+    }));
+}
+
+// Change la musique d'une scène existante.
+export async function updateSceneMusic(sceneId: string, musicUrl: string): Promise<void> {
+  const { error } = await scenesClient.from("scenes").update({ music_url: musicUrl }).eq("id", sceneId);
+  if (error) throw error;
+}
+
 // Crée une nouvelle scène (ex: un étage supplémentaire de l'auberge) depuis
 // /admin : upload de l'image de fond dans le bucket de stockage `scenes`
 // (public en lecture, écriture réservée à l'admin — voir le SQL fourni), puis
