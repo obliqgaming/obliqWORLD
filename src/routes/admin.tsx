@@ -2,11 +2,15 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import {
   connectIdentityProvider,
+  createScene,
+  createSceneExit,
+  deleteSceneExit,
   ensureUserId,
   fetchAllScenes,
   fetchScene,
   fetchSceneExits,
   getAuthIdentity,
+  updateSceneExitDestination,
   updateSceneExitPosition,
   updateSceneZones,
   type AuthIdentity,
@@ -139,6 +143,17 @@ function AdminPage() {
   const [draggingExitId, setDraggingExitId] = useState<string | null>(null);
   const [savingExitId, setSavingExitId] = useState<string | null>(null);
   const [exitStatus, setExitStatus] = useState<string | null>(null);
+  // "placingExit" = armé pour poser un nouveau portail au prochain clic sur
+  // l'image (plutôt qu'au chargement, pour ne pas en créer un par accident).
+  const [placingExit, setPlacingExit] = useState(false);
+
+  // ---------- Création de nouvelle scène (ex: un étage de l'auberge) ----------
+  const [showNewScene, setShowNewScene] = useState(false);
+  const [newSceneName, setNewSceneName] = useState("");
+  const [newSceneMusic, setNewSceneMusic] = useState("");
+  const [newSceneFile, setNewSceneFile] = useState<File | null>(null);
+  const [creatingScene, setCreatingScene] = useState(false);
+  const [newSceneError, setNewSceneError] = useState<string | null>(null);
 
   const [mode, setMode] = useState<Mode>("room");
   const [draft, setDraft] = useState<Point[]>([]);
@@ -271,12 +286,18 @@ function AdminPage() {
 
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!boxRef.current) return;
-    if (mode === "exit") return; // les portails se déplacent par glisser-déposer, pas par clic
     const rect = boxRef.current.getBoundingClientRect();
     const p: Point = {
       x: ((e.clientX - rect.left) / rect.width) * 100,
       y: ((e.clientY - rect.top) / rect.height) * 100,
     };
+
+    if (mode === "exit") {
+      // Hors pose d'un nouveau portail, un clic en mode "exit" ne fait rien —
+      // les portails existants se déplacent par glisser-déposer, pas par clic.
+      if (placingExit) void handleCreateExitAt(p);
+      return;
+    }
 
     if (mode === "depth") {
       if (!armedDepthKey) return;
@@ -286,6 +307,91 @@ function AdminPage() {
     }
 
     setDraft((pts) => [...pts, p]);
+  };
+
+  // Pose un nouveau portail au point cliqué, avec une destination par défaut
+  // (la première autre scène de la liste — à changer ensuite dans le panneau
+  // de droite). S'il n'existe pas encore d'autre scène, on prévient plutôt que
+  // de créer un portail qui boucle sur lui-même sans le vouloir.
+  const handleCreateExitAt = async (p: Point) => {
+    setPlacingExit(false);
+    if (!scene) return;
+    const defaultTarget = scenes.find((s) => s.id !== scene.id);
+    if (!defaultTarget) {
+      setExitStatus("Crée d'abord une autre scène avant d'ajouter un portail.");
+      return;
+    }
+    setExitStatus(null);
+    try {
+      const created = await createSceneExit(scene.id, defaultTarget.id, p, null);
+      setExits((list) => [...list, created]);
+      setExitStatus(`Portail créé ✅ — choisis sa destination dans la liste à droite.`);
+    } catch (err) {
+      console.error(err);
+      setExitStatus("Erreur en créant le portail — regarde la console (F12).");
+    }
+  };
+
+  const handleExitDestinationChange = async (exitId: string, toSceneId: string) => {
+    setExits((list) => list.map((x) => (x.id === exitId ? { ...x, to_scene_id: toSceneId } : x)));
+    setSavingExitId(exitId);
+    try {
+      await updateSceneExitDestination(exitId, { to_scene_id: toSceneId });
+      setExitStatus("Destination mise à jour ✅");
+    } catch (err) {
+      console.error(err);
+      setExitStatus("Erreur en changeant la destination — regarde la console (F12).");
+    } finally {
+      setSavingExitId(null);
+    }
+  };
+
+  const handleExitLabelChange = async (exitId: string, label: string) => {
+    setExits((list) => list.map((x) => (x.id === exitId ? { ...x, label } : x)));
+    try {
+      await updateSceneExitDestination(exitId, { label: label || null });
+    } catch (err) {
+      console.error(err);
+      setExitStatus("Erreur en enregistrant le libellé — regarde la console (F12).");
+    }
+  };
+
+  const handleDeleteExit = async (exitId: string) => {
+    if (!window.confirm("Supprimer ce portail ?")) return;
+    try {
+      await deleteSceneExit(exitId);
+      setExits((list) => list.filter((x) => x.id !== exitId));
+    } catch (err) {
+      console.error(err);
+      setExitStatus("Erreur en supprimant le portail — regarde la console (F12).");
+    }
+  };
+
+  const handleCreateScene = async () => {
+    setNewSceneError(null);
+    if (!newSceneName.trim()) {
+      setNewSceneError("Donne un nom à la scène.");
+      return;
+    }
+    if (!newSceneFile) {
+      setNewSceneError("Choisis une image de fond.");
+      return;
+    }
+    setCreatingScene(true);
+    try {
+      const created = await createScene(newSceneName.trim(), newSceneFile, newSceneMusic.trim() || null);
+      setScenes((list) => [...list, created].sort((a, b) => a.name.localeCompare(b.name)));
+      setSceneId(created.id);
+      setShowNewScene(false);
+      setNewSceneName("");
+      setNewSceneMusic("");
+      setNewSceneFile(null);
+    } catch (err) {
+      console.error(err);
+      setNewSceneError("Erreur à la création — regarde la console (F12). Si c'est la première fois, vérifie que le bucket de stockage \"scenes\" existe bien dans Supabase.");
+    } finally {
+      setCreatingScene(false);
+    }
   };
 
   // ---------- Portails : glisser-déposer directement sur l'image, sauvegarde
@@ -431,6 +537,14 @@ function AdminPage() {
           ))}
         </select>
 
+        <button
+          type="button"
+          onClick={() => setShowNewScene((v) => !v)}
+          className={`rounded px-3 py-1 text-sm ${showNewScene ? "bg-emerald-700" : "bg-neutral-800"}`}
+        >
+          ➕ Nouvelle scène
+        </button>
+
         <div className="ml-2 flex gap-2">
           <button
             type="button"
@@ -510,6 +624,49 @@ function AdminPage() {
         </div>
       </div>
 
+      {showNewScene && (
+        <div className="mb-4 flex flex-wrap items-end gap-3 rounded bg-neutral-800 px-3 py-3 text-sm">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs opacity-70">Nom de la scène</label>
+            <input
+              type="text"
+              value={newSceneName}
+              onChange={(e) => setNewSceneName(e.target.value)}
+              placeholder="ex: Auberge — 1er étage"
+              className="rounded border border-neutral-700 bg-neutral-900 px-2 py-1"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs opacity-70">Image de fond</label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setNewSceneFile(e.target.files?.[0] ?? null)}
+              className="text-xs"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs opacity-70">Musique (URL, optionnel)</label>
+            <input
+              type="text"
+              value={newSceneMusic}
+              onChange={(e) => setNewSceneMusic(e.target.value)}
+              placeholder="https://…"
+              className="rounded border border-neutral-700 bg-neutral-900 px-2 py-1"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={handleCreateScene}
+            disabled={creatingScene}
+            className="rounded bg-emerald-700 px-4 py-1 font-semibold disabled:opacity-40"
+          >
+            {creatingScene ? "Création…" : "Créer la scène"}
+          </button>
+          {newSceneError && <span className="w-full text-xs text-red-400">{newSceneError}</span>}
+        </div>
+      )}
+
       {mode === "depth" && (
         <div className="mb-4 flex flex-wrap items-center gap-2 rounded bg-neutral-800 px-3 py-2 text-sm">
           <span className="opacity-70">
@@ -542,9 +699,18 @@ function AdminPage() {
       )}
 
       {mode === "exit" && (
-        <div className="mb-4 rounded bg-neutral-800 px-3 py-2 text-sm opacity-70">
-          Glisse-dépose un portail (rond violet) directement sur l'image pour le repositionner. Sauvegardé
-          automatiquement dès que tu le relâches — pas besoin de cliquer sur "Enregistrer".
+        <div className="mb-4 flex flex-wrap items-center gap-3 rounded bg-neutral-800 px-3 py-2 text-sm">
+          <span className="opacity-70">
+            Glisse-dépose un portail existant pour le repositionner (sauvegardé automatiquement). Choisis sa
+            destination dans la liste à droite.
+          </span>
+          <button
+            type="button"
+            onClick={() => setPlacingExit((v) => !v)}
+            className={`rounded px-3 py-1 text-xs font-semibold ${placingExit ? "bg-purple-600" : "bg-neutral-700"}`}
+          >
+            {placingExit ? "Clique sur l'image pour le poser…" : "➕ Nouveau portail ici"}
+          </button>
         </div>
       )}
 
@@ -624,7 +790,7 @@ function AdminPage() {
             {exits.map((ex) => (
               <div
                 key={ex.id}
-                onMouseDown={(e) => mode === "exit" && startDragExit(e, ex.id)}
+                onMouseDown={(e) => mode === "exit" && !placingExit && startDragExit(e, ex.id)}
                 title={ex.label ?? "Portail"}
                 className="absolute flex h-6 w-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 text-xs"
                 style={{
@@ -632,7 +798,7 @@ function AdminPage() {
                   top: `${ex.position.y}%`,
                   background: draggingExitId === ex.id ? "rgba(168,85,247,0.9)" : "rgba(168,85,247,0.6)",
                   borderColor: "rgba(216,180,254,0.95)",
-                  cursor: mode === "exit" ? (draggingExitId === ex.id ? "grabbing" : "grab") : "default",
+                  cursor: mode === "exit" ? (placingExit ? "crosshair" : draggingExitId === ex.id ? "grabbing" : "grab") : "default",
                   boxShadow: savingExitId === ex.id ? "0 0 0 2px rgba(250,204,21,0.9)" : "none",
                 }}
               >
@@ -642,7 +808,7 @@ function AdminPage() {
           </div>
         )}
 
-        <div className="w-64 shrink-0 text-sm">
+        <div className="w-72 shrink-0 text-sm">
           <p className="mb-1 font-semibold">Pièces ({rooms.length})</p>
           <ul className="mb-4 space-y-1">
             {rooms.map((r, i) => (
@@ -687,10 +853,41 @@ function AdminPage() {
           </ul>
 
           <p className="mb-1 font-semibold">Portails ({exits.length})</p>
-          <ul className="space-y-1">
+          <ul className="space-y-2">
             {exits.map((ex) => (
-              <li key={ex.id} className="rounded bg-neutral-800 px-2 py-1">
-                {ex.label ?? "Portail"} — {ex.position.x.toFixed(1)}%, {ex.position.y.toFixed(1)}%
+              <li key={ex.id} className="rounded bg-neutral-800 px-2 py-2">
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <span className="text-xs opacity-60">
+                    {ex.position.x.toFixed(1)}%, {ex.position.y.toFixed(1)}%
+                    {savingExitId === ex.id ? " · ⏳" : ""}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteExit(ex.id)}
+                    className="text-red-400 hover:text-red-300"
+                    title="Supprimer ce portail"
+                  >
+                    🗑
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  value={ex.label ?? ""}
+                  onChange={(e) => handleExitLabelChange(ex.id, e.target.value)}
+                  placeholder="Libellé (ex: Étage)"
+                  className="mb-1 w-full rounded border border-neutral-700 bg-neutral-900 px-2 py-1 text-xs"
+                />
+                <select
+                  value={ex.to_scene_id}
+                  onChange={(e) => handleExitDestinationChange(ex.id, e.target.value)}
+                  className="w-full rounded border border-neutral-700 bg-neutral-900 px-2 py-1 text-xs"
+                >
+                  {scenes.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      → {s.name}
+                    </option>
+                  ))}
+                </select>
               </li>
             ))}
             {exits.length === 0 && <li className="opacity-50">Aucun pour cette scène</li>}

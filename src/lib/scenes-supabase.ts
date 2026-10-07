@@ -299,6 +299,39 @@ export async function fetchAllScenes(): Promise<Scene[]> {
   return (data ?? []).map(normalizeScene);
 }
 
+// Crée une nouvelle scène (ex: un étage supplémentaire de l'auberge) depuis
+// /admin : upload de l'image de fond dans le bucket de stockage `scenes`
+// (public en lecture, écriture réservée à l'admin — voir le SQL fourni), puis
+// insertion de la ligne. walkable_zone/obstacles/depth_scale démarrent vides :
+// on les dessine ensuite normalement dans /admin comme pour toute scène.
+export async function createScene(name: string, imageFile: File, musicUrl: string | null): Promise<Scene> {
+  const userId = await ensureUserId();
+  const ext = imageFile.name.split(".").pop()?.toLowerCase() || "png";
+  const fileName = `scene_${userId}_${Date.now()}.${ext}`;
+
+  const { error: uploadError } = await scenesClient.storage
+    .from("scenes")
+    .upload(fileName, imageFile, { contentType: imageFile.type || "image/png", upsert: false });
+  if (uploadError) throw uploadError;
+
+  const { data: pub } = scenesClient.storage.from("scenes").getPublicUrl(fileName);
+
+  const { data, error } = await scenesClient
+    .from("scenes")
+    .insert({
+      name,
+      image_url: pub.publicUrl,
+      music_url: musicUrl || "",
+      walkable_zone: null,
+      obstacles: null,
+      depth_scale: null,
+    })
+    .select("*")
+    .single();
+  if (error) throw error;
+  return normalizeScene(data);
+}
+
 function polygonToRaw(poly: Point[]): [number, number][] {
   return poly.map((p) => [Math.round(p.x * 10) / 10, Math.round(p.y * 10) / 10]);
 }
@@ -336,6 +369,45 @@ export async function updateSceneExitPosition(exitId: string, position: Point): 
     .from("scene_exits")
     .update({ position: { x: Math.round(position.x * 10) / 10, y: Math.round(position.y * 10) / 10 } })
     .eq("id", exitId);
+  if (error) throw error;
+}
+
+// Crée un nouveau portail sur la scène courante (fromSceneId), posé au point
+// cliqué, vers la destination choisie. Le label est optionnel (ex: "Étage" /
+// "Rez-de-chaussée") — purement informatif, affiché en info-bulle dans /admin.
+export async function createSceneExit(
+  fromSceneId: string,
+  toSceneId: string,
+  position: Point,
+  label: string | null,
+): Promise<SceneExit> {
+  const { data, error } = await scenesClient
+    .from("scene_exits")
+    .insert({
+      from_scene_id: fromSceneId,
+      to_scene_id: toSceneId,
+      position: { x: Math.round(position.x * 10) / 10, y: Math.round(position.y * 10) / 10 },
+      label,
+    })
+    .select("*")
+    .single();
+  if (error) throw error;
+  return data as SceneExit;
+}
+
+// Change la destination et/ou le libellé d'un portail existant — c'est ce qui
+// permet de choisir "ce portail renvoie vers telle scène" depuis /admin, sans
+// toucher au SQL.
+export async function updateSceneExitDestination(
+  exitId: string,
+  changes: { to_scene_id?: string; label?: string | null },
+): Promise<void> {
+  const { error } = await scenesClient.from("scene_exits").update(changes).eq("id", exitId);
+  if (error) throw error;
+}
+
+export async function deleteSceneExit(exitId: string): Promise<void> {
+  const { error } = await scenesClient.from("scene_exits").delete().eq("id", exitId);
   if (error) throw error;
 }
 
