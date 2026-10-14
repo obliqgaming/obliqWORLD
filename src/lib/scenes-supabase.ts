@@ -875,7 +875,7 @@ export function subscribeToIncomingInvites(myCharacterId: string, onInvite: (par
     .on(
       "postgres_changes",
       { event: "INSERT", schema: "public", table: "party_members", filter: `character_id=eq.${myCharacterId}` },
-      (payload) => {
+      (payload: { new: unknown }) => {
         const row = payload.new as { status: PartyMemberStatus; party_id: string };
         if (row.status === "invited") onInvite(row.party_id);
       },
