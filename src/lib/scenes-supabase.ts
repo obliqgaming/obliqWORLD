@@ -82,6 +82,12 @@ export type VisualAsset = {
   author_user_id: string | null;
   source: "drawn" | "imported";
   created_at: string;
+  // Ancrage optionnel pour une future arme/objet tenu en main (% de l'image,
+  // 0-100 sur chaque axe). null si le joueur ne l'a pas placé/désactivé —
+  // aucune arme ne s'affichera simplement sur ce personnage, rien d'autre ne
+  // dépend de ce champ. Volontairement limité à la main pour l'instant (pas
+  // de tête/torse) pour ne pas contraindre le dessin libre.
+  hand_anchor: Point | null;
 };
 
 export type Character = {
@@ -500,7 +506,13 @@ export async function createCharacterWithAsset(
 }
 
 // Upload d'un dessin (canvas -> PNG -> bucket `drawings`) puis création de la ligne visual_assets.
-export async function uploadDrawingAsCharacterAsset(blob: Blob, name: string): Promise<VisualAsset> {
+// handAnchor : position choisie par le joueur pour tenir une future arme/objet
+// (% de l'image 512x512) ; null s'il n'a pas touché au repère ou l'a désactivé.
+export async function uploadDrawingAsCharacterAsset(
+  blob: Blob,
+  name: string,
+  handAnchor: Point | null,
+): Promise<VisualAsset> {
   const userId = await ensureUserId();
   const fileName = `character_${userId}_${Date.now()}.png`;
 
@@ -519,6 +531,7 @@ export async function uploadDrawingAsCharacterAsset(blob: Blob, name: string): P
       image_url: pub.publicUrl,
       author_user_id: userId,
       source: "drawn",
+      hand_anchor: handAnchor,
     })
     .select("*")
     .single();

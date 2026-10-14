@@ -9,6 +9,7 @@
 
 import React, { useRef, useState, useEffect, useCallback } from "react";
 import { hexToRgb, paintStrokeSegment, sprayPaintSegment } from "../lib/drawingTools";
+import type { Point } from "../lib/scenes-supabase";
 import {
   Pencil,
   Eraser,
@@ -21,10 +22,17 @@ import {
   PaintBucket,
   Circle,
   SprayCan,
+  Hand,
 } from "lucide-react";
 
 const CANVAS_SIZE = 512;
 const MAX_HISTORY = 30;
+
+// Position par défaut du repère de main (% de l'image) : 2/3 depuis la
+// gauche, 2/3 depuis le haut — un point de départ raisonnable pour une main
+// qui tiendrait une arme, ajustable par glisser-déposer. Optionnel : le
+// joueur peut le désactiver s'il ne veut pas s'en servir (dessin 100% libre).
+const DEFAULT_HAND_ANCHOR: Point = { x: (2 / 3) * 100, y: (2 / 3) * 100 };
 
 const PALETTE = [
   "#1a1a1a", "#ffffff", "#6b7280", "#ef4444",
@@ -98,7 +106,7 @@ export function DrawingCanvas({
   onExport,
   exporting,
 }: {
-  onExport: (blob: Blob) => void;
+  onExport: (blob: Blob, handAnchor: Point | null) => void;
   exporting?: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -108,6 +116,11 @@ export function DrawingCanvas({
   const [brushSize, setBrushSize] = useState(4);
   const [opacity, setOpacity] = useState(1);
   const [color, setColor] = useState("#1a1a1a");
+
+  // ---------- Ancrage main (pour une future arme/objet tenu) ----------
+  const [handAnchorEnabled, setHandAnchorEnabled] = useState(true);
+  const [handAnchor, setHandAnchor] = useState<Point>(DEFAULT_HAND_ANCHOR);
+  const [draggingAnchor, setDraggingAnchor] = useState(false);
 
   const lineStartRef = useRef<{ x: number; y: number } | null>(null);
   const lastPointRef = useRef<{ x: number; y: number } | null>(null);
@@ -319,9 +332,35 @@ export function DrawingCanvas({
 
   const handleExport = () => {
     canvasRef.current?.toBlob((blob) => {
-      if (blob) onExport(blob);
+      if (blob) onExport(blob, handAnchorEnabled ? handAnchor : null);
     }, "image/png");
   };
+
+  // ---------- Déplacement du repère de main (glisser-déposer, indépendant du
+  // dessin : ne pousse jamais dans l'historique undo/redo) ----------
+  const anchorPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDraggingAnchor(true);
+  };
+
+  useEffect(() => {
+    if (!draggingAnchor) return;
+    const move = (e: PointerEvent) => {
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const x = Math.min(100, Math.max(0, ((e.clientX - rect.left) / rect.width) * 100));
+      const y = Math.min(100, Math.max(0, ((e.clientY - rect.top) / rect.height) * 100));
+      setHandAnchor({ x, y });
+    };
+    const up = () => setDraggingAnchor(false);
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    return () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+  }, [draggingAnchor]);
 
   const toolBtn = (active: boolean) =>
     `flex h-8 w-8 items-center justify-center rounded border ${
@@ -361,6 +400,16 @@ export function DrawingCanvas({
           height={CANVAS_SIZE}
           className="pointer-events-none absolute inset-0 h-full w-full touch-none"
         />
+        {handAnchorEnabled && (
+          <div
+            onPointerDown={anchorPointerDown}
+            title="Repère de la main — glisse pour le placer (une future arme s'y accrochera)"
+            className="absolute z-10 flex h-6 w-6 -translate-x-1/2 -translate-y-1/2 cursor-grab items-center justify-center rounded-full border-2 border-dashed border-[#c96a2e] bg-[#c96a2e]/20 active:cursor-grabbing"
+            style={{ left: `${handAnchor.x}%`, top: `${handAnchor.y}%` }}
+          >
+            <Hand className="h-3.5 w-3.5 text-[#7a4a22]" />
+          </div>
+        )}
       </div>
 
       <div className="flex w-full flex-col gap-2 sm:w-48">
@@ -456,6 +505,15 @@ export function DrawingCanvas({
             />
           </label>
         </div>
+
+        <label className="flex items-center gap-2 text-xs text-[#3a2210]">
+          <input
+            type="checkbox"
+            checked={handAnchorEnabled}
+            onChange={(e) => setHandAnchorEnabled(e.target.checked)}
+          />
+          Repère de main (pour une future arme)
+        </label>
 
         <button
           type="button"

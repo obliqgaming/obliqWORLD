@@ -1,5 +1,5 @@
 import { useState, type ChangeEvent, type MouseEvent } from "react";
-import { uploadDrawingAsCharacterAsset, type AuthIdentity, type VisualAsset } from "../lib/scenes-supabase";
+import { uploadDrawingAsCharacterAsset, type AuthIdentity, type Point, type VisualAsset } from "../lib/scenes-supabase";
 import { AccountBadge } from "./AccountBadge";
 import { DrawingCanvas } from "./DrawingCanvas";
 import { SoundControl } from "./SoundControl";
@@ -41,10 +41,10 @@ export function CharacterSelect({
     onChoose(selected, name);
   };
 
-  const handleDrawingExported = async (blob: Blob) => {
+  const handleDrawingExported = async (blob: Blob, handAnchor: Point | null) => {
     setSaving(true);
     try {
-      const asset = await uploadDrawingAsCharacterAsset(blob, name);
+      const asset = await uploadDrawingAsCharacterAsset(blob, name, handAnchor);
       onChoose(asset.id, name);
     } catch (e) {
       console.error("Drawing upload failed", e);
