@@ -680,3 +680,206 @@ export function broadcastChatMessage(channel: PresenceChannel, msg: ChatMessage)
   channel.send({ type: "broadcast", event: "chat", payload: msg });
   return true;
 }
+
+// ---------- Groupe (party) — invitation directe à la WoW (§5, revu le
+// 2026-10-14), indépendante de toute expédition. Un groupe se forme par clic
+// sur un personnage n'importe où dans le monde, puis se déplace à pied
+// jusqu'au portail en forêt qui déclenche l'expédition une fois tout le
+// monde entré (§5). Voir supabase/migrations_proposed/001_*.sql pour le
+// schéma (tables parties / party_members). ----------
+
+export type PartyMemberStatus = "invited" | "joined" | "left";
+
+export type PartyMember = {
+  party_id: string;
+  character_id: string;
+  status: PartyMemberStatus;
+  invited_at: string;
+  joined_at: string | null;
+  left_at: string | null;
+  // Dénormalisé depuis characters/character_build pour affichage direct dans
+  // le panneau de groupe, sans aller rechercher ailleurs à chaque rendu.
+  name: string;
+  image_url: string;
+  pv_current: number | null;
+  pv_max: number | null;
+};
+
+export type Party = {
+  id: string;
+  created_by_character_id: string;
+  created_at: string;
+  disbanded_at: string | null;
+};
+
+function flattenPartyMember(row: any): PartyMember {
+  return {
+    party_id: row.party_id,
+    character_id: row.character_id,
+    status: row.status,
+    invited_at: row.invited_at,
+    joined_at: row.joined_at,
+    left_at: row.left_at,
+    name: row.characters?.name ?? "???",
+    image_url: row.characters?.visual_assets?.image_url ?? "",
+    pv_current: row.characters?.character_build?.[0]?.pv_current ?? null,
+    pv_max: row.characters?.character_build?.[0]?.pv_max ?? null,
+  };
+}
+
+// Groupe actif (non dissous) dont le personnage courant est membre
+// invited/joined, s'il y en a un. Un personnage n'est jamais dans deux
+// groupes actifs à la fois (règle appliquée côté appelant — voir
+// inviteToParty ci-dessous — pas de contrainte SQL portable pour ça).
+export async function fetchMyActiveParty(characterId: string): Promise<{ party: Party; members: PartyMember[] } | null> {
+  const { data: memberRow, error: memberError } = await scenesClient
+    .from("party_members")
+    .select("party_id, status")
+    .eq("character_id", characterId)
+    .in("status", ["invited", "joined"])
+    .maybeSingle();
+  if (memberError) throw memberError;
+  if (!memberRow) return null;
+
+  const { data: partyRow, error: partyError } = await scenesClient
+    .from("parties")
+    .select("*")
+    .eq("id", memberRow.party_id)
+    .is("disbanded_at", null)
+    .maybeSingle();
+  if (partyError) throw partyError;
+  if (!partyRow) return null;
+
+  const members = await fetchPartyMembers(partyRow.id);
+  return { party: partyRow as Party, members };
+}
+
+export async function fetchPartyMembers(partyId: string): Promise<PartyMember[]> {
+  const { data, error } = await scenesClient
+    .from("party_members")
+    .select("*, characters(name, visual_assets(image_url), character_build(pv_current, pv_max))")
+    .eq("party_id", partyId)
+    .order("invited_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(flattenPartyMember);
+}
+
+// Crée un groupe (si le personnage n'en a pas déjà un actif) et invite
+// directement la cible — couvre le cas le plus courant (clic sur un perso →
+// "Inviter" alors qu'on n'a pas encore de groupe). Si un groupe actif existe
+// déjà pour ce personnage, utiliser inviteToParty ci-dessous à la place.
+export async function createPartyAndInvite(myCharacterId: string, targetCharacterId: string): Promise<Party> {
+  const { data: party, error: partyError } = await scenesClient
+    .from("parties")
+    .insert({ created_by_character_id: myCharacterId })
+    .select("*")
+    .single();
+  if (partyError) throw partyError;
+
+  // Le créateur rejoint directement son propre groupe (status 'joined'),
+  // pas la peine de s'auto-inviter.
+  const { error: selfError } = await scenesClient
+    .from("party_members")
+    .insert({ party_id: party.id, character_id: myCharacterId, status: "joined", joined_at: new Date().toISOString() });
+  if (selfError) throw selfError;
+
+  const { error: inviteError } = await scenesClient
+    .from("party_members")
+    .insert({ party_id: party.id, character_id: targetCharacterId, status: "invited" });
+  if (inviteError) throw inviteError;
+
+  return party as Party;
+}
+
+export async function inviteToParty(partyId: string, targetCharacterId: string): Promise<void> {
+  const { error } = await scenesClient
+    .from("party_members")
+    .insert({ party_id: partyId, character_id: targetCharacterId, status: "invited" });
+  if (error) throw error;
+}
+
+export async function acceptPartyInvite(partyId: string, myCharacterId: string): Promise<void> {
+  const { error } = await scenesClient
+    .from("party_members")
+    .update({ status: "joined", joined_at: new Date().toISOString() })
+    .eq("party_id", partyId)
+    .eq("character_id", myCharacterId);
+  if (error) throw error;
+}
+
+export async function declinePartyInvite(partyId: string, myCharacterId: string): Promise<void> {
+  const { error } = await scenesClient
+    .from("party_members")
+    .update({ status: "left", left_at: new Date().toISOString() })
+    .eq("party_id", partyId)
+    .eq("character_id", myCharacterId);
+  if (error) throw error;
+}
+
+// Quitter un groupe qu'on a déjà rejoint (pas une invitation en attente —
+// voir declinePartyInvite pour ce cas). Même opération côté données (passer
+// à 'left'), distingué seulement pour la clarté des appels côté UI.
+export async function leaveParty(partyId: string, myCharacterId: string): Promise<void> {
+  const { error } = await scenesClient
+    .from("party_members")
+    .update({ status: "left", left_at: new Date().toISOString() })
+    .eq("party_id", partyId)
+    .eq("character_id", myCharacterId);
+  if (error) throw error;
+}
+
+// Expulsion par le créateur du groupe — RLS vérifie côté serveur que
+// l'appelant est bien created_by_character_id, pas la peine de le revérifier
+// ici (voir la policy "changer son propre statut, ou expulser si créateur").
+export async function kickFromParty(partyId: string, targetCharacterId: string): Promise<void> {
+  const { error } = await scenesClient
+    .from("party_members")
+    .update({ status: "left", left_at: new Date().toISOString() })
+    .eq("party_id", partyId)
+    .eq("character_id", targetCharacterId);
+  if (error) throw error;
+}
+
+// Abonnement temps réel aux changements du groupe (postgres_changes, pas
+// Presence/Broadcast : party_members est une vraie table persistante — un
+// joueur hors-ligne doit quand même voir, à sa reconnexion, qu'il a été
+// invité ou expulsé entre-temps, ce que Presence ne garantit pas). Appelle
+// onChange sur tout insert/update touchant ce groupe ; l'appelant refait un
+// fetchPartyMembers pour avoir l'état à jour plutôt que de essayer de
+// reconstruire le diff ligne par ligne.
+export function subscribeToPartyChanges(partyId: string, onChange: () => void): PresenceChannel {
+  const channel = scenesClient
+    .channel(`party:${partyId}`)
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "party_members", filter: `party_id=eq.${partyId}` },
+      () => onChange(),
+    )
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "parties", filter: `id=eq.${partyId}` },
+      () => onChange(),
+    )
+    .subscribe();
+  return channel;
+}
+
+// Un personnage peut recevoir une invitation AVANT d'avoir de groupe actif
+// connu côté UI — il faut donc aussi écouter party_members sans connaître de
+// partyId à l'avance, pour détecter "on vient de m'inviter". Scope large
+// (pas de filtre serveur possible sur character_id ici sans dupliquer une
+// query par ligne insérée) : on filtre côté client dans le callback.
+export function subscribeToIncomingInvites(myCharacterId: string, onInvite: (partyId: string) => void): PresenceChannel {
+  const channel = scenesClient
+    .channel(`party-invites:${myCharacterId}`)
+    .on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "party_members", filter: `character_id=eq.${myCharacterId}` },
+      (payload) => {
+        const row = payload.new as { status: PartyMemberStatus; party_id: string };
+        if (row.status === "invited") onInvite(row.party_id);
+      },
+    )
+    .subscribe();
+  return channel;
+}
