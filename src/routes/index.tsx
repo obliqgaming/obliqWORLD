@@ -707,22 +707,29 @@ function Index() {
 
   // Quelqu'un du groupe a déjà cliqué avant nous (ou on revient sur la scène) :
   // on rejoint l'expédition en attente au lieu d'attendre notre propre clic.
+  // Un seul contrôle au montage ne suffisait pas : si le coéquipier clique APRÈS
+  // notre arrivée, on ne le sait jamais. On revérifie donc toutes les 3 s tant
+  // qu'aucune expédition n'est connue (filet de sécurité en plus du Realtime).
   useEffect(() => {
     if (!scenePortal || !party || openExpedition) return;
     let cancelled = false;
-    fetchOpenExpeditionForParty(party.id, scene.id)
-      .then((exp) => {
-        if (!cancelled && exp) {
-          setOpenExpedition(exp);
-          watchExpedition(exp.id);
-        }
-      })
-      .catch((e) => console.error("fetchOpenExpeditionForParty failed", e));
+    const check = () =>
+      fetchOpenExpeditionForParty(party.id, scene.id)
+        .then((exp) => {
+          if (!cancelled && exp) {
+            setOpenExpedition(exp);
+            watchExpedition(exp.id);
+          }
+        })
+        .catch((e) => console.error("fetchOpenExpeditionForParty failed", e));
+    void check();
+    const timer = window.setInterval(check, 3000);
     return () => {
       cancelled = true;
+      window.clearInterval(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scenePortal?.id, party?.id, scene.id]);
+  }, [scenePortal?.id, party?.id, scene.id, openExpedition?.id]);
 
   // Tout le groupe est prêt -> on tente de lancer. Tous les clients du groupe
   // exécutent ceci en même temps ; startExpedition est conditionné sur
