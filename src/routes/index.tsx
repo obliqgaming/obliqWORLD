@@ -1,20 +1,28 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import {
+  acceptPartyInvite,
   broadcastChatMessage,
   broadcastMove,
   computeDepthScale,
   connectIdentityProvider,
   createCharacterWithAsset,
+  createPartyAndInvite,
+  declinePartyInvite,
   getAuthIdentity,
   fetchCharacterAssets,
+  fetchMyActiveParty,
   fetchMyCharacter,
+  fetchPartyMembers,
   fetchScene,
   fetchSceneByName,
   fetchSceneExits,
+  inviteToParty,
   isChannelReady,
   isPresenceDebugEnabled,
   joinScenePresence,
+  kickFromParty,
+  leaveParty,
   readPeersFromChannel,
   leaveScenePresence,
   moveCharacterToScene,
@@ -23,9 +31,13 @@ import {
   scenesClient,
   setPresenceDebugEnabled,
   signOutToGuest,
+  subscribeToIncomingInvites,
+  subscribeToPartyChanges,
   type AuthIdentity,
   type Character,
   type ChatMessage,
+  type Party,
+  type PartyMember,
   type PeerState,
   type PresenceChannel,
   type Point,
@@ -35,6 +47,9 @@ import {
 } from "../lib/scenes-supabase";
 import { AccountBadge } from "../components/AccountBadge";
 import { CharacterSelect } from "../components/CharacterSelect";
+import { PartyInvitePopup } from "../components/PartyInvitePopup";
+import { PartyPanel } from "../components/PartyPanel";
+import { PeerContextMenu } from "../components/PeerContextMenu";
 import { SoundControl } from "../components/SoundControl";
 import { findPath } from "../lib/pathfinding";
 
@@ -188,6 +203,19 @@ function Index() {
   const [walking, setWalking] = useState(false);
   const [duration, setDuration] = useState(0);
   const [peers, setPeers] = useState<Record<string, PeerState>>({});
+
+  // ---------- Groupe (party) — §5 revu le 2026-10-14 ----------
+  const [party, setParty] = useState<Party | null>(null);
+  const [partyMembers, setPartyMembers] = useState<PartyMember[]>([]);
+  // Invitation reçue en attente de réponse (un seul à la fois affiché — s'il
+  // y en avait plusieurs, les suivantes s'affichent dès que celle-ci est
+  // traitée, via le prochain événement temps réel).
+  const [pendingInvite, setPendingInvite] = useState<{ partyId: string; inviterName: string } | null>(null);
+  // Menu contextuel ouvert sur un pair cliqué (clé = userId du pair dans
+  // `peers`, coordonnées écran du clic).
+  const [peerMenu, setPeerMenu] = useState<{ peerKey: string; peerName: string; x: number; y: number } | null>(null);
+  const partyChannelRef = useRef<PresenceChannel | null>(null);
+  const inviteChannelRef = useRef<PresenceChannel | null>(null);
 
   // ---- Ratio réel de l'image de scène (fix du bug "objet-cover recadre l'image,
   // mais les % de position/zone marchable sont calculés sur l'image d'origine") ----
@@ -501,6 +529,132 @@ function Index() {
     Object.values(peerWalkTimers.current).forEach((t) => window.clearTimeout(t));
     Object.values(bubbleTimers.current).forEach((t) => window.clearTimeout(t));
   }, []);
+
+  // ---------- Groupe (party) : chargement du groupe actif + abonnements temps
+  // réel (§5, revu le 2026-10-14) ----------
+  const refreshParty = async (partyId: string) => {
+    try {
+      const members = await fetchPartyMembers(partyId);
+      setPartyMembers(members);
+      // Le groupe peut avoir été dissous entre-temps (tout le monde parti) —
+      // on ne garde l'affichage que s'il reste au moins un membre joined/invited.
+      if (members.every((m) => m.status === "left")) {
+        setParty(null);
+        setPartyMembers([]);
+      }
+    } catch (e) {
+      console.error("refreshParty failed", e);
+    }
+  };
+
+  useEffect(() => {
+    if (!character) return;
+    let cancelled = false;
+
+    fetchMyActiveParty(character.id)
+      .then((result) => {
+        if (cancelled || !result) return;
+        setParty(result.party);
+        setPartyMembers(result.members);
+        if (partyChannelRef.current) leaveScenePresence(partyChannelRef.current);
+        partyChannelRef.current = subscribeToPartyChanges(result.party.id, () => refreshParty(result.party.id));
+      })
+      .catch((e) => console.error("fetchMyActiveParty failed", e));
+
+    // Invitations reçues alors qu'on n'a pas (encore) de groupe actif connu
+    // côté UI — déclenche aussi quand on en a déjà un, pour le cas où on
+    // reçoit une invitation à un AUTRE groupe pendant qu'on est déjà dans le
+    // sien (affichée, à accepter manuellement — ça quittera l'ancien).
+    inviteChannelRef.current = subscribeToIncomingInvites(character.id, async (partyId) => {
+      try {
+        const members = await fetchPartyMembers(partyId);
+        const inviter = members.find((m) => m.character_id !== character.id) ?? members[0];
+        setPendingInvite({ partyId, inviterName: inviter?.name ?? "Quelqu'un" });
+      } catch (e) {
+        console.error("Loading invite details failed", e);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      if (partyChannelRef.current) leaveScenePresence(partyChannelRef.current);
+      if (inviteChannelRef.current) leaveScenePresence(inviteChannelRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [character?.id]);
+
+  const handleInvitePeer = async (targetCharacterId: string) => {
+    if (!character) return;
+    try {
+      if (party) {
+        await inviteToParty(party.id, targetCharacterId);
+      } else {
+        const newParty = await createPartyAndInvite(character.id, targetCharacterId);
+        setParty(newParty);
+        const members = await fetchPartyMembers(newParty.id);
+        setPartyMembers(members);
+        if (partyChannelRef.current) leaveScenePresence(partyChannelRef.current);
+        partyChannelRef.current = subscribeToPartyChanges(newParty.id, () => refreshParty(newParty.id));
+      }
+    } catch (e) {
+      console.error("Invite failed", e);
+      window.alert("Impossible d'inviter ce joueur (peut-être déjà dans un groupe ailleurs).");
+    }
+  };
+
+  const handleAcceptInvite = async () => {
+    if (!character || !pendingInvite) return;
+    const { partyId } = pendingInvite;
+    setPendingInvite(null);
+    try {
+      // Si on avait déjà un groupe (improbable mais possible), on le quitte
+      // d'abord — on ne peut être membre actif que d'un seul groupe à la fois.
+      if (party && party.id !== partyId) await leaveParty(party.id, character.id);
+      await acceptPartyInvite(partyId, character.id);
+      const [partyRow, members] = await Promise.all([
+        scenesClient.from("parties").select("*").eq("id", partyId).single(),
+        fetchPartyMembers(partyId),
+      ]);
+      if (partyRow.data) setParty(partyRow.data as Party);
+      setPartyMembers(members);
+      if (partyChannelRef.current) leaveScenePresence(partyChannelRef.current);
+      partyChannelRef.current = subscribeToPartyChanges(partyId, () => refreshParty(partyId));
+    } catch (e) {
+      console.error("Accept invite failed", e);
+    }
+  };
+
+  const handleDeclineInvite = async () => {
+    if (!character || !pendingInvite) return;
+    const { partyId } = pendingInvite;
+    setPendingInvite(null);
+    try {
+      await declinePartyInvite(partyId, character.id);
+    } catch (e) {
+      console.error("Decline invite failed", e);
+    }
+  };
+
+  const handleLeaveParty = async () => {
+    if (!character || !party) return;
+    try {
+      await leaveParty(party.id, character.id);
+      setParty(null);
+      setPartyMembers([]);
+      if (partyChannelRef.current) leaveScenePresence(partyChannelRef.current);
+    } catch (e) {
+      console.error("Leave party failed", e);
+    }
+  };
+
+  const handleKickFromParty = async (targetCharacterId: string) => {
+    if (!party) return;
+    try {
+      await kickFromParty(party.id, targetCharacterId);
+    } catch (e) {
+      console.error("Kick failed", e);
+    }
+  };
 
   // ---------- Tchat propre à chaque scène : on vide le log affiché quand on
   // change de scène (le canal réseau était déjà séparé par scène, mais le
@@ -1099,14 +1253,21 @@ function Index() {
             >
               {bubbles[peer.characterId] && <SpeechBubble text={bubbles[peer.characterId].text} />}
               <div style={{ transform: isFacingRight ? "scaleX(-1)" : "none" }}>
+                {/* pointer-events-auto seulement sur l'image : le conteneur
+                    reste pointer-events-none pour ne pas intercepter les
+                    clics de déplacement destinés au sol derrière le pair. */}
                 <img
                   src={peer.image_url}
                   alt={peer.name}
                   draggable={false}
-                  className="block w-full"
+                  className="pointer-events-auto block w-full cursor-pointer"
                   style={{
                     transformOrigin: "50% 100%",
                     animation: isWalking ? "auberge-walk 250ms linear infinite" : "none",
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPeerMenu({ peerKey: key, peerName: peer.name, x: e.clientX, y: e.clientY });
                   }}
                 />
               </div>
@@ -1114,6 +1275,37 @@ function Index() {
             </div>
           );
         })}
+
+        {peerMenu && (
+          <PeerContextMenu
+            peerName={peerMenu.peerName}
+            x={peerMenu.x}
+            y={peerMenu.y}
+            onInvite={() => {
+              const targetPeer = peers[peerMenu.peerKey];
+              if (targetPeer) handleInvitePeer(targetPeer.characterId);
+            }}
+            onClose={() => setPeerMenu(null)}
+          />
+        )}
+
+        {party && character && (
+          <PartyPanel
+            members={partyMembers}
+            myCharacterId={character.id}
+            isLeader={party.created_by_character_id === character.id}
+            onLeave={handleLeaveParty}
+            onKick={handleKickFromParty}
+          />
+        )}
+
+        {pendingInvite && (
+          <PartyInvitePopup
+            inviterName={pendingInvite.inviterName}
+            onAccept={handleAcceptInvite}
+            onDecline={handleDeclineInvite}
+          />
+        )}
 
         <SoundControl
           muted={muted}
