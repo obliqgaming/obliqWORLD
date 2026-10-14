@@ -707,9 +707,8 @@ function Index() {
 
   // Quelqu'un du groupe a déjà cliqué avant nous (ou on revient sur la scène) :
   // on rejoint l'expédition en attente au lieu d'attendre notre propre clic.
-  // Un seul contrôle au montage ne suffisait pas : si le coéquipier clique APRÈS
-  // notre arrivée, on ne le sait jamais. On revérifie donc toutes les 3 s tant
-  // qu'aucune expédition n'est connue (filet de sécurité en plus du Realtime).
+  // Contrôle unique au montage, puis écoute Realtime des nouvelles expéditions
+  // du groupe (aucun polling : le jeu doit rester gratuit).
   useEffect(() => {
     if (!scenePortal || !party || openExpedition) return;
     let cancelled = false;
@@ -723,10 +722,17 @@ function Index() {
         })
         .catch((e) => console.error("fetchOpenExpeditionForParty failed", e));
     void check();
-    const timer = window.setInterval(check, 3000);
+    const channel = scenesClient
+      .channel(`party-expeditions:${party.id}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "expeditions", filter: `party_id=eq.${party.id}` },
+        () => void check(),
+      )
+      .subscribe();
     return () => {
       cancelled = true;
-      window.clearInterval(timer);
+      leaveScenePresence(channel as unknown as PresenceChannel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scenePortal?.id, party?.id, scene.id, openExpedition?.id]);
