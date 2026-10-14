@@ -463,9 +463,12 @@ export async function fetchScenePortal(sceneId: string): Promise<ExpeditionPorta
     .from("expedition_portals")
     .select("*")
     .eq("scene_id", sceneId)
-    .maybeSingle();
+    .order("created_at", { ascending: true })
+    .limit(1);
   if (error) throw error;
-  return (data as ExpeditionPortal | null) ?? null;
+  // limit(1) plutôt que maybeSingle() : si deux portails existent par erreur
+  // dans la même scène, maybeSingle() plantait et plus personne ne voyait le portail.
+  return ((data ?? [])[0] as ExpeditionPortal | undefined) ?? null;
 }
 
 export async function createExpeditionPortal(sceneId: string, position: Point, label: string | null): Promise<ExpeditionPortal> {
