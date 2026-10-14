@@ -2,21 +2,26 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import {
   connectIdentityProvider,
+  createExpeditionPortal,
   createScene,
   createSceneExit,
+  deleteExpeditionPortal,
   deleteSceneExit,
   ensureUserId,
   fetchAllScenes,
   fetchScene,
+  fetchScenePortal,
   fetchSceneExits,
   getAuthIdentity,
   listMusicFiles,
+  updateExpeditionPortalPosition,
   updateSceneExitDestination,
   updateSceneExitPosition,
   updateSceneMusic,
   updateSceneZones,
   type AuthIdentity,
   type DepthScale,
+  type ExpeditionPortal,
   type MusicFile,
   type Point,
   type Scene,
@@ -146,6 +151,10 @@ function AdminPage() {
   const [draggingExitId, setDraggingExitId] = useState<string | null>(null);
   const [savingExitId, setSavingExitId] = useState<string | null>(null);
   const [exitStatus, setExitStatus] = useState<string | null>(null);
+  // Portail d'expédition de la scène (au plus un par scène pour l'instant) :
+  // pose/déplacement au clic quand "placingPortal" est armé.
+  const [expPortal, setExpPortal] = useState<ExpeditionPortal | null>(null);
+  const [placingPortal, setPlacingPortal] = useState(false);
   // "placingExit" = armé pour poser un nouveau portail au prochain clic sur
   // l'image (plutôt qu'au chargement, pour ne pas en créer un par accident).
   const [placingExit, setPlacingExit] = useState(false);
@@ -223,6 +232,8 @@ function AdminPage() {
     setRecoverable(null);
     setExitStatus(null);
     setExits([]);
+    setExpPortal(null);
+    setPlacingPortal(false);
     setMusicStatus(null);
     fetchScene(sceneId)
       .then((s) => {
@@ -250,6 +261,9 @@ function AdminPage() {
     fetchSceneExits(sceneId)
       .then(setExits)
       .catch((err) => console.error("fetchSceneExits a échoué", err));
+    fetchScenePortal(sceneId)
+      .then(setExpPortal)
+      .catch((err) => console.error("fetchScenePortal a échoué", err));
   }, [sceneId]);
 
   // Sauvegarde locale automatique à chaque modification — y compris les points
@@ -320,6 +334,7 @@ function AdminPage() {
       // Hors pose d'un nouveau portail, un clic en mode "exit" ne fait rien —
       // les portails existants se déplacent par glisser-déposer, pas par clic.
       if (placingExit) void handleCreateExitAt(p);
+      else if (placingPortal) void handlePlacePortalAt(p);
       return;
     }
 
@@ -353,6 +368,39 @@ function AdminPage() {
     } catch (err) {
       console.error(err);
       setExitStatus("Erreur en créant le portail — regarde la console (F12).");
+    }
+  };
+
+  // Pose le portail d'expédition au point cliqué, ou le déplace s'il existe
+  // déjà (un seul par scène). Sauvegarde immédiate en base.
+  const handlePlacePortalAt = async (p: Point) => {
+    setPlacingPortal(false);
+    if (!scene) return;
+    try {
+      if (expPortal) {
+        await updateExpeditionPortalPosition(expPortal.id, p);
+        setExpPortal({ ...expPortal, position: p });
+        setExitStatus("Portail d'expédition déplacé ✅");
+      } else {
+        const created = await createExpeditionPortal(scene.id, p, null);
+        setExpPortal(created);
+        setExitStatus("Portail d'expédition posé ✅");
+      }
+    } catch (err) {
+      console.error(err);
+      setExitStatus("Erreur avec le portail d'expédition — regarde la console (F12).");
+    }
+  };
+
+  const handleDeletePortal = async () => {
+    if (!expPortal || !window.confirm("Supprimer le portail d'expédition de cette scène ?")) return;
+    try {
+      await deleteExpeditionPortal(expPortal.id);
+      setExpPortal(null);
+      setExitStatus("Portail d'expédition supprimé ✅");
+    } catch (err) {
+      console.error(err);
+      setExitStatus("Erreur en supprimant le portail d'expédition — regarde la console (F12).");
     }
   };
 
@@ -783,6 +831,26 @@ function AdminPage() {
           >
             {placingExit ? "Clique sur l'image pour le poser…" : "➕ Nouveau portail ici"}
           </button>
+          <button
+            type="button"
+            onClick={() => setPlacingPortal((v) => !v)}
+            className={`rounded px-3 py-1 text-xs font-semibold ${placingPortal ? "bg-amber-600" : "bg-neutral-700"}`}
+          >
+            {placingPortal
+              ? "Clique sur l'image pour poser le portail d'expédition…"
+              : expPortal
+                ? "✨ Déplacer le portail d'expédition"
+                : "✨ Poser le portail d'expédition"}
+          </button>
+          {expPortal && (
+            <button
+              type="button"
+              onClick={handleDeletePortal}
+              className="rounded bg-neutral-700 px-3 py-1 text-xs font-semibold text-red-400"
+            >
+              🗑 Retirer le portail d'expédition
+            </button>
+          )}
         </div>
       )}
 
@@ -877,6 +945,21 @@ function AdminPage() {
                 🚪
               </div>
             ))}
+
+            {expPortal && (
+              <div
+                title="Portail d'expédition"
+                className="pointer-events-none absolute flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 text-sm"
+                style={{
+                  left: `${expPortal.position.x}%`,
+                  top: `${expPortal.position.y}%`,
+                  background: "rgba(245,158,11,0.55)",
+                  borderColor: "rgba(253,230,138,0.95)",
+                }}
+              >
+                ✨
+              </div>
+            )}
           </div>
         )}
 

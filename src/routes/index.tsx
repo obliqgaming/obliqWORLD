@@ -8,20 +8,26 @@ import {
   connectIdentityProvider,
   createCharacterWithAsset,
   createPartyAndInvite,
+  createSoloParty,
   declinePartyInvite,
+  enterExpeditionPortal,
   getAuthIdentity,
   fetchCharacterAssets,
+  fetchExpeditionParticipants,
   fetchMyActiveParty,
   fetchMyCharacter,
+  fetchOpenExpeditionForParty,
   fetchPartyMembers,
   fetchScene,
   fetchSceneByName,
   fetchSceneExits,
+  fetchScenePortal,
   inviteToParty,
   isChannelReady,
   isPresenceDebugEnabled,
   joinScenePresence,
   kickFromParty,
+  leaveExpeditionPortal,
   leaveParty,
   readPeersFromChannel,
   leaveScenePresence,
@@ -31,11 +37,16 @@ import {
   scenesClient,
   setPresenceDebugEnabled,
   signOutToGuest,
+  startExpedition,
+  subscribeToExpeditionChanges,
   subscribeToIncomingInvites,
   subscribeToPartyChanges,
   type AuthIdentity,
   type Character,
   type ChatMessage,
+  type Expedition,
+  type ExpeditionParticipant,
+  type ExpeditionPortal,
   type Party,
   type PartyMember,
   type PeerState,
@@ -47,6 +58,7 @@ import {
 } from "../lib/scenes-supabase";
 import { AccountBadge } from "../components/AccountBadge";
 import { CharacterSelect } from "../components/CharacterSelect";
+import { ExpeditionPortalMarker } from "../components/ExpeditionPortal";
 import { PartyInvitePopup } from "../components/PartyInvitePopup";
 import { PartyPanel } from "../components/PartyPanel";
 import { PeerContextMenu } from "../components/PeerContextMenu";
@@ -216,6 +228,12 @@ function Index() {
   const [peerMenu, setPeerMenu] = useState<{ peerKey: string; peerName: string; x: number; y: number } | null>(null);
   const partyChannelRef = useRef<PresenceChannel | null>(null);
   const inviteChannelRef = useRef<PresenceChannel | null>(null);
+
+  // ---------- Portail d'expédition (§5, revu le 2026-10-14) ----------
+  const [scenePortal, setScenePortal] = useState<ExpeditionPortal | null>(null);
+  const [openExpedition, setOpenExpedition] = useState<Expedition | null>(null);
+  const [expeditionParticipants, setExpeditionParticipants] = useState<ExpeditionParticipant[]>([]);
+  const expeditionChannelRef = useRef<PresenceChannel | null>(null);
 
   // ---- Ratio réel de l'image de scène (fix du bug "objet-cover recadre l'image,
   // mais les % de position/zone marchable sont calculés sur l'image d'origine") ----
@@ -656,6 +674,105 @@ function Index() {
     }
   };
 
+  // ---------- Portail d'expédition : cliquer = se déclarer prêt (§5, revu le
+  // 2026-10-14). L'expédition ne part que lorsque TOUS les membres joined du
+  // groupe sont prêts. ----------
+  const joinedMemberIds = partyMembers.filter((m) => m.status === "joined").map((m) => m.character_id);
+  const groupIds = party ? joinedMemberIds : character ? [character.id] : [];
+  const readyIds = new Set(
+    expeditionParticipants.filter((p) => p.entered_portal_at && !p.left_expedition_at).map((p) => p.character_id),
+  );
+  const readyCount = groupIds.filter((id) => readyIds.has(id)).length;
+  const selfReady = !!character && readyIds.has(character.id);
+  const expeditionLaunched = openExpedition?.status === "active";
+
+  const refreshExpedition = async (expeditionId: string) => {
+    try {
+      const [parts, expRow] = await Promise.all([
+        fetchExpeditionParticipants(expeditionId),
+        scenesClient.from("expeditions").select("*").eq("id", expeditionId).single(),
+      ]);
+      setExpeditionParticipants(parts);
+      if (expRow.data) setOpenExpedition(expRow.data as Expedition);
+    } catch (e) {
+      console.error("refreshExpedition failed", e);
+    }
+  };
+
+  const watchExpedition = (expeditionId: string) => {
+    if (expeditionChannelRef.current) leaveScenePresence(expeditionChannelRef.current);
+    expeditionChannelRef.current = subscribeToExpeditionChanges(expeditionId, () => refreshExpedition(expeditionId));
+    void refreshExpedition(expeditionId);
+  };
+
+  // Quelqu'un du groupe a déjà cliqué avant nous (ou on revient sur la scène) :
+  // on rejoint l'expédition en attente au lieu d'attendre notre propre clic.
+  useEffect(() => {
+    if (!scenePortal || !party || openExpedition) return;
+    let cancelled = false;
+    fetchOpenExpeditionForParty(party.id, scene.id)
+      .then((exp) => {
+        if (!cancelled && exp) {
+          setOpenExpedition(exp);
+          watchExpedition(exp.id);
+        }
+      })
+      .catch((e) => console.error("fetchOpenExpeditionForParty failed", e));
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scenePortal?.id, party?.id, scene.id]);
+
+  // Tout le groupe est prêt -> on tente de lancer. Tous les clients du groupe
+  // exécutent ceci en même temps ; startExpedition est conditionné sur
+  // status='lobby', donc un seul appel a un effet.
+  useEffect(() => {
+    if (!openExpedition || openExpedition.status !== "lobby") return;
+    if (groupIds.length === 0 || readyCount < groupIds.length) return;
+    startExpedition(openExpedition.id)
+      .then(() => refreshExpedition(openExpedition.id))
+      .catch((e) => console.error("startExpedition failed", e));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [readyCount, groupIds.length, openExpedition?.id, openExpedition?.status]);
+
+  const handleTogglePortal = async () => {
+    if (!character || !scenePortal || expeditionLaunched) return;
+    try {
+      if (selfReady && openExpedition) {
+        await leaveExpeditionPortal(openExpedition.id, character.id);
+        await refreshExpedition(openExpedition.id);
+        return;
+      }
+
+      let activeParty = party;
+      if (!activeParty) {
+        const ok = window.confirm(
+          "Une expédition en solo est très dangereuse : attention, vous aventurer ici sans groupe risque de mal finir. Continuer quand même ?",
+        );
+        if (!ok) return;
+        activeParty = await createSoloParty(character.id);
+        setParty(activeParty);
+        setPartyMembers(await fetchPartyMembers(activeParty.id));
+        if (partyChannelRef.current) leaveScenePresence(partyChannelRef.current);
+        const newPartyId = activeParty.id;
+        partyChannelRef.current = subscribeToPartyChanges(newPartyId, () => refreshParty(newPartyId));
+      }
+
+      const exp = await enterExpeditionPortal(
+        character.id,
+        activeParty.id,
+        activeParty.created_by_character_id,
+        scene.id,
+      );
+      setOpenExpedition(exp);
+      watchExpedition(exp.id);
+    } catch (e) {
+      console.error("Portal toggle failed", e);
+      window.alert("Impossible d'entrer dans le portail pour l'instant. Réessaie dans un instant.");
+    }
+  };
+
   // ---------- Tchat propre à chaque scène : on vide le log affiché quand on
   // change de scène (le canal réseau était déjà séparé par scène, mais le
   // log local gardait les anciens messages affichés par-dessus) ----------
@@ -672,6 +789,28 @@ function Index() {
         if (!cancelled) setExits(e);
       })
       .catch((e) => console.error("Exits fetch failed", e));
+    return () => {
+      cancelled = true;
+    };
+  }, [scene.id]);
+
+  // ---------- Portail d'expédition de la scène courante (§5, revu le
+  // 2026-10-14) — au plus un par scène pour l'instant. Réinitialise l'état
+  // d'expédition ouverte en changeant de scène : rejoindre le portail d'une
+  // AUTRE scène recommence proprement. ----------
+  useEffect(() => {
+    let cancelled = false;
+    setOpenExpedition(null);
+    setExpeditionParticipants([]);
+    if (expeditionChannelRef.current) {
+      leaveScenePresence(expeditionChannelRef.current);
+      expeditionChannelRef.current = null;
+    }
+    fetchScenePortal(scene.id)
+      .then((p) => {
+        if (!cancelled) setScenePortal(p);
+      })
+      .catch((e) => console.error("Scene portal fetch failed", e));
     return () => {
       cancelled = true;
     };
@@ -1305,6 +1444,25 @@ function Index() {
             onAccept={handleAcceptInvite}
             onDecline={handleDeclineInvite}
           />
+        )}
+
+        {scenePortal && character && !expeditionLaunched && (
+          <ExpeditionPortalMarker
+            position={scenePortal.position}
+            isSelfReady={selfReady}
+            readyCount={readyCount}
+            totalCount={groupIds.length}
+            onClick={handleTogglePortal}
+          />
+        )}
+
+        {expeditionLaunched && (
+          <div
+            className="absolute left-1/2 top-24 z-40 -translate-x-1/2 rounded-lg border-2 border-[#9effa0]/70 bg-[#2b1406]/95 px-4 py-2 text-sm font-bold text-[#fff3d6]"
+            style={{ fontFamily: "'Baloo 2', cursive" }}
+          >
+            Le groupe est au complet : l'expédition est lancée ! (le déroulé des étapes reste à construire)
+          </div>
         )}
 
         <SoundControl

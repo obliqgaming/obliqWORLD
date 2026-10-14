@@ -444,6 +444,192 @@ export async function deleteSceneExit(exitId: string): Promise<void> {
   if (error) throw error;
 }
 
+// ---------- Portail d'expédition (§5, revu le 2026-10-14) ----------
+// Distinct d'un scene_exit ordinaire : ne change pas de scène, déclenche la
+// logique de groupe/expédition (voir handleEnterPortal côté index.tsx). Même
+// pattern de pose/déplacement que les scene_exits dans /admin, par cohérence
+// avec l'existant.
+
+export type ExpeditionPortal = {
+  id: string;
+  scene_id: string;
+  position: Point;
+  label: string | null;
+  created_at: string;
+};
+
+export async function fetchScenePortal(sceneId: string): Promise<ExpeditionPortal | null> {
+  const { data, error } = await scenesClient
+    .from("expedition_portals")
+    .select("*")
+    .eq("scene_id", sceneId)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as ExpeditionPortal | null) ?? null;
+}
+
+export async function createExpeditionPortal(sceneId: string, position: Point, label: string | null): Promise<ExpeditionPortal> {
+  const { data, error } = await scenesClient
+    .from("expedition_portals")
+    .insert({
+      scene_id: sceneId,
+      position: { x: Math.round(position.x * 10) / 10, y: Math.round(position.y * 10) / 10 },
+      label,
+    })
+    .select("*")
+    .single();
+  if (error) throw error;
+  return data as ExpeditionPortal;
+}
+
+export async function updateExpeditionPortalPosition(portalId: string, position: Point): Promise<void> {
+  const { error } = await scenesClient
+    .from("expedition_portals")
+    .update({ position: { x: Math.round(position.x * 10) / 10, y: Math.round(position.y * 10) / 10 } })
+    .eq("id", portalId);
+  if (error) throw error;
+}
+
+export async function deleteExpeditionPortal(portalId: string): Promise<void> {
+  const { error } = await scenesClient.from("expedition_portals").delete().eq("id", portalId);
+  if (error) throw error;
+}
+
+// ---------- Entrée dans le portail = "prêt" (§5, revu le 2026-10-14) ----------
+// Cliquer sur le portail ne lance PAS l'expédition directement : ça marque
+// "ce personnage est prêt" (entered_portal_at). L'expédition passe de
+// 'lobby' à 'active' dès que TOUS les membres joined du groupe ont cliqué —
+// décidé explicitement le 2026-10-14 : "cliquer sur le bouton revient à
+// faire prêt, ça lance une fois que tout le monde l'a fait", pas au premier
+// clic. N'importe quel membre du groupe peut déclencher la création de la
+// ligne expeditions (pas seulement le créateur du groupe) : le premier à
+// cliquer crée, les suivants rejoignent la même ligne.
+
+export type Expedition = {
+  id: string;
+  status: "lobby" | "active" | "completed_returned" | "completed_wipe";
+  party_id: string;
+  created_by_character_id: string;
+  portal_scene_id: string;
+  current_step_index: number;
+  loot_secured: boolean;
+  created_at: string;
+  started_at: string | null;
+  ended_at: string | null;
+};
+
+export type ExpeditionParticipant = {
+  expedition_id: string;
+  character_id: string;
+  entered_portal_at: string | null;
+  joined_at: string;
+  left_expedition_at: string | null;
+};
+
+// Expédition en lobby déjà ouverte pour ce groupe à ce portail, s'il y en a
+// une (créée par un autre membre qui a déjà cliqué) — évite de créer deux
+// lignes expeditions concurrentes pour le même groupe/portail.
+export async function fetchOpenExpeditionForParty(partyId: string, portalSceneId: string): Promise<Expedition | null> {
+  const { data, error } = await scenesClient
+    .from("expeditions")
+    .select("*")
+    .eq("party_id", partyId)
+    .eq("portal_scene_id", portalSceneId)
+    .eq("status", "lobby")
+    .maybeSingle();
+  if (error) throw error;
+  return (data as Expedition | null) ?? null;
+}
+
+export async function fetchExpeditionParticipants(expeditionId: string): Promise<ExpeditionParticipant[]> {
+  const { data, error } = await scenesClient
+    .from("expedition_participants")
+    .select("*")
+    .eq("expedition_id", expeditionId);
+  if (error) throw error;
+  return (data ?? []) as ExpeditionParticipant[];
+}
+
+// Marque CE personnage comme prêt (entré dans le portail). Crée la ligne
+// expeditions si c'est le premier du groupe à cliquer, sinon rejoint celle
+// déjà ouverte. Ne fait jamais passer le statut à 'active' elle-même — ça
+// reste un calcul séparé (voir computeExpeditionReadiness côté appelant),
+// pour que la logique "tout le monde prêt" soit testable indépendamment de
+// l'écriture en base.
+export async function enterExpeditionPortal(
+  myCharacterId: string,
+  partyId: string,
+  createdByCharacterId: string,
+  portalSceneId: string,
+): Promise<Expedition> {
+  let expedition = await fetchOpenExpeditionForParty(partyId, portalSceneId);
+  if (!expedition) {
+    const { data, error } = await scenesClient
+      .from("expeditions")
+      .insert({ party_id: partyId, created_by_character_id: createdByCharacterId, portal_scene_id: portalSceneId })
+      .select("*")
+      .single();
+    if (error) throw error;
+    expedition = data as Expedition;
+  }
+
+  const { error: upsertError } = await scenesClient
+    .from("expedition_participants")
+    .upsert(
+      { expedition_id: expedition.id, character_id: myCharacterId, entered_portal_at: new Date().toISOString() },
+      { onConflict: "expedition_id,character_id" },
+    );
+  if (upsertError) throw upsertError;
+
+  return expedition;
+}
+
+// Annule le "prêt" de ce personnage (reclique sur le portail pour se retirer,
+// avant que l'expédition parte) — simple commodité, pas dans le GDD
+// explicitement mais cohérent avec "le portail attend tout le groupe" : si on
+// peut attendre, on doit pouvoir changer d'avis pendant l'attente.
+export async function leaveExpeditionPortal(expeditionId: string, myCharacterId: string): Promise<void> {
+  const { error } = await scenesClient
+    .from("expedition_participants")
+    .update({ entered_portal_at: null })
+    .eq("expedition_id", expeditionId)
+    .eq("character_id", myCharacterId);
+  if (error) throw error;
+}
+
+// Fait passer l'expédition en 'active' — appelée côté client uniquement
+// lorsque computeExpeditionReadiness (index.tsx) détecte que tous les
+// membres joined du groupe ont entered_portal_at rempli. Plusieurs clients
+// peuvent tenter cet appel en même temps (tous les membres du groupe
+// observent le même état) ; l'update conditionné sur status='lobby' rend ça
+// sans danger — un seul des appels concurrents a un effet, les autres sont
+// des no-op silencieux.
+export async function startExpedition(expeditionId: string): Promise<void> {
+  const { error } = await scenesClient
+    .from("expeditions")
+    .update({ status: "active", started_at: new Date().toISOString() })
+    .eq("id", expeditionId)
+    .eq("status", "lobby");
+  if (error) throw error;
+}
+
+export function subscribeToExpeditionChanges(expeditionId: string, onChange: () => void): PresenceChannel {
+  const channel = scenesClient
+    .channel(`expedition:${expeditionId}`)
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "expedition_participants", filter: `expedition_id=eq.${expeditionId}` },
+      () => onChange(),
+    )
+    .on(
+      "postgres_changes",
+      { event: "UPDATE", schema: "public", table: "expeditions", filter: `id=eq.${expeditionId}` },
+      () => onChange(),
+    )
+    .subscribe();
+  return channel;
+}
+
 // ---------- Personnages / assets visuels ----------
 function flattenCharacter(row: any): Character {
   return {
@@ -788,6 +974,24 @@ export async function createPartyAndInvite(myCharacterId: string, targetCharacte
     .insert({ party_id: party.id, character_id: targetCharacterId, status: "invited" });
   if (inviteError) throw inviteError;
 
+  return party as Party;
+}
+
+// Groupe d'une seule personne : expeditions.party_id est obligatoire, donc un
+// joueur qui entre seul dans le portail (avertissement affiché côté UI, pas
+// de blocage, §5 revu le 2026-10-14) obtient un groupe solo pour que toute
+// la suite (participants, votes) fonctionne sans cas particulier.
+export async function createSoloParty(myCharacterId: string): Promise<Party> {
+  const { data: party, error: partyError } = await scenesClient
+    .from("parties")
+    .insert({ created_by_character_id: myCharacterId })
+    .select("*")
+    .single();
+  if (partyError) throw partyError;
+  const { error: selfError } = await scenesClient
+    .from("party_members")
+    .insert({ party_id: party.id, character_id: myCharacterId, status: "joined", joined_at: new Date().toISOString() });
+  if (selfError) throw selfError;
   return party as Party;
 }
 
