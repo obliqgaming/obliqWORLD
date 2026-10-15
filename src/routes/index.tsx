@@ -20,7 +20,12 @@ import {
   fetchActiveExpeditionForParty,
   fetchRandomCharacterAsEnemy,
   fetchExpeditionScene,
-  endExpedition,
+  ensureExpeditionStep,
+  fetchStepVotes,
+  castStepVote,
+  resolveExpeditionStep,
+  fetchExpeditionById,
+  subscribeToExpeditionRun,
   isExpeditionSceneName,
   fetchPartyMembers,
   fetchScene,
@@ -51,6 +56,8 @@ import {
   type ChatMessage,
   type Expedition,
   type ExpeditionParticipant,
+  type ExpeditionStep,
+  type StepVote,
   type ExpeditionPortal,
   type Party,
   type PartyMember,
@@ -246,11 +253,11 @@ function Index() {
   const [activeExpedition, setActiveExpedition] = useState<Expedition | null>(null);
   const [expeditionSceneMissing, setExpeditionSceneMissing] = useState(false);
   const teleportingRef = useRef(false);
-  // Maquette locale du déroulé (aucun moteur ni vote partagé encore) : un
-  // événement à vote, puis un combat contre le mannequin.
-  const [expeditionEventIndex, setExpeditionEventIndex] = useState(0);
+  // Déroulé partagé : l'étape courante vient de la base (current_step_index),
+  // les votes aussi (voir 004_vote_partage_expedition.sql).
+  const [runStep, setRunStep] = useState<ExpeditionStep | null>(null);
+  const [stepVotes, setStepVotes] = useState<StepVote[]>([]);
   const [sampleEnemy, setSampleEnemy] = useState<{ name: string; imageUrl: string } | null>(null);
-  const [expeditionVote, setExpeditionVote] = useState<string | null>(null);
 
   // ---- Ratio réel de l'image de scène (fix du bug "objet-cover recadre l'image,
   // mais les % de position/zone marchable sont calculés sur l'image d'origine") ----
@@ -871,7 +878,7 @@ function Index() {
 
   // Chaque client téléporte SON personnage (pas d'écriture sur les autres).
   useEffect(() => {
-    if (!character || !activeExpedition || inExpeditionScene || teleportingRef.current) return;
+    if (!character || !activeExpedition || activeExpedition.status !== "active" || inExpeditionScene || teleportingRef.current) return;
     teleportingRef.current = true;
     fetchExpeditionScene()
       .then(async (expScene) => {
@@ -889,41 +896,118 @@ function Index() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeExpedition?.id, inExpeditionScene, character?.id]);
 
-  const currentEvent = PLACEHOLDER_EVENTS[expeditionEventIndex % PLACEHOLDER_EVENTS.length]!;
+  const stepIndex = activeExpedition?.current_step_index ?? 0;
+  const currentEvent = PLACEHOLDER_EVENTS[stepIndex % PLACEHOLDER_EVENTS.length]!;
   const expeditionPhase = currentEvent.kind;
+  const participantCount = Math.max(1, party ? partyMembers.filter((m) => m.status === "joined").length : 1);
+  const myVote = character ? (stepVotes.find((v) => v.character_id === character.id)?.choice_key ?? null) : null;
 
-  const advancingRef = useRef(false);
-  const goToNextEvent = () => {
-    advancingRef.current = false;
-    setExpeditionVote(null);
-    setExpeditionEventIndex((i) => i + 1);
-  };
+  // Étape courante : on la crée/retrouve, on lit les votes puis on écoute en
+  // direct (changement d'étape, de statut et votes). Aucun polling.
+  useEffect(() => {
+    if (!inExpeditionScene || !character || !activeExpedition || activeExpedition.status !== "active") return;
+    const expId = activeExpedition.id;
+    const idx = activeExpedition.current_step_index;
+    const ev = PLACEHOLDER_EVENTS[idx % PLACEHOLDER_EVENTS.length]!;
+    let cancelled = false;
+    let channel: PresenceChannel | null = null;
+    setRunStep(null);
+    setStepVotes([]);
+    (async () => {
+      try {
+        const step = await ensureExpeditionStep(expId, idx, ev.kind, ev.situation);
+        if (cancelled) return;
+        setRunStep(step);
+        const reloadVotes = async () => {
+          const v = await fetchStepVotes(step.id);
+          if (!cancelled) setStepVotes(v);
+        };
+        const refreshExpedition = async () => {
+          const e = await fetchExpeditionById(expId);
+          if (!cancelled && e) setActiveExpedition(e);
+        };
+        await reloadVotes();
+        channel = subscribeToExpeditionRun(expId, step.id, refreshExpedition, reloadVotes);
+      } catch (e) {
+        console.error("Expedition step sync failed", e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (channel) leaveScenePresence(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeExpedition?.id, activeExpedition?.current_step_index, activeExpedition?.status, inExpeditionScene, character?.id]);
 
-  // Maquette : un choix fait passer à l'événement suivant (pas de vote partagé,
-  // pas de résolution du risque). « Rentrer maintenant » est un vote comme les
-  // autres dans le vrai système ; ici il ramène directement ce joueur.
-  const handleExpeditionVote = (choiceKey: string) => {
-    if (choiceKey === "rentrer_maintenant") {
-      void handleLeaveExpedition();
-      return;
-    }
-    // Un seul clic compte (le spam empilait plusieurs « événement suivant »).
-    if (advancingRef.current) return;
-    advancingRef.current = true;
-    setExpeditionVote(choiceKey);
-    window.setTimeout(goToNextEvent, 700);
-  };
+  // Résolution : dès que tout le monde a voté, ou à la fin du délai (les
+  // absents restent passifs). Le serveur ne résout qu'une fois, sous verrou.
+  useEffect(() => {
+    if (!runStep || runStep.resolved || !activeExpedition) return;
+    const expId = activeExpedition.id;
+    const stepId = runStep.id;
+    const deadline = runStep.vote_deadline ? new Date(runStep.vote_deadline).getTime() : null;
+    let cancelled = false;
+    let retryTimer: number | undefined;
+    const tryResolve = async (attempt: number) => {
+      try {
+        const res = await resolveExpeditionStep(stepId);
+        if (cancelled) return;
+        if (res) {
+          const e = await fetchExpeditionById(expId);
+          if (!cancelled && e) setActiveExpedition(e);
+        } else if (deadline !== null && Date.now() >= deadline && attempt < 3) {
+          // Horloge légèrement en avance sur celle du serveur : on réessaie.
+          retryTimer = window.setTimeout(() => void tryResolve(attempt + 1), 2000);
+        }
+      } catch (e) {
+        console.error("Resolve step failed", e);
+      }
+    };
+    if (stepVotes.length >= participantCount) void tryResolve(0);
+    let timer: number | undefined;
+    if (deadline !== null) timer = window.setTimeout(() => void tryResolve(0), Math.max(0, deadline - Date.now()) + 300);
+    return () => {
+      cancelled = true;
+      if (timer) window.clearTimeout(timer);
+      if (retryTimer) window.clearTimeout(retryTimer);
+    };
+  }, [runStep?.id, stepVotes.length, participantCount]);
 
-  const handleLeaveExpedition = async () => {
-    if (!character) return;
+  // Fin d'expédition (vote « Rentrer maintenant » gagnant) : retour à l'auberge.
+  useEffect(() => {
+    if (!activeExpedition || activeExpedition.status === "active") return;
+    const wasInside = inExpeditionScene;
+    setActiveExpedition(null);
+    setRunStep(null);
+    setStepVotes([]);
+    if (!wasInside) return;
+    (async () => {
+      try {
+        const home = await fetchSceneByName("auberge");
+        await teleportToScene(home, { x: 50, y: 70 });
+      } catch (e) {
+        console.error("Return home failed", e);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeExpedition?.status]);
+
+  const handleExpeditionVote = async (choiceKey: string) => {
+    if (!character || !runStep || runStep.resolved || choiceKey === myVote) return;
+    const stepId = runStep.id;
+    setStepVotes((prev) => [
+      ...prev.filter((v) => v.character_id !== character.id),
+      { character_id: character.id, choice_key: choiceKey },
+    ]);
     try {
-      const exp = activeExpedition;
-      setActiveExpedition(null);
-      if (exp) await endExpedition(exp.id);
-      const home = await fetchSceneByName("auberge");
-      await teleportToScene(home, { x: 50, y: 70 });
+      await castStepVote(stepId, character.id, choiceKey);
     } catch (e) {
-      console.error("Leave expedition failed", e);
+      console.error("Cast vote failed", e);
+      try {
+        setStepVotes(await fetchStepVotes(stepId));
+      } catch {
+        /* ignoré : le prochain événement Realtime resynchronisera */
+      }
     }
   };
 
@@ -946,8 +1030,11 @@ function Index() {
     typeLabel: currentEvent.typeLabel,
     risk: currentEvent.risk,
     situation: currentEvent.situation,
-    voterCount: combatAllies.length,
-    choices: currentEvent.choices.map((c) => ({ ...c, votes: expeditionVote === c.key ? 1 : 0 })),
+    voterCount: participantCount,
+    choices: currentEvent.choices.map((c) => ({
+      ...c,
+      votes: stepVotes.filter((v) => v.choice_key === c.key).length,
+    })),
   };
   // Adversaire placeholder : un personnage existant tiré au hasard.
   const combatEnemies: CombatEnemy[] = [
@@ -1634,19 +1721,17 @@ function Index() {
         {inExpeditionScene && character && (
           <ExpeditionCombatView
             sceneImageUrl={scene.image_url}
-            eventNumber={expeditionEventIndex + 1}
+            eventNumber={stepIndex + 1}
             phase={expeditionPhase}
             event={demoEvent}
-            myVote={expeditionVote}
+            myVote={myVote}
+            votedCount={stepVotes.length}
+            voteDeadlineMs={runStep?.vote_deadline ? new Date(runStep.vote_deadline).getTime() : null}
             onVote={handleExpeditionVote}
             allies={combatAllies}
             enemies={combatEnemies}
             turn={1}
-            onAction={() => {
-              if (advancingRef.current) return;
-              advancingRef.current = true;
-              window.setTimeout(goToNextEvent, 900);
-            }}
+            onAction={(action) => void handleExpeditionVote(action)}
           />
         )}
 

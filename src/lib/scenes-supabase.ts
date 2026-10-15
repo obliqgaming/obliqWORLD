@@ -677,6 +677,97 @@ export async function fetchRandomCharacterAsEnemy(
   return { name: pick.name, imageUrl: pick.visual_assets.image_url };
 }
 
+// ---------- Vote partagé de l'expédition ----------
+// Adapté de Trust & Greed (cast_vote / begin_resolution), règles ObliqWorld :
+// tout passe par des fonctions serveur (voir 004_vote_partage_expedition.sql).
+export type StepVote = { character_id: string; choice_key: string };
+export type ExpeditionStep = {
+  id: string;
+  expedition_id: string;
+  step_index: number;
+  kind: "event" | "combat";
+  resolved: boolean;
+  winning_choice_key: string | null;
+  vote_deadline: string | null;
+};
+
+// Retrouve (ou crée) l'étape `stepIndex`. Chaque client l'appelle en arrivant.
+export async function ensureExpeditionStep(
+  expeditionId: string,
+  stepIndex: number,
+  kind: "event" | "combat",
+  situationText: string,
+): Promise<ExpeditionStep> {
+  const { data, error } = await scenesClient.rpc("expedition_ensure_step", {
+    p_expedition_id: expeditionId,
+    p_step_index: stepIndex,
+    p_kind: kind,
+    p_situation: situationText,
+  });
+  if (error) throw error;
+  return data as ExpeditionStep;
+}
+
+export async function fetchStepVotes(stepId: string): Promise<StepVote[]> {
+  const { data, error } = await scenesClient
+    .from("expedition_step_votes")
+    .select("character_id, choice_key")
+    .eq("step_id", stepId);
+  if (error) throw error;
+  return (data ?? []) as StepVote[];
+}
+
+export async function castStepVote(stepId: string, characterId: string, choiceKey: string): Promise<void> {
+  const { error } = await scenesClient.rpc("expedition_cast_vote", {
+    p_step_id: stepId,
+    p_character_id: characterId,
+    p_choice: choiceKey,
+  });
+  if (error) throw error;
+}
+
+// Tente de résoudre l'étape. « Le vote n'est pas terminé » n'est pas une
+// vraie erreur (un autre client réessaiera) : on renvoie null dans ce cas.
+export async function resolveExpeditionStep(stepId: string): Promise<ExpeditionStep | null> {
+  const { data, error } = await scenesClient.rpc("expedition_resolve_step", { p_step_id: stepId });
+  if (error) {
+    if (String(error.message).includes("pas terminé")) return null;
+    throw error;
+  }
+  return data as ExpeditionStep;
+}
+
+export async function fetchExpeditionById(expeditionId: string): Promise<Expedition | null> {
+  const { data, error } = await scenesClient.from("expeditions").select("*").eq("id", expeditionId).maybeSingle();
+  if (error) throw error;
+  return (data as Expedition | null) ?? null;
+}
+
+// Écoute en direct, pendant l'expédition : changement d'étape / de statut, et
+// votes de l'étape courante (le canal est recréé à chaque changement d'étape).
+export function subscribeToExpeditionRun(
+  expeditionId: string,
+  stepId: string | null,
+  onExpeditionChange: () => void,
+  onVotesChange: () => void,
+): PresenceChannel {
+  let channel = scenesClient
+    .channel(`expedition-run:${expeditionId}:${stepId ?? "none"}`)
+    .on(
+      "postgres_changes",
+      { event: "UPDATE", schema: "public", table: "expeditions", filter: `id=eq.${expeditionId}` },
+      () => onExpeditionChange(),
+    );
+  if (stepId) {
+    channel = channel.on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "expedition_step_votes", filter: `step_id=eq.${stepId}` },
+      () => onVotesChange(),
+    );
+  }
+  return channel.subscribe();
+}
+
 export function subscribeToExpeditionChanges(expeditionId: string, onChange: () => void): PresenceChannel {
   const channel = scenesClient
     .channel(`expedition:${expeditionId}`)

@@ -12,7 +12,7 @@
 // Pour l'instant : mise en page + données réelles (groupe, PV de
 // character_build), mais pas encore de moteur — les actions se sélectionnent
 // sans rien résoudre, l'ennemi est un mannequin d'entraînement.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export type CombatAlly = {
   characterId: string;
@@ -120,6 +120,8 @@ export function ExpeditionCombatView({
   enemies,
   turn,
   onAction,
+  voteDeadlineMs,
+  votedCount,
 }: {
   sceneImageUrl: string;
   /** Position dans l'expédition (1, 2, 3…). */
@@ -133,8 +135,20 @@ export function ExpeditionCombatView({
   turn: number;
   /** Absent tant que le moteur de combat n'est pas branché : les boutons restent sélectionnables mais ne valident rien. */
   onAction?: (action: CombatActionId) => void;
+  /** Fin du délai de vote (ms epoch) : sert au compte à rebours affiché. */
+  voteDeadlineMs?: number | null;
+  /** Nombre de joueurs qui ont déjà voté / choisi leur action. */
+  votedCount: number;
 }) {
-  const [selected, setSelected] = useState<CombatActionId | null>(null);
+  // Compte à rebours purement local (aucun appel serveur).
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!voteDeadlineMs) return;
+    const t = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(t);
+  }, [voteDeadlineMs]);
+  const secondsLeft = voteDeadlineMs ? Math.max(0, Math.ceil((voteDeadlineMs - now) / 1000)) : null;
+  const countdownLabel = secondsLeft !== null ? ` · ${secondsLeft} s` : "";
 
   return (
     // Recouvre les personnages « de marche » de la scène : en combat, tout le
@@ -245,7 +259,7 @@ export function ExpeditionCombatView({
           {/* Choix + votes : bas centre */}
           <div className="absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 flex-col items-center gap-1.5">
             <div className="rounded-full bg-black/60 px-3 py-0.5 text-[10px] font-bold uppercase tracking-widest text-[#fff3d6]/80">
-              {myVote ? "Vote enregistré — modifiable tant que le groupe n'a pas tranché" : "Votez : le groupe décide ensemble"}
+              {myVote ? `Vote enregistré — ${votedCount}/${event.voterCount} ont voté${countdownLabel}` : `Votez : le groupe décide ensemble${countdownLabel}`}
             </div>
             <div className="flex gap-2 rounded-xl border border-[#7a4a22]/60 bg-[#2b1406]/90 p-2">
               {[...event.choices, { key: "rentrer_maintenant", label: "Rentrer maintenant", votes: 0 }].map(
@@ -279,18 +293,17 @@ export function ExpeditionCombatView({
         <>
       <div className="absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 flex-col items-center gap-1.5">
         <div className="rounded-full bg-black/60 px-3 py-0.5 text-[10px] font-bold uppercase tracking-widest text-[#fff3d6]/80">
-          {selected ? "Action choisie — en attente du groupe" : "Choisis ton action"}
+          {myVote ? `Action choisie — ${votedCount}/${event.voterCount} prêts${countdownLabel}` : `Choisis ton action${countdownLabel}`}
         </div>
         <div className="flex gap-2 rounded-xl border border-[#7a4a22]/60 bg-[#2b1406]/90 p-2">
           {ACTIONS.map((act) => {
-            const active = selected === act.id;
+            const active = myVote === act.id;
             return (
               <button
                 key={act.id}
                 type="button"
                 title={act.hint}
                 onClick={() => {
-                  setSelected(act.id);
                   onAction?.(act.id);
                 }}
                 className="min-w-24 rounded-lg border px-4 py-2 text-sm font-bold text-[#fff3d6] transition-colors hover:bg-[#7a4a22]/60"
