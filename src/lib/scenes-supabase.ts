@@ -846,6 +846,15 @@ export async function createCharacterWithAsset(
   return flattenCharacter(data);
 }
 
+export type CharacterFamily = "melee" | "magie";
+
+// Enregistre la famille (définitive) du personnage et ses PV de départ (20/20,
+// valeurs par défaut de la table). Une seule fois par personnage.
+export async function createCharacterBuild(characterId: string, family: CharacterFamily): Promise<void> {
+  const { error } = await scenesClient.from("character_build").insert({ character_id: characterId, family });
+  if (error) throw error;
+}
+
 // Upload d'un dessin (canvas -> PNG -> bucket `drawings`) puis création de la ligne visual_assets.
 // handAnchor : position choisie par le joueur pour tenir une future arme/objet
 // (% de l'image 512x512) ; null s'il n'a pas touché au repère ou l'a désactivé.

@@ -1,11 +1,10 @@
 import { useState, type ChangeEvent, type MouseEvent } from "react";
-import { uploadDrawingAsCharacterAsset, type AuthIdentity, type Point, type VisualAsset } from "../lib/scenes-supabase";
+import { uploadDrawingAsCharacterAsset, type AuthIdentity, type CharacterFamily, type Point } from "../lib/scenes-supabase";
 import { AccountBadge } from "./AccountBadge";
 import { DrawingCanvas } from "./DrawingCanvas";
 import { SoundControl } from "./SoundControl";
 
 export function CharacterSelect({
-  assets,
   onChoose,
   muted,
   onToggleMute,
@@ -17,8 +16,7 @@ export function CharacterSelect({
   error,
   busy,
 }: {
-  assets: VisualAsset[];
-  onChoose: (visualAssetId: string, name: string) => void;
+  onChoose: (visualAssetId: string, name: string, family: CharacterFamily) => void;
   muted: boolean;
   onToggleMute: (e: MouseEvent) => void;
   volume: number;
@@ -31,21 +29,17 @@ export function CharacterSelect({
   error?: string | null;
   busy?: boolean;
 }) {
-  const [tab, setTab] = useState<"existing" | "draw">("existing");
   const [name, setName] = useState("");
-  const [selected, setSelected] = useState<string | null>(null);
+  // Famille choisie AVANT le dessin ; définitive une fois le personnage créé.
+  const [family, setFamily] = useState<CharacterFamily | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const confirmExisting = () => {
-    if (!selected) return;
-    onChoose(selected, name);
-  };
-
   const handleDrawingExported = async (blob: Blob, handAnchor: Point | null) => {
+    if (!family) return;
     setSaving(true);
     try {
       const asset = await uploadDrawingAsCharacterAsset(blob, name, handAnchor);
-      onChoose(asset.id, name);
+      onChoose(asset.id, name, family);
     } catch (e) {
       console.error("Drawing upload failed", e);
       setSaving(false);
@@ -87,7 +81,7 @@ export function CharacterSelect({
         }}
       >
         <h2 className="mb-4 text-center text-2xl font-bold" style={{ fontFamily: "'Baloo 2', cursive" }}>
-          Choisis ton personnage
+          Crée ton personnage
         </h2>
 
         {error && (
@@ -104,54 +98,38 @@ export function CharacterSelect({
           className="mb-4 w-full rounded-lg border-2 border-[#7a4a22]/70 bg-white/60 px-3 py-2 text-sm font-medium text-[#3a2210] outline-none placeholder:font-normal placeholder:text-[#7a4a22]/80"
         />
 
-        <div className="mb-4 flex justify-center gap-2">
-          <button
-            type="button"
-            onClick={() => setTab("existing")}
-            className={`rounded-full px-3 py-1 text-sm font-bold ${
-              tab === "existing" ? "bg-[#7a4a22] text-[#fff3d6]" : "bg-black/10 text-[#3a2210]"
-            }`}
-          >
-            Personnage existant
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab("draw")}
-            className={`rounded-full px-3 py-1 text-sm font-bold ${
-              tab === "draw" ? "bg-[#7a4a22] text-[#fff3d6]" : "bg-black/10 text-[#3a2210]"
-            }`}
-          >
-            Dessiner le mien
-          </button>
+        {/* Étape 1 : la famille (définitive) */}
+        <p className="mb-2 text-center text-sm font-bold">1. Choisis ta famille (définitif)</p>
+        <div className="mb-4 grid grid-cols-2 gap-3">
+          {(
+            [
+              { id: "melee", label: "Mêlée", desc: "Tu te bats au corps à corps." },
+              { id: "magie", label: "Magie", desc: "Tu lances des sorts." },
+            ] as { id: CharacterFamily; label: string; desc: string }[]
+          ).map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              disabled={saving || !!busy}
+              onClick={() => setFamily(f.id)}
+              className={`rounded-lg border-2 px-3 py-2 text-left ${
+                family === f.id ? "border-[#7a4a22] bg-[#7a4a22]/20" : "border-transparent bg-black/10"
+              }`}
+            >
+              <div className="text-base font-bold">{f.label}</div>
+              <div className="text-xs font-medium opacity-80">{f.desc}</div>
+            </button>
+          ))}
         </div>
 
-        {tab === "existing" ? (
-          <div>
-            <div className="grid max-h-72 grid-cols-3 gap-3 overflow-y-auto sm:grid-cols-4">
-              {assets.map((a) => (
-                <button
-                  key={a.id}
-                  type="button"
-                  onClick={() => setSelected(a.id)}
-                  className={`overflow-hidden rounded-lg border-2 ${
-                    selected === a.id ? "border-[#7a4a22]" : "border-transparent"
-                  }`}
-                >
-                  <img src={a.image_url} alt={a.name} className="aspect-square w-full object-cover" />
-                </button>
-              ))}
-            </div>
-            <button
-              type="button"
-              disabled={!selected || !!busy}
-              onClick={confirmExisting}
-              className="mt-4 w-full rounded-lg bg-[#7a4a22] py-2 font-bold text-[#fff3d6] disabled:opacity-40"
-            >
-              {busy ? "Création…" : "Confirmer"}
-            </button>
-          </div>
+        {/* Étape 2 : le dessin (obligatoire) */}
+        <p className="mb-2 text-center text-sm font-bold">2. Dessine ton personnage</p>
+        {family ? (
+          <DrawingCanvas onExport={handleDrawingExported} exporting={saving || !!busy} />
         ) : (
-          <DrawingCanvas onExport={handleDrawingExported} exporting={saving} />
+          <p className="rounded-lg bg-black/10 px-3 py-6 text-center text-sm font-medium">
+            Choisis d'abord ta famille pour débloquer le dessin.
+          </p>
         )}
       </div>
     </div>

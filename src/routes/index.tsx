@@ -7,6 +7,8 @@ import {
   computeDepthScale,
   connectIdentityProvider,
   createCharacterWithAsset,
+  createCharacterBuild,
+  type CharacterFamily,
   createPartyAndInvite,
   createSoloParty,
   declinePartyInvite,
@@ -549,11 +551,18 @@ function Index() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleCharacterChosen = async (visualAssetId: string, name: string) => {
+  const handleCharacterChosen = async (visualAssetId: string, name: string, family: CharacterFamily) => {
     setCharacterError(null);
     setCreatingCharacter(true);
     try {
       const c = await createCharacterWithAsset(scene.id, visualAssetId, name);
+      // Famille définitive + PV de départ. Si ça échoue le perso existe déjà :
+      // on le laisse jouer (sans famille) plutôt que de bloquer la connexion.
+      try {
+        await createCharacterBuild(c.id, family);
+      } catch (buildError) {
+        console.error("Character build creation failed", buildError);
+      }
       setCharacter(c);
       characterRef.current = c;
       setPos(c.position);
@@ -1527,7 +1536,6 @@ function Index() {
   if (!character) {
     return (
       <CharacterSelect
-        assets={characterAssets}
         onChoose={handleCharacterChosen}
         muted={muted}
         onToggleMute={toggleMute}
