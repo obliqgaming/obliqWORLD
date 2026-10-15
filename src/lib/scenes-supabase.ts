@@ -616,6 +616,67 @@ export async function startExpedition(expeditionId: string): Promise<void> {
   if (error) throw error;
 }
 
+// Expédition en cours (status 'active') du groupe, quelle que soit la scène :
+// sert à téléporter un membre qui (re)charge la page pendant l'expédition.
+export async function fetchActiveExpeditionForParty(partyId: string): Promise<Expedition | null> {
+  const { data, error } = await scenesClient
+    .from("expeditions")
+    .select("*")
+    .eq("party_id", partyId)
+    .eq("status", "active")
+    .order("started_at", { ascending: false })
+    .limit(1);
+  if (error) throw error;
+  return ((data ?? [])[0] as Expedition | undefined) ?? null;
+}
+
+// Termine l'expédition (retour à l'auberge pour l'instant : le vrai déroulé
+// d'étapes et le butin viendront ensuite).
+export async function endExpedition(
+  expeditionId: string,
+  status: "completed_returned" | "completed_wipe" = "completed_returned",
+): Promise<void> {
+  const { error } = await scenesClient
+    .from("expeditions")
+    .update({ status, ended_at: new Date().toISOString() })
+    .eq("id", expeditionId);
+  if (error) throw error;
+}
+
+function normalizeSceneName(name: string): string {
+  return name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+}
+
+// Vrai pour la scène de combat/expédition (nommée "expedition" ou
+// "expédition" dans /admin, accents et casse ignorés).
+export function isExpeditionSceneName(name: string | null | undefined): boolean {
+  return !!name && normalizeSceneName(name) === "expedition";
+}
+
+export async function fetchExpeditionScene(): Promise<Scene | null> {
+  const { data, error } = await scenesClient.from("scenes").select("*");
+  if (error) throw error;
+  const row = (data ?? []).find((r: any) => isExpeditionSceneName(r.name));
+  return row ? normalizeScene(row) : null;
+}
+
+// Adversaire PLACEHOLDER : un personnage existant pris au hasard (le but est
+// qu'à terme les personnages déjà créés alimentent la forêt). Remplacé plus
+// tard par les ennemis choisis ou dessinés dans l'éditeur.
+export async function fetchRandomCharacterAsEnemy(
+  excludeIds: string[] = [],
+): Promise<{ name: string; imageUrl: string } | null> {
+  const { data, error } = await scenesClient
+    .from("characters")
+    .select("id, name, visual_assets(image_url)")
+    .limit(50);
+  if (error) throw error;
+  const pool = (data ?? []).filter((r: any) => !excludeIds.includes(r.id) && r.visual_assets?.image_url);
+  if (pool.length === 0) return null;
+  const pick: any = pool[Math.floor(Math.random() * pool.length)];
+  return { name: pick.name, imageUrl: pick.visual_assets.image_url };
+}
+
 export function subscribeToExpeditionChanges(expeditionId: string, onChange: () => void): PresenceChannel {
   const channel = scenesClient
     .channel(`expedition:${expeditionId}`)

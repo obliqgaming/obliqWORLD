@@ -17,6 +17,11 @@ import {
   fetchMyActiveParty,
   fetchMyCharacter,
   fetchOpenExpeditionForParty,
+  fetchActiveExpeditionForParty,
+  fetchRandomCharacterAsEnemy,
+  fetchExpeditionScene,
+  endExpedition,
+  isExpeditionSceneName,
   fetchPartyMembers,
   fetchScene,
   fetchSceneByName,
@@ -59,6 +64,8 @@ import {
 import { AccountBadge } from "../components/AccountBadge";
 import { CharacterSelect } from "../components/CharacterSelect";
 import { ExpeditionPortalMarker } from "../components/ExpeditionPortal";
+import { ExpeditionCombatView, type CombatAlly, type CombatEnemy, type ExpeditionEvent } from "../components/ExpeditionCombatView";
+import { PLACEHOLDER_EVENTS } from "../lib/expedition-placeholder-events";
 import { PartyInvitePopup } from "../components/PartyInvitePopup";
 import { PartyPanel } from "../components/PartyPanel";
 import { PeerContextMenu } from "../components/PeerContextMenu";
@@ -234,6 +241,16 @@ function Index() {
   const [openExpedition, setOpenExpedition] = useState<Expedition | null>(null);
   const [expeditionParticipants, setExpeditionParticipants] = useState<ExpeditionParticipant[]>([]);
   const expeditionChannelRef = useRef<PresenceChannel | null>(null);
+  // Expédition en cours, conservée en changeant de scène (openExpedition, lui,
+  // est réinitialisé à chaque changement de scène).
+  const [activeExpedition, setActiveExpedition] = useState<Expedition | null>(null);
+  const [expeditionSceneMissing, setExpeditionSceneMissing] = useState(false);
+  const teleportingRef = useRef(false);
+  // Maquette locale du déroulé (aucun moteur ni vote partagé encore) : un
+  // événement à vote, puis un combat contre le mannequin.
+  const [expeditionEventIndex, setExpeditionEventIndex] = useState(0);
+  const [sampleEnemy, setSampleEnemy] = useState<{ name: string; imageUrl: string } | null>(null);
+  const [expeditionVote, setExpeditionVote] = useState<string | null>(null);
 
   // ---- Ratio réel de l'image de scène (fix du bug "objet-cover recadre l'image,
   // mais les % de position/zone marchable sont calculés sur l'image d'origine") ----
@@ -829,6 +846,128 @@ function Index() {
     };
   }, [scene.id]);
 
+  // ---------- Scène « expédition » : téléportation du groupe au lancement ----------
+  const inExpeditionScene = isExpeditionSceneName(scene.name);
+
+  // Lancement détecté (statut 'active') : on mémorise l'expédition.
+  useEffect(() => {
+    if (openExpedition?.status === "active") setActiveExpedition(openExpedition);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openExpedition?.id, openExpedition?.status]);
+
+  // Page (re)chargée pendant une expédition déjà lancée : on la retrouve.
+  useEffect(() => {
+    if (!party) return;
+    let cancelled = false;
+    fetchActiveExpeditionForParty(party.id)
+      .then((exp) => {
+        if (!cancelled && exp) setActiveExpedition(exp);
+      })
+      .catch((e) => console.error("fetchActiveExpeditionForParty failed", e));
+    return () => {
+      cancelled = true;
+    };
+  }, [party?.id]);
+
+  // Chaque client téléporte SON personnage (pas d'écriture sur les autres).
+  useEffect(() => {
+    if (!character || !activeExpedition || inExpeditionScene || teleportingRef.current) return;
+    teleportingRef.current = true;
+    fetchExpeditionScene()
+      .then(async (expScene) => {
+        if (!expScene) {
+          setExpeditionSceneMissing(true);
+          return;
+        }
+        setExpeditionSceneMissing(false);
+        await teleportToScene(expScene, { x: 50, y: 70 });
+      })
+      .catch((e) => console.error("Teleport to expedition scene failed", e))
+      .finally(() => {
+        teleportingRef.current = false;
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeExpedition?.id, inExpeditionScene, character?.id]);
+
+  const currentEvent = PLACEHOLDER_EVENTS[expeditionEventIndex % PLACEHOLDER_EVENTS.length]!;
+  const expeditionPhase = currentEvent.kind;
+
+  const goToNextEvent = () => {
+    setExpeditionVote(null);
+    setExpeditionEventIndex((i) => i + 1);
+  };
+
+  // Maquette : un choix fait passer à l'événement suivant (pas de vote partagé,
+  // pas de résolution du risque). « Rentrer maintenant » est un vote comme les
+  // autres dans le vrai système ; ici il ramène directement ce joueur.
+  const handleExpeditionVote = (choiceKey: string) => {
+    if (choiceKey === "rentrer_maintenant") {
+      void handleLeaveExpedition();
+      return;
+    }
+    setExpeditionVote(choiceKey);
+    window.setTimeout(goToNextEvent, 700);
+  };
+
+  const handleLeaveExpedition = async () => {
+    if (!character) return;
+    try {
+      const exp = activeExpedition;
+      setActiveExpedition(null);
+      if (exp) await endExpedition(exp.id);
+      const home = await fetchSceneByName("auberge");
+      await teleportToScene(home, { x: 50, y: 70 });
+    } catch (e) {
+      console.error("Leave expedition failed", e);
+    }
+  };
+
+  const combatAllies: CombatAlly[] = character
+    ? (party ? partyMembers.filter((m) => m.status === "joined") : []).length > 0
+      ? partyMembers
+          .filter((m) => m.status === "joined")
+          .map((m) => ({
+            characterId: m.character_id,
+            name: m.name,
+            imageUrl: m.image_url,
+            // Pas encore de ligne character_build (famille non choisie) : PV par défaut.
+            hpCurrent: m.pv_current ?? 20,
+            hpMax: m.pv_max ?? 20,
+            isSelf: m.character_id === character.id,
+          }))
+      : [{ characterId: character.id, name: character.name, imageUrl: character.image_url, hpCurrent: 20, hpMax: 20, isSelf: true }]
+    : [];
+  const demoEvent: ExpeditionEvent = {
+    typeLabel: currentEvent.typeLabel,
+    situation: currentEvent.situation,
+    voterCount: combatAllies.length,
+    choices: currentEvent.choices.map((c) => ({ ...c, votes: expeditionVote === c.key ? 1 : 0 })),
+  };
+  // Adversaire placeholder : un personnage existant tiré au hasard.
+  const combatEnemies: CombatEnemy[] = [
+    {
+      id: "placeholder-enemy",
+      name: sampleEnemy?.name ?? "Silhouette",
+      imageUrl: sampleEnemy?.imageUrl ?? null,
+      hpCurrent: 30,
+      hpMax: 30,
+    },
+  ];
+
+  useEffect(() => {
+    if (!inExpeditionScene || sampleEnemy || !character) return;
+    let cancelled = false;
+    fetchRandomCharacterAsEnemy([character.id])
+      .then((e) => {
+        if (!cancelled && e) setSampleEnemy(e);
+      })
+      .catch((e) => console.error("fetchRandomCharacterAsEnemy failed", e));
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inExpeditionScene, character?.id]);
+
   // ---------- Mise à jour locale des pairs (marche calculée nous-mêmes, pas confiance au réseau) ----------
   // isFullRoster=true pour un instantané complet (sync Presence, recalage
   // périodique) : un pair connu absent de newPeers a vraiment quitté. false
@@ -1228,6 +1367,23 @@ function Index() {
     }
   };
 
+  // Téléporte le personnage dans une scène (sans passer par une sortie).
+  const teleportToScene = async (newScene: Scene, arrival: Point) => {
+    if (!character) return;
+    const newExits = await fetchSceneExits(newScene.id);
+    playMusic(newScene.music_url, true);
+    setScene(newScene);
+    setExits(newExits);
+    setPos(arrival);
+    lastLogicalPosRef.current = arrival;
+    setWalking(false);
+    const updated = { ...character, scene_id: newScene.id, position: arrival };
+    setCharacter(updated);
+    characterRef.current = updated;
+    await moveCharacterToScene(character.id, newScene.id, arrival);
+    trackPresence(arrival, 0, false);
+  };
+
   // ---------- Clic sur une sortie : on marche jusqu'à elle, PUIS on change de scène ----------
   const handleExitClick = (e: React.MouseEvent, exit: SceneExit) => {
     e.stopPropagation();
@@ -1441,7 +1597,7 @@ function Index() {
           />
         )}
 
-        {party && character && (
+        {party && character && !inExpeditionScene && (
           <PartyPanel
             members={partyMembers}
             myCharacterId={character.id}
@@ -1459,7 +1615,7 @@ function Index() {
           />
         )}
 
-        {scenePortal && character && !expeditionLaunched && (
+        {scenePortal && character && !expeditionLaunched && !inExpeditionScene && (
           <ExpeditionPortalMarker
             position={scenePortal.position}
             isSelfReady={selfReady}
@@ -1469,7 +1625,30 @@ function Index() {
           />
         )}
 
-        {expeditionLaunched && (
+        {inExpeditionScene && character && (
+          <ExpeditionCombatView
+            sceneImageUrl={scene.image_url}
+            phase={expeditionPhase}
+            event={demoEvent}
+            myVote={expeditionVote}
+            onVote={handleExpeditionVote}
+            allies={combatAllies}
+            enemies={combatEnemies}
+            turn={1}
+            onAction={() => window.setTimeout(goToNextEvent, 900)}
+          />
+        )}
+
+        {expeditionSceneMissing && (
+          <div
+            className="absolute left-1/2 top-24 z-40 -translate-x-1/2 rounded-lg border-2 border-[#ff9e9e]/70 bg-[#2b1406]/95 px-4 py-2 text-sm font-bold text-[#fff3d6]"
+            style={{ fontFamily: "'Baloo 2', cursive" }}
+          >
+            L'expédition est lancée, mais aucune scène nommée « expedition » n'existe encore (à créer dans /admin).
+          </div>
+        )}
+
+        {expeditionLaunched && !inExpeditionScene && !expeditionSceneMissing && (
           <div
             className="absolute left-1/2 top-24 z-40 -translate-x-1/2 rounded-lg border-2 border-[#9effa0]/70 bg-[#2b1406]/95 px-4 py-2 text-sm font-bold text-[#fff3d6]"
             style={{ fontFamily: "'Baloo 2', cursive" }}
