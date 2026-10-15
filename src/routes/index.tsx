@@ -1536,6 +1536,7 @@ function Index() {
   if (!character) {
     return (
       <CharacterSelect
+        assets={characterAssets}
         onChoose={handleCharacterChosen}
         muted={muted}
         onToggleMute={toggleMute}

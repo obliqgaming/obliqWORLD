@@ -1,10 +1,16 @@
 import { useState, type ChangeEvent, type MouseEvent } from "react";
-import { uploadDrawingAsCharacterAsset, type AuthIdentity, type CharacterFamily, type Point } from "../lib/scenes-supabase";
+import { uploadDrawingAsCharacterAsset, type AuthIdentity, type CharacterFamily, type Point, type VisualAsset } from "../lib/scenes-supabase";
 import { AccountBadge } from "./AccountBadge";
 import { DrawingCanvas } from "./DrawingCanvas";
 import { SoundControl } from "./SoundControl";
 
+// Provisoire pendant le développement : permet de se connecter en invité avec un
+// « personnage déjà existant ». À passer à false quand le jeu sera ouvert : les
+// nouveaux joueurs devront alors dessiner leur personnage.
+const DEV_ALLOW_EXISTING_CHARACTERS = true;
+
 export function CharacterSelect({
+  assets,
   onChoose,
   muted,
   onToggleMute,
@@ -16,6 +22,7 @@ export function CharacterSelect({
   error,
   busy,
 }: {
+  assets: VisualAsset[];
   onChoose: (visualAssetId: string, name: string, family: CharacterFamily) => void;
   muted: boolean;
   onToggleMute: (e: MouseEvent) => void;
@@ -33,6 +40,8 @@ export function CharacterSelect({
   // Famille choisie AVANT le dessin ; définitive une fois le personnage créé.
   const [family, setFamily] = useState<CharacterFamily | null>(null);
   const [saving, setSaving] = useState(false);
+  const [tab, setTab] = useState<"draw" | "existing">("draw");
+  const [selected, setSelected] = useState<string | null>(null);
 
   const handleDrawingExported = async (blob: Blob, handAnchor: Point | null) => {
     if (!family) return;
@@ -123,13 +132,59 @@ export function CharacterSelect({
         </div>
 
         {/* Étape 2 : le dessin (obligatoire) */}
-        <p className="mb-2 text-center text-sm font-bold">2. Dessine ton personnage</p>
-        {family ? (
-          <DrawingCanvas onExport={handleDrawingExported} exporting={saving || !!busy} />
-        ) : (
+        {DEV_ALLOW_EXISTING_CHARACTERS && (
+          <div className="mb-3 flex justify-center gap-2">
+            <button
+              type="button"
+              onClick={() => setTab("draw")}
+              className={`rounded-full px-3 py-1 text-sm font-bold ${
+                tab === "draw" ? "bg-[#7a4a22] text-[#fff3d6]" : "bg-black/10 text-[#3a2210]"
+              }`}
+            >
+              Dessiner le mien
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab("existing")}
+              className={`rounded-full px-3 py-1 text-sm font-bold ${
+                tab === "existing" ? "bg-[#7a4a22] text-[#fff3d6]" : "bg-black/10 text-[#3a2210]"
+              }`}
+            >
+              Personnage existant (provisoire)
+            </button>
+          </div>
+        )}
+        {!family ? (
           <p className="rounded-lg bg-black/10 px-3 py-6 text-center text-sm font-medium">
-            Choisis d'abord ta famille pour débloquer le dessin.
+            Choisis d'abord ta famille pour continuer.
           </p>
+        ) : tab === "existing" && DEV_ALLOW_EXISTING_CHARACTERS ? (
+          <div>
+            <div className="grid max-h-72 grid-cols-3 gap-3 overflow-y-auto sm:grid-cols-4">
+              {assets.map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  onClick={() => setSelected(a.id)}
+                  className={`overflow-hidden rounded-lg border-2 ${
+                    selected === a.id ? "border-[#7a4a22]" : "border-transparent"
+                  }`}
+                >
+                  <img src={a.image_url} alt={a.name} className="aspect-square w-full object-cover" />
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              disabled={!selected || !!busy}
+              onClick={() => selected && onChoose(selected, name, family)}
+              className="mt-4 w-full rounded-lg bg-[#7a4a22] py-2 font-bold text-[#fff3d6] disabled:opacity-40"
+            >
+              {busy ? "Création…" : "Confirmer"}
+            </button>
+          </div>
+        ) : (
+          <DrawingCanvas onExport={handleDrawingExported} exporting={saving || !!busy} />
         )}
       </div>
     </div>
