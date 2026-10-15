@@ -892,7 +892,9 @@ function Index() {
   const currentEvent = PLACEHOLDER_EVENTS[expeditionEventIndex % PLACEHOLDER_EVENTS.length]!;
   const expeditionPhase = currentEvent.kind;
 
+  const advancingRef = useRef(false);
   const goToNextEvent = () => {
+    advancingRef.current = false;
     setExpeditionVote(null);
     setExpeditionEventIndex((i) => i + 1);
   };
@@ -905,6 +907,9 @@ function Index() {
       void handleLeaveExpedition();
       return;
     }
+    // Un seul clic compte (le spam empilait plusieurs « événement suivant »).
+    if (advancingRef.current) return;
+    advancingRef.current = true;
     setExpeditionVote(choiceKey);
     window.setTimeout(goToNextEvent, 700);
   };
@@ -939,6 +944,7 @@ function Index() {
     : [];
   const demoEvent: ExpeditionEvent = {
     typeLabel: currentEvent.typeLabel,
+    risk: currentEvent.risk,
     situation: currentEvent.situation,
     voterCount: combatAllies.length,
     choices: currentEvent.choices.map((c) => ({ ...c, votes: expeditionVote === c.key ? 1 : 0 })),
@@ -1628,6 +1634,7 @@ function Index() {
         {inExpeditionScene && character && (
           <ExpeditionCombatView
             sceneImageUrl={scene.image_url}
+            eventNumber={expeditionEventIndex + 1}
             phase={expeditionPhase}
             event={demoEvent}
             myVote={expeditionVote}
@@ -1635,7 +1642,11 @@ function Index() {
             allies={combatAllies}
             enemies={combatEnemies}
             turn={1}
-            onAction={() => window.setTimeout(goToNextEvent, 900)}
+            onAction={() => {
+              if (advancingRef.current) return;
+              advancingRef.current = true;
+              window.setTimeout(goToNextEvent, 900);
+            }}
           />
         )}
 

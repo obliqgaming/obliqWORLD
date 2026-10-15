@@ -36,13 +36,14 @@ export type RiskLevel = "faible" | "moyen" | "eleve";
 export type EventChoice = {
   key: string;
   label: string;
-  risk: RiskLevel;
   votes: number;
 };
 
 export type ExpeditionEvent = {
   /** Catégorie affichée au joueur (Passage, Rencontre, Découverte, Traces…). */
   typeLabel: string;
+  /** Risque de l'événement (affiché une seule fois, pas par choix). */
+  risk: RiskLevel;
   situation: string;
   choices: EventChoice[];
   /** Nombre de membres vivants qui doivent voter. */
@@ -110,6 +111,7 @@ function PlaceholderEnemy() {
 
 export function ExpeditionCombatView({
   sceneImageUrl,
+  eventNumber,
   phase,
   event,
   myVote,
@@ -120,6 +122,8 @@ export function ExpeditionCombatView({
   onAction,
 }: {
   sceneImageUrl: string;
+  /** Position dans l'expédition (1, 2, 3…). */
+  eventNumber: number;
   phase: "event" | "combat";
   event: ExpeditionEvent;
   myVote: string | null;
@@ -145,7 +149,7 @@ export function ExpeditionCombatView({
 
       {/* Tour */}
       <div className="absolute left-1/2 top-4 -translate-x-1/2 rounded-full bg-black/60 px-4 py-1 text-xs font-bold uppercase tracking-widest text-[#fff3d6]">
-        {phase === "combat" ? `Combat · tour ${turn}` : "Expédition · événement"}
+        {phase === "combat" ? `Événement ${eventNumber} · Combat · tour ${turn}` : `Événement ${eventNumber}`}
       </div>
 
       {/* Groupe à gauche */}
@@ -206,7 +210,7 @@ export function ExpeditionCombatView({
       })}
 
       {/* Membres du groupe + PV : bas gauche */}
-      <div className="absolute bottom-4 left-4 z-30 flex w-60 flex-col gap-1.5 rounded-lg border border-[#7a4a22]/60 bg-[#2b1406]/90 p-2.5 text-[#fff3d6]">
+      <div className="absolute bottom-[7.5rem] left-4 z-30 flex w-60 flex-col gap-1.5 rounded-lg border border-[#7a4a22]/60 bg-[#2b1406]/90 p-2.5 text-[#fff3d6]">
         <div className="text-[10px] font-bold uppercase tracking-widest opacity-60">Groupe</div>
         {allies.map((a) => (
           <div key={a.characterId} className="flex items-center gap-2 text-xs">
@@ -231,7 +235,10 @@ export function ExpeditionCombatView({
         <>
           {/* Situation : à droite, là où apparaît l'adversaire en combat */}
           <div className="absolute right-[7%] top-[24%] z-30 w-[min(26rem,38%)] rounded-lg border-2 border-[#7a4a22]/70 bg-[#f1dfb6]/95 px-5 py-4 text-sm leading-snug text-[#3a2410] shadow-lg">
-            <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-[#7a4a22]">{event.typeLabel}</div>
+            <div className="mb-1 flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-[#7a4a22]">
+              <span>{event.typeLabel}</span>
+              <span style={{ color: RISK_COLOR[event.risk] }}>{RISK_LABEL[event.risk]}</span>
+            </div>
             <div className="font-semibold">{event.situation}</div>
           </div>
 
@@ -241,7 +248,7 @@ export function ExpeditionCombatView({
               {myVote ? "Vote enregistré — modifiable tant que le groupe n'a pas tranché" : "Votez : le groupe décide ensemble"}
             </div>
             <div className="flex gap-2 rounded-xl border border-[#7a4a22]/60 bg-[#2b1406]/90 p-2">
-              {[...event.choices, { key: "rentrer_maintenant", label: "Rentrer maintenant", risk: null as RiskLevel | null, votes: 0 }].map(
+              {[...event.choices, { key: "rentrer_maintenant", label: "Rentrer maintenant", votes: 0 }].map(
                 (c) => {
                   const active = myVote === c.key;
                   return (
@@ -256,11 +263,6 @@ export function ExpeditionCombatView({
                       }}
                     >
                       <span>{c.label}</span>
-                      {c.risk && (
-                        <span className="text-[10px] uppercase tracking-wide" style={{ color: RISK_COLOR[c.risk] }}>
-                          {RISK_LABEL[c.risk]}
-                        </span>
-                      )}
                       <span className="text-[10px] opacity-70">
                         {c.key === "rentrer_maintenant" ? "Retour avec le butin" : `${c.votes}/${event.voterCount} vote${c.votes > 1 ? "s" : ""}`}
                       </span>
