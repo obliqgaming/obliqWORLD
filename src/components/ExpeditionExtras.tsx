@@ -1,0 +1,102 @@
+// Petits panneaux autour de l'expédition : résultat d'un événement, bandeau de
+// fin d'expédition, choix de l'axe au niveau 3.
+import type { GameAxis, GamePower } from "../lib/expedition-combat";
+
+const PANEL_FONT = { fontFamily: "'Baloo 2', cursive" };
+
+export type OutcomeInfo = {
+  stepIndex: number;
+  text: string;
+  pvLossPct: number;
+  reward: string | null;
+  triggersCombat: boolean;
+};
+
+export function OutcomePanel({ outcome, onClose }: { outcome: OutcomeInfo; onClose: () => void }) {
+  const pv =
+    outcome.pvLossPct > 0
+      ? { label: `Le groupe perd ${outcome.pvLossPct} % de ses PV`, color: "#b91c1c" }
+      : outcome.pvLossPct < 0
+        ? { label: `Le groupe récupère ${-outcome.pvLossPct} % de ses PV`, color: "#047857" }
+        : { label: "Aucune perte de PV", color: "#5e3818" };
+  return (
+    <div className="absolute left-1/2 top-[14%] z-40 w-[min(30rem,92%)] -translate-x-1/2 rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6]/97 p-4 text-[#3a2410] shadow-xl" style={PANEL_FONT}>
+      <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-[#7a4a22]">Résultat du vote</div>
+      <div className="text-sm font-semibold leading-snug">{outcome.text}</div>
+      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs font-bold">
+        <span style={{ color: pv.color }}>{pv.label}</span>
+        {outcome.reward ? <span className="text-[#92400e]">Trouvé : {outcome.reward}</span> : null}
+        {outcome.triggersCombat ? <span className="text-[#b91c1c]">⚔ Un combat éclate !</span> : null}
+      </div>
+      <button type="button" onClick={onClose} className="mt-2 rounded border border-[#7a4a22] px-3 py-0.5 text-xs font-bold text-[#5e3818] hover:bg-[#7a4a22]/15">
+        OK
+      </button>
+    </div>
+  );
+}
+
+export function EndBanner({ title, text, onClose }: { title: string; text: string; onClose: () => void }) {
+  return (
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50" style={PANEL_FONT}>
+      <div className="w-[min(26rem,90%)] rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-5 text-center text-[#3a2410] shadow-xl">
+        <div className="text-xl font-extrabold">{title}</div>
+        <div className="mt-1 text-sm">{text}</div>
+        <button type="button" onClick={onClose} className="mt-3 rounded-lg border-2 border-[#7a4a22] bg-[#7a4a22] px-5 py-1.5 text-sm font-bold text-[#fff3d6] hover:bg-[#5e3818]">
+          OK
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export function AxisChoiceModal({
+  axes,
+  powers,
+  busy,
+  error,
+  onChoose,
+}: {
+  /** Axes proposés à ce joueur (sa famille, sans les « apprentis »). */
+  axes: GameAxis[];
+  powers: GamePower[];
+  busy: boolean;
+  error: string | null;
+  onChoose: (axisKey: string) => void;
+}) {
+  return (
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 p-3" style={PANEL_FONT}>
+      <div className="max-h-full w-[min(44rem,96%)] overflow-y-auto rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-5 text-[#3a2410] shadow-xl">
+        <div className="text-center text-xl font-extrabold">Tu as atteint le niveau 3 : choisis ton axe</div>
+        <div className="mt-1 text-center text-xs">Ce choix est définitif. Il détermine tes stats et tes pouvoirs.</div>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          {axes.map((a) => {
+            const ps = powers.filter((p) => p.kind === "axis" && p.axis_key === a.axis_key && p.unlock_level <= 3);
+            return (
+              <div key={a.axis_key} className="flex flex-col rounded-lg border border-[#7a4a22]/60 bg-white/40 p-3">
+                <div className="text-lg font-extrabold">{a.name}</div>
+                <div className="text-[11px] font-bold opacity-80">
+                  PV {a.pv} · PM {a.pm} · Force {a.force} · Défense {a.defense} · Vitesse {a.speed}
+                </div>
+                <div className="mt-1 text-xs">Attaque de base : <b>{a.base_attack_name}</b></div>
+                {ps.map((p) => (
+                  <div key={p.power_key} className="mt-1 text-xs">
+                    <b>{p.name}</b> — {p.description}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => onChoose(a.axis_key)}
+                  className="mt-3 rounded-lg border-2 border-[#7a4a22] bg-[#7a4a22] px-3 py-1.5 text-sm font-bold text-[#fff3d6] hover:bg-[#5e3818] disabled:opacity-50"
+                >
+                  Devenir {a.name}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+        {error && <div className="mt-2 text-center text-xs font-bold text-[#b91c1c]">{error}</div>}
+      </div>
+    </div>
+  );
+}

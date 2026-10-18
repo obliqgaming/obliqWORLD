@@ -689,6 +689,11 @@ export type ExpeditionStep = {
   resolved: boolean;
   winning_choice_key: string | null;
   vote_deadline: string | null;
+  event_key?: string | null;
+  outcome_text?: string | null;
+  outcome_pv_loss_pct?: number | null;
+  outcome_reward?: string | null;
+  outcome_triggers_combat?: boolean;
 };
 
 // Retrouve (ou crée) l'étape `stepIndex`. Chaque client l'appelle en arrivant.
@@ -731,7 +736,7 @@ export async function castStepVote(stepId: string, characterId: string, choiceKe
 export async function resolveExpeditionStep(stepId: string): Promise<ExpeditionStep | null> {
   const { data, error } = await scenesClient.rpc("expedition_resolve_step", { p_step_id: stepId });
   if (error) {
-    if (String(error.message).includes("pas terminé")) return null;
+    if (/pas terminé|Combat en cours/.test(String(error.message))) return null;
     throw error;
   }
   return data as ExpeditionStep;

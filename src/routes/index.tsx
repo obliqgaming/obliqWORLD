@@ -20,7 +20,6 @@ import {
   fetchMyCharacter,
   fetchOpenExpeditionForParty,
   fetchActiveExpeditionForParty,
-  fetchRandomCharacterAsEnemy,
   fetchExpeditionScene,
   ensureExpeditionStep,
   fetchStepVotes,
@@ -73,7 +72,23 @@ import {
 import { AccountBadge } from "../components/AccountBadge";
 import { CharacterSelect } from "../components/CharacterSelect";
 import { ExpeditionPortalMarker } from "../components/ExpeditionPortal";
-import { ExpeditionCombatView, type CombatAlly, type CombatEnemy, type ExpeditionEvent } from "../components/ExpeditionCombatView";
+import { ExpeditionCombatView, type CombatAlly, type ExpeditionEvent } from "../components/ExpeditionCombatView";
+import { ExpeditionBattle } from "../components/ExpeditionBattle";
+import { AxisChoiceModal, EndBanner, OutcomePanel, type OutcomeInfo } from "../components/ExpeditionExtras";
+import {
+  chooseAxis,
+  fetchGameAxes,
+  fetchGamePowers,
+  fetchLatestCombat,
+  fetchMyBuild,
+  fetchRunStats,
+  fetchStepOutcome,
+  startCombat,
+  subscribeToRunStats,
+  type GameAxis,
+  type GamePower,
+  type RunStat,
+} from "../lib/expedition-combat";
 import { PLACEHOLDER_EVENTS } from "../lib/expedition-placeholder-events";
 import { PartyInvitePopup } from "../components/PartyInvitePopup";
 import { PartyPanel } from "../components/PartyPanel";
@@ -259,7 +274,15 @@ function Index() {
   // les votes aussi (voir 004_vote_partage_expedition.sql).
   const [runStep, setRunStep] = useState<ExpeditionStep | null>(null);
   const [stepVotes, setStepVotes] = useState<StepVote[]>([]);
-  const [sampleEnemy, setSampleEnemy] = useState<{ name: string; imageUrl: string } | null>(null);
+  // Système de jeu (SQL 006 à 009) : PV/PM réels, combat, résultat d'événement, axe.
+  const [runStats, setRunStats] = useState<RunStat[]>([]);
+  const [activeCombatId, setActiveCombatId] = useState<string | null>(null);
+  const [combatError, setCombatError] = useState<string | null>(null);
+  const [outcomeInfo, setOutcomeInfo] = useState<OutcomeInfo | null>(null);
+  const [endBanner, setEndBanner] = useState<{ title: string; text: string } | null>(null);
+  const [axisChoice, setAxisChoice] = useState<{ axes: GameAxis[]; powers: GamePower[] } | null>(null);
+  const [axisBusy, setAxisBusy] = useState(false);
+  const [axisError, setAxisError] = useState<string | null>(null);
 
   // ---- Ratio réel de l'image de scène (fix du bug "objet-cover recadre l'image,
   // mais les % de position/zone marchable sont calculés sur l'image d'origine") ----
@@ -986,6 +1009,16 @@ function Index() {
   useEffect(() => {
     if (!activeExpedition || activeExpedition.status === "active") return;
     const wasInside = inExpeditionScene;
+    const endStatus = activeExpedition.status;
+    if (wasInside) {
+      setEndBanner(
+        endStatus === "completed_wipe"
+          ? { title: "L'expédition est terminée", text: "Le groupe est tombé. Vous revenez à l'auberge." }
+          : { title: "L'expédition est terminée", text: "Le groupe rentre à l'auberge avec ce qu'il a trouvé." },
+      );
+    }
+    setActiveCombatId(null);
+    setOutcomeInfo(null);
     setActiveExpedition(null);
     setRunStep(null);
     setStepVotes([]);
@@ -1020,20 +1053,36 @@ function Index() {
     }
   };
 
+  const statOf = (id: string) => runStats.find((r) => r.character_id === id);
   const combatAllies: CombatAlly[] = character
     ? (party ? partyMembers.filter((m) => m.status === "joined") : []).length > 0
       ? partyMembers
           .filter((m) => m.status === "joined")
-          .map((m) => ({
-            characterId: m.character_id,
-            name: m.name,
-            imageUrl: m.image_url,
-            // Pas encore de ligne character_build (famille non choisie) : PV par défaut.
-            hpCurrent: m.pv_current ?? 20,
-            hpMax: m.pv_max ?? 20,
-            isSelf: m.character_id === character.id,
-          }))
-      : [{ characterId: character.id, name: character.name, imageUrl: character.image_url, hpCurrent: 20, hpMax: 20, isSelf: true }]
+          .map((m) => {
+            const st = statOf(m.character_id);
+            return {
+              characterId: m.character_id,
+              name: m.name,
+              imageUrl: m.image_url,
+              hpCurrent: st?.pv_current ?? m.pv_current ?? 20,
+              hpMax: st?.pv_max ?? m.pv_max ?? 20,
+              pmCurrent: st?.pm_current ?? null,
+              pmMax: st?.pm_max ?? null,
+              isSelf: m.character_id === character.id,
+            };
+          })
+      : [
+          {
+            characterId: character.id,
+            name: character.name,
+            imageUrl: character.image_url,
+            hpCurrent: statOf(character.id)?.pv_current ?? 20,
+            hpMax: statOf(character.id)?.pv_max ?? 20,
+            pmCurrent: statOf(character.id)?.pm_current ?? null,
+            pmMax: statOf(character.id)?.pm_max ?? null,
+            isSelf: true,
+          },
+        ]
     : [];
   const demoEvent: ExpeditionEvent = {
     typeLabel: currentEvent.typeLabel,
@@ -1045,30 +1094,143 @@ function Index() {
       votes: stepVotes.filter((v) => v.choice_key === c.key).length,
     })),
   };
-  // Adversaire placeholder : un personnage existant tiré au hasard.
-  const combatEnemies: CombatEnemy[] = [
-    {
-      id: "placeholder-enemy",
-      name: sampleEnemy?.name ?? "Silhouette",
-      imageUrl: sampleEnemy?.imageUrl ?? null,
-      hpCurrent: 30,
-      hpMax: 30,
-    },
-  ];
-
+  // PV / PM réels du groupe (table expedition_participants), en direct.
   useEffect(() => {
-    if (!inExpeditionScene || sampleEnemy || !character) return;
+    if (!inExpeditionScene || !activeExpedition || activeExpedition.status !== "active") return;
+    const expId = activeExpedition.id;
     let cancelled = false;
-    fetchRandomCharacterAsEnemy([character.id])
-      .then((e) => {
-        if (!cancelled && e) setSampleEnemy(e);
-      })
-      .catch((e) => console.error("fetchRandomCharacterAsEnemy failed", e));
+    const load = async () => {
+      try {
+        const r = await fetchRunStats(expId);
+        if (!cancelled) setRunStats(r);
+      } catch (e) {
+        console.error("fetchRunStats failed", e);
+      }
+    };
+    void load();
+    const ch = subscribeToRunStats(expId, () => void load());
+    return () => {
+      cancelled = true;
+      leaveScenePresence(ch);
+    };
+  }, [activeExpedition?.id, activeExpedition?.status, inExpeditionScene]);
+
+  // Entrée dans une étape : résultat de l'étape précédente (texte, PV), et
+  // démarrage d'un vrai combat si l'étape en est un ou si l'issue l'a déclenché.
+  useEffect(() => {
+    if (!inExpeditionScene || !character || !activeExpedition || activeExpedition.status !== "active") return;
+    const expId = activeExpedition.id;
+    const idx = activeExpedition.current_step_index;
+    const ev = PLACEHOLDER_EVENTS[idx % PLACEHOLDER_EVENTS.length]!;
+    let cancelled = false;
+    (async () => {
+      try {
+        setCombatError(null);
+        let latest = await fetchLatestCombat(expId);
+        if (cancelled) return;
+        if (latest?.status === "active") {
+          setActiveCombatId(latest.id);
+          return;
+        }
+        if (idx > 0) {
+          const prev = await fetchStepOutcome(expId, idx - 1);
+          if (cancelled) return;
+          if (prev?.outcome_text) {
+            setOutcomeInfo({
+              stepIndex: idx - 1,
+              text: prev.outcome_text,
+              pvLossPct: prev.outcome_pv_loss_pct ?? 0,
+              reward: prev.outcome_reward,
+              triggersCombat: prev.outcome_triggers_combat,
+            });
+          }
+          // Combat déclenché par l'issue : seulement s'il n'a pas déjà eu lieu depuis.
+          if (
+            prev?.outcome_triggers_combat &&
+            prev.resolved_at &&
+            (!latest || new Date(latest.created_at).getTime() < new Date(prev.resolved_at).getTime() - 1000)
+          ) {
+            const c = await startCombat(expId, false);
+            if (!cancelled) setActiveCombatId(c.id);
+            return;
+          }
+        }
+        if (ev.kind === "combat") {
+          const c = await startCombat(expId, ev.id === "boss-final");
+          if (!cancelled) setActiveCombatId(c.id);
+        }
+        void latest;
+        latest = null;
+      } catch (e) {
+        console.error("combat start failed", e);
+        if (!cancelled) setCombatError(e instanceof Error ? e.message : String((e as { message?: string })?.message ?? e));
+      }
+    })();
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inExpeditionScene, character?.id]);
+  }, [activeExpedition?.id, activeExpedition?.current_step_index, activeExpedition?.status, inExpeditionScene, character?.id]);
+
+  // Le résultat s'efface tout seul après 15 s.
+  useEffect(() => {
+    if (!outcomeInfo) return;
+    const t = window.setTimeout(() => setOutcomeInfo(null), 15000);
+    return () => window.clearTimeout(t);
+  }, [outcomeInfo]);
+
+  // Fin d'un combat gagné : on relit l'expédition et l'étape (le serveur a pu
+  // faire avancer l'étape ou redonner 180 s au prochain vote).
+  const handleCombatFinished = async () => {
+    setActiveCombatId(null);
+    if (!activeExpedition) return;
+    try {
+      const e = await fetchExpeditionById(activeExpedition.id);
+      if (e) setActiveExpedition(e);
+      if (e && e.status === "active") {
+        const ev = PLACEHOLDER_EVENTS[e.current_step_index % PLACEHOLDER_EVENTS.length]!;
+        const step = await ensureExpeditionStep(e.id, e.current_step_index, ev.kind, ev.situation);
+        setRunStep(step);
+        setStepVotes(await fetchStepVotes(step.id));
+      }
+    } catch (err) {
+      console.error("after combat refresh failed", err);
+    }
+  };
+
+  // Choix de l'axe : proposé dès qu'on est de retour hors expédition avec le niveau 3.
+  useEffect(() => {
+    if (!character || inExpeditionScene || activeExpedition) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const b = await fetchMyBuild(character.id);
+        if (cancelled || !b || !b.axis_choice_pending) return;
+        const [axes, powers] = await Promise.all([fetchGameAxes(), fetchGamePowers()]);
+        if (cancelled) return;
+        setAxisChoice({ axes: axes.filter((a) => a.family === b.family && !a.axis_key.startsWith("apprenti")), powers });
+      } catch (e) {
+        console.error("axis check failed", e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [character?.id, inExpeditionScene, activeExpedition?.id]);
+
+  const handleChooseAxis = async (axisKey: string) => {
+    if (!character) return;
+    setAxisBusy(true);
+    setAxisError(null);
+    try {
+      await chooseAxis(character.id, axisKey);
+      setAxisChoice(null);
+    } catch (e) {
+      setAxisError(e instanceof Error ? e.message : String((e as { message?: string })?.message ?? e));
+    } finally {
+      setAxisBusy(false);
+    }
+  };
 
   // ---------- Mise à jour locale des pairs (marche calculée nous-mêmes, pas confiance au réseau) ----------
   // isFullRoster=true pour un instantané complet (sync Presence, recalage
@@ -1727,21 +1889,50 @@ function Index() {
           />
         )}
 
-        {inExpeditionScene && character && (
+        {inExpeditionScene && character && activeCombatId && (
+          <ExpeditionBattle
+            key={activeCombatId}
+            sceneImageUrl={scene.image_url}
+            combatId={activeCombatId}
+            characterId={character.id}
+            allies={combatAllies}
+            onFinished={() => void handleCombatFinished()}
+          />
+        )}
+
+        {inExpeditionScene && character && !activeCombatId && expeditionPhase === "event" && (
           <ExpeditionCombatView
             sceneImageUrl={scene.image_url}
             eventNumber={stepIndex + 1}
-            phase={expeditionPhase}
+            phase="event"
             event={demoEvent}
             myVote={myVote}
             votedCount={stepVotes.length}
             voteDeadlineMs={runStep?.vote_deadline ? new Date(runStep.vote_deadline).getTime() : null}
             onVote={handleExpeditionVote}
             allies={combatAllies}
-            enemies={combatEnemies}
+            enemies={[]}
             turn={1}
-            onAction={(action) => void handleExpeditionVote(action)}
           />
+        )}
+
+        {inExpeditionScene && character && !activeCombatId && expeditionPhase === "combat" && (
+          <div
+            className="absolute left-1/2 top-1/2 z-30 -translate-x-1/2 -translate-y-1/2 rounded-lg border-2 border-[#7a4a22]/70 bg-[#2b1406]/95 px-5 py-3 text-center text-sm font-bold text-[#fff3d6]"
+            style={{ fontFamily: "'Baloo 2', cursive" }}
+          >
+            {combatError ? `Le combat n'a pas pu démarrer : ${combatError}` : "Le combat commence…"}
+          </div>
+        )}
+
+        {inExpeditionScene && !activeCombatId && outcomeInfo && (
+          <OutcomePanel outcome={outcomeInfo} onClose={() => setOutcomeInfo(null)} />
+        )}
+
+        {endBanner && <EndBanner title={endBanner.title} text={endBanner.text} onClose={() => setEndBanner(null)} />}
+
+        {axisChoice && !endBanner && !inExpeditionScene && (
+          <AxisChoiceModal axes={axisChoice.axes} powers={axisChoice.powers} busy={axisBusy} error={axisError} onChoose={(k) => void handleChooseAxis(k)} />
         )}
 
         {expeditionSceneMissing && (

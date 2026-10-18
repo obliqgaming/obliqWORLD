@@ -20,6 +20,9 @@ export type CombatAlly = {
   imageUrl: string;
   hpCurrent: number;
   hpMax: number;
+  /** PM (absents tant que l'expédition n'a pas initialisé les stats). */
+  pmCurrent?: number | null;
+  pmMax?: number | null;
   isSelf: boolean;
 };
 
@@ -63,26 +66,26 @@ const ACTIONS: { id: CombatActionId; label: string; hint: string }[] = [
 
 // Emplacements au sol (en % du décor), du plus proche du centre au plus
 // reculé : jusqu'à 4 membres / 4 ennemis, en quinconce pour ne pas se masquer.
-const ALLY_SLOTS = [
+export const ALLY_SLOTS = [
   { x: 30, y: 74 },
   { x: 20, y: 64 },
   { x: 33, y: 60 },
   { x: 14, y: 78 },
 ];
-const ENEMY_SLOTS = [
+export const ENEMY_SLOTS = [
   { x: 70, y: 74 },
   { x: 80, y: 64 },
   { x: 67, y: 60 },
   { x: 86, y: 78 },
 ];
 
-function hpColor(current: number, max: number): string {
+export function hpColor(current: number, max: number): string {
   if (current <= 0) return "#b91c1c";
   if (current <= max * 0.3) return "#f97316";
   return "#10b981";
 }
 
-function HpBar({ current, max, className = "" }: { current: number; max: number; className?: string }) {
+export function HpBar({ current, max, className = "" }: { current: number; max: number; className?: string }) {
   const pct = max > 0 ? Math.max(0, Math.min(100, (current / max) * 100)) : 0;
   return (
     <div className={`h-2 w-full overflow-hidden rounded-full bg-black/50 ${className}`}>
@@ -95,7 +98,7 @@ function HpBar({ current, max, className = "" }: { current: number; max: number;
 }
 
 // Silhouette provisoire d'un ennemi sans dessin.
-function PlaceholderEnemy() {
+export function PlaceholderEnemy() {
   return (
     <svg viewBox="0 0 100 120" className="h-full w-auto drop-shadow-[0_4px_6px_rgba(0,0,0,0.6)]">
       <ellipse cx="50" cy="112" rx="30" ry="6" fill="rgba(0,0,0,0.35)" />
@@ -240,6 +243,11 @@ export function ExpeditionCombatView({
                 </span>
               </div>
               <HpBar current={a.hpCurrent} max={a.hpMax} />
+              {a.isSelf && a.pmMax ? (
+                <div className="mt-0.5 text-[10px] font-bold text-[#93c5fd]">
+                  PM {a.pmCurrent ?? 0}/{a.pmMax}
+                </div>
+              ) : null}
             </div>
           </div>
         ))}
