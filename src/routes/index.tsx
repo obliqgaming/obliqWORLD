@@ -90,6 +90,8 @@ import {
   type RunStat,
 } from "../lib/expedition-combat";
 import { PLACEHOLDER_EVENTS } from "../lib/expedition-placeholder-events";
+import { HotspotMarker, HotspotPanel } from "../components/SceneHotspots";
+import { fetchSceneHotspots, type SceneHotspot } from "../lib/hotspots";
 import { PartyInvitePopup } from "../components/PartyInvitePopup";
 import { PartyPanel } from "../components/PartyPanel";
 import { PeerContextMenu } from "../components/PeerContextMenu";
@@ -262,6 +264,9 @@ function Index() {
 
   // ---------- Portail d'expédition (§5, revu le 2026-10-14) ----------
   const [scenePortal, setScenePortal] = useState<ExpeditionPortal | null>(null);
+  // Lieux interactifs de la scène (forgeron, éditeur d'étapes…), posés depuis /admin.
+  const [hotspots, setHotspots] = useState<SceneHotspot[]>([]);
+  const [openHotspot, setOpenHotspot] = useState<SceneHotspot | null>(null);
   const [openExpedition, setOpenExpedition] = useState<Expedition | null>(null);
   const [expeditionParticipants, setExpeditionParticipants] = useState<ExpeditionParticipant[]>([]);
   const expeditionChannelRef = useRef<PresenceChannel | null>(null);
@@ -880,6 +885,13 @@ function Index() {
         if (!cancelled) setScenePortal(p);
       })
       .catch((e) => console.error("Scene portal fetch failed", e));
+    setHotspots([]);
+    setOpenHotspot(null);
+    fetchSceneHotspots(scene.id)
+      .then((h) => {
+        if (!cancelled) setHotspots(h);
+      })
+      .catch((e) => console.error("Scene hotspots fetch failed", e));
     return () => {
       cancelled = true;
     };
@@ -1881,6 +1893,11 @@ function Index() {
             onDecline={handleDeclineInvite}
           />
         )}
+
+        {character && !inExpeditionScene && hotspots.map((h) => (
+          <HotspotMarker key={h.id} hotspot={h} onClick={() => setOpenHotspot(h)} />
+        ))}
+        {openHotspot && <HotspotPanel hotspot={openHotspot} onClose={() => setOpenHotspot(null)} />}
 
         {scenePortal && character && !expeditionLaunched && !inExpeditionScene && (
           <ExpeditionPortalMarker

@@ -27,6 +27,7 @@ import {
   type Scene,
   type SceneExit,
 } from "../lib/scenes-supabase";
+import { HOTSPOT_KINDS, deleteSceneHotspot, fetchSceneHotspots, hotspotInfo, placeSceneHotspot, type SceneHotspot } from "../lib/hotspots";
 
 // Page d'admin : permet de dessiner les pièces (zone marchable), les
 // obstacles (tables, meubles isolés) et la calibration de profondeur (taille du
@@ -155,6 +156,9 @@ function AdminPage() {
   // pose/déplacement au clic quand "placingPortal" est armé.
   const [expPortal, setExpPortal] = useState<ExpeditionPortal | null>(null);
   const [placingPortal, setPlacingPortal] = useState(false);
+  // Lieux interactifs (forgeron, éditeur d'étapes…) : un par sorte et par scène.
+  const [hotspots, setHotspots] = useState<SceneHotspot[]>([]);
+  const [placingHotspot, setPlacingHotspot] = useState<string | null>(null);
   // "placingExit" = armé pour poser un nouveau portail au prochain clic sur
   // l'image (plutôt qu'au chargement, pour ne pas en créer un par accident).
   const [placingExit, setPlacingExit] = useState(false);
@@ -234,6 +238,8 @@ function AdminPage() {
     setExits([]);
     setExpPortal(null);
     setPlacingPortal(false);
+    setHotspots([]);
+    setPlacingHotspot(null);
     setMusicStatus(null);
     fetchScene(sceneId)
       .then((s) => {
@@ -261,6 +267,9 @@ function AdminPage() {
     fetchSceneExits(sceneId)
       .then(setExits)
       .catch((err) => console.error("fetchSceneExits a échoué", err));
+    fetchSceneHotspots(sceneId)
+      .then(setHotspots)
+      .catch((err) => console.error("fetchSceneHotspots a échoué", err));
     fetchScenePortal(sceneId)
       .then(setExpPortal)
       .catch((err) => console.error("fetchScenePortal a échoué", err));
@@ -335,6 +344,7 @@ function AdminPage() {
       // les portails existants se déplacent par glisser-déposer, pas par clic.
       if (placingExit) void handleCreateExitAt(p);
       else if (placingPortal) void handlePlacePortalAt(p);
+      else if (placingHotspot) void handlePlaceHotspotAt(placingHotspot, p);
       return;
     }
 
@@ -389,6 +399,31 @@ function AdminPage() {
     } catch (err) {
       console.error(err);
       setExitStatus("Erreur avec le portail d'expédition — regarde la console (F12).");
+    }
+  };
+
+  const handlePlaceHotspotAt = async (kind: string, p: Point) => {
+    setPlacingHotspot(null);
+    if (!scene) return;
+    try {
+      const h = await placeSceneHotspot(scene.id, kind, p);
+      setHotspots((list) => [...list.filter((x) => x.kind !== kind), h]);
+      setExitStatus(`${hotspotInfo(kind).label} placé ✅`);
+    } catch (err) {
+      console.error(err);
+      setExitStatus("Erreur avec le lieu interactif — regarde la console (F12).");
+    }
+  };
+
+  const handleDeleteHotspot = async (h: SceneHotspot) => {
+    if (!window.confirm(`Retirer « ${hotspotInfo(h.kind).label} » de cette scène ?`)) return;
+    try {
+      await deleteSceneHotspot(h.id);
+      setHotspots((list) => list.filter((x) => x.id !== h.id));
+      setExitStatus(`${hotspotInfo(h.kind).label} retiré ✅`);
+    } catch (err) {
+      console.error(err);
+      setExitStatus("Erreur en retirant le lieu — regarde la console (F12).");
     }
   };
 
@@ -851,6 +886,27 @@ function AdminPage() {
               🗑 Retirer le portail d'expédition
             </button>
           )}
+          {HOTSPOT_KINDS.map((k) => {
+            const placed = hotspots.find((h) => h.kind === k.kind);
+            return (
+              <span key={k.kind} className="inline-flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setPlacingHotspot((cur) => (cur === k.kind ? null : k.kind))}
+                  className={`rounded px-3 py-1 text-xs font-semibold ${placingHotspot === k.kind ? "bg-amber-600" : "bg-neutral-700"}`}
+                >
+                  {placingHotspot === k.kind
+                    ? `Clique sur l'image pour poser : ${k.label}…`
+                    : `${k.icon} ${placed ? "Déplacer" : "Poser"} : ${k.label}`}
+                </button>
+                {placed && (
+                  <button type="button" onClick={() => void handleDeleteHotspot(placed)} className="rounded bg-neutral-700 px-2 py-1 text-xs text-red-400" title="Retirer">
+                    🗑
+                  </button>
+                )}
+              </span>
+            );
+          })}
         </div>
       )}
 
@@ -960,6 +1016,20 @@ function AdminPage() {
                 ✨
               </div>
             )}
+
+            {hotspots.map((h) => (
+              <div
+                key={h.id}
+                title={hotspotInfo(h.kind).label}
+                className="pointer-events-none absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
+                style={{ left: `${h.position.x}%`, top: `${h.position.y}%` }}
+              >
+                <span className="flex h-8 w-8 items-center justify-center rounded-full border-2 text-sm" style={{ background: "rgba(59,130,246,0.55)", borderColor: "rgba(191,219,254,0.95)" }}>
+                  {hotspotInfo(h.kind).icon}
+                </span>
+                <span className="rounded bg-black/70 px-1 text-[10px] text-white">{hotspotInfo(h.kind).label}</span>
+              </div>
+            ))}
           </div>
         )}
 
