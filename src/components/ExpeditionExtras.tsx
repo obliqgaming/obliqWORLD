@@ -10,14 +10,17 @@ export type OutcomeInfo = {
   pvLossPct: number;
   reward: string | null;
   triggersCombat: boolean;
+  xp: number;
 };
 
-export function OutcomePanel({ outcome, onClose }: { outcome: OutcomeInfo; onClose: () => void }) {
+export function OutcomePanel({ outcome, myPvMax, onClose }: { outcome: OutcomeInfo; myPvMax: number | null; onClose: () => void }) {
+  // Points réels pour CE joueur (même arrondi que le serveur, au moins 1 point).
+  const pts = myPvMax && outcome.pvLossPct !== 0 ? Math.max(1, Math.round((myPvMax * Math.abs(outcome.pvLossPct)) / 100)) : 0;
   const pv =
     outcome.pvLossPct > 0
-      ? { label: `Le groupe perd ${outcome.pvLossPct} % de ses PV`, color: "#b91c1c" }
+      ? { label: pts ? `Tu perds ${pts} PV` : "Le groupe perd des PV", color: "#b91c1c" }
       : outcome.pvLossPct < 0
-        ? { label: `Le groupe récupère ${-outcome.pvLossPct} % de ses PV`, color: "#047857" }
+        ? { label: pts ? `Tu récupères ${pts} PV` : "Le groupe récupère des PV", color: "#047857" }
         : { label: "Aucune perte de PV", color: "#5e3818" };
   return (
     <div className="absolute left-1/2 top-[14%] z-40 w-[min(30rem,92%)] -translate-x-1/2 rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6]/97 p-4 text-[#3a2410] shadow-xl" style={PANEL_FONT}>
@@ -26,6 +29,7 @@ export function OutcomePanel({ outcome, onClose }: { outcome: OutcomeInfo; onClo
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs font-bold">
         <span style={{ color: pv.color }}>{pv.label}</span>
         {outcome.reward ? <span className="text-[#92400e]">Trouvé : {outcome.reward}</span> : null}
+        {outcome.xp > 0 ? <span className="text-[#1d4ed8]">+{outcome.xp} XP</span> : null}
         {outcome.triggersCombat ? <span className="text-[#b91c1c]">⚔ Un combat éclate !</span> : null}
       </div>
       <button type="button" onClick={onClose} className="mt-2 rounded border border-[#7a4a22] px-3 py-0.5 text-xs font-bold text-[#5e3818] hover:bg-[#7a4a22]/15">

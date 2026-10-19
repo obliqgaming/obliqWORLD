@@ -113,13 +113,14 @@ export type StepOutcome = {
   outcome_pv_loss_pct: number | null;
   outcome_reward: string | null;
   outcome_triggers_combat: boolean;
+  outcome_xp: number | null;
   resolved_at: string | null;
 };
 
 export async function fetchStepOutcome(expeditionId: string, stepIndex: number): Promise<StepOutcome | null> {
   const { data, error } = await scenesClient
     .from("expedition_steps")
-    .select("step_index, event_key, winning_choice_key, outcome_text, outcome_pv_loss_pct, outcome_reward, outcome_triggers_combat, resolved_at")
+    .select("step_index, event_key, winning_choice_key, outcome_text, outcome_pv_loss_pct, outcome_reward, outcome_triggers_combat, outcome_xp, resolved_at")
     .eq("expedition_id", expeditionId)
     .eq("step_index", stepIndex)
     .maybeSingle();
@@ -138,6 +139,7 @@ export type Combat = {
   turn_deadline: string;
   aoe_warning: boolean;
   created_at: string;
+  xp_reward: number;
 };
 
 export type CombatEnemyRow = {
@@ -149,6 +151,9 @@ export type CombatEnemyRow = {
   pv_current: number;
   pv_max: number;
   announced_target_id: string | null;
+  force: number;
+  defense: number;
+  status: Record<string, unknown>;
 };
 
 export type CombatPlayerRow = {
@@ -158,7 +163,20 @@ export type CombatPlayerRow = {
   last_submitted_turn: number;
 };
 
-export type CombatLogRow = { id: number; turn: number; text: string };
+// ev : événement structuré (SQL 010) pour rejouer le tour action par action.
+//  t  = dmg | heal | info | summon
+//  sk/s = qui agit (p = joueur, e = ennemi, n = personne), dk/d = qui reçoit
+//  n  = montant, pw = pouvoir utilisé (base, aoe, poison, monstre, …)
+export type CombatEv = {
+  t: "dmg" | "heal" | "info" | "summon";
+  sk?: "p" | "e" | "n";
+  s?: string;
+  dk?: "p" | "e";
+  d?: string;
+  n?: number;
+  pw?: string;
+};
+export type CombatLogRow = { id: number; turn: number; text: string; ev: CombatEv | null };
 
 export type CombatSnapshot = {
   combat: Combat;
@@ -185,7 +203,7 @@ export async function fetchCombatSnapshot(combatId: string): Promise<CombatSnaps
     scenesClient.from("combats").select("*").eq("id", combatId).maybeSingle(),
     scenesClient.from("combat_enemies").select("*").eq("combat_id", combatId).order("slot"),
     scenesClient.from("combat_participants").select("*").eq("combat_id", combatId),
-    scenesClient.from("combat_log").select("id, turn, text").eq("combat_id", combatId).order("id").limit(200),
+    scenesClient.from("combat_log").select("id, turn, text, ev").eq("combat_id", combatId).order("id").limit(200),
   ]);
   if (c.error) throw c.error;
   if (e.error) throw e.error;
@@ -282,4 +300,16 @@ export function pickEnemyImage(
   let h = 0;
   for (let i = 0; i < enemyId.length; i++) h = (h * 31 + enemyId.charCodeAt(i)) >>> 0;
   return pool[h % pool.length]!.imageUrl;
+}
+
+// Réglages utiles à l'affichage (échelle des PV pour prévoir les dégâts).
+let settingsCache: Record<string, number> | null = null;
+export async function fetchGameSettings(): Promise<Record<string, number>> {
+  if (settingsCache) return settingsCache;
+  const { data, error } = await scenesClient.from("game_settings").select("key, value");
+  if (error) throw error;
+  const o: Record<string, number> = {};
+  for (const r of (data ?? []) as { key: string; value: number }[]) o[r.key] = Number(r.value);
+  settingsCache = o;
+  return o;
 }

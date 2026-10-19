@@ -1008,6 +1008,8 @@ function Index() {
   // Fin d'expédition (vote « Rentrer maintenant » gagnant) : retour à l'auberge.
   useEffect(() => {
     if (!activeExpedition || activeExpedition.status === "active") return;
+    // Un combat est encore affiché (rejeu du dernier tour, résultat) : on attend qu'il soit fermé.
+    if (activeCombatId) return;
     const wasInside = inExpeditionScene;
     const endStatus = activeExpedition.status;
     if (wasInside) {
@@ -1032,7 +1034,7 @@ function Index() {
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeExpedition?.status]);
+  }, [activeExpedition?.status, activeCombatId]);
 
   const handleExpeditionVote = async (choiceKey: string) => {
     if (!character || !runStep || runStep.resolved || choiceKey === myVote) return;
@@ -1142,6 +1144,7 @@ function Index() {
               pvLossPct: prev.outcome_pv_loss_pct ?? 0,
               reward: prev.outcome_reward,
               triggersCombat: prev.outcome_triggers_combat,
+              xp: prev.outcome_xp ?? 0,
             });
           }
           // Combat déclenché par l'issue : seulement s'il n'a pas déjà eu lieu depuis.
@@ -1175,7 +1178,7 @@ function Index() {
   // Le résultat s'efface tout seul après 15 s.
   useEffect(() => {
     if (!outcomeInfo) return;
-    const t = window.setTimeout(() => setOutcomeInfo(null), 15000);
+    const t = window.setTimeout(() => setOutcomeInfo(null), 25000);
     return () => window.clearTimeout(t);
   }, [outcomeInfo]);
 
@@ -1896,6 +1899,8 @@ function Index() {
             combatId={activeCombatId}
             characterId={character.id}
             allies={combatAllies}
+            volume={volume}
+            muted={muted}
             onFinished={() => void handleCombatFinished()}
           />
         )}
@@ -1908,6 +1913,7 @@ function Index() {
             event={demoEvent}
             myVote={myVote}
             votedCount={stepVotes.length}
+            hideEvent={!!outcomeInfo}
             voteDeadlineMs={runStep?.vote_deadline ? new Date(runStep.vote_deadline).getTime() : null}
             onVote={handleExpeditionVote}
             allies={combatAllies}
@@ -1925,8 +1931,8 @@ function Index() {
           </div>
         )}
 
-        {inExpeditionScene && !activeCombatId && outcomeInfo && (
-          <OutcomePanel outcome={outcomeInfo} onClose={() => setOutcomeInfo(null)} />
+        {inExpeditionScene && outcomeInfo && (
+          <OutcomePanel outcome={outcomeInfo} myPvMax={character ? (runStats.find((r) => r.character_id === character.id)?.pv_max ?? null) : null} onClose={() => setOutcomeInfo(null)} />
         )}
 
         {endBanner && <EndBanner title={endBanner.title} text={endBanner.text} onClose={() => setEndBanner(null)} />}
