@@ -304,6 +304,28 @@ export function ExpeditionBattle({
     return "";
   };
 
+  // Résumé court des effets d'un pouvoir (en plus des dégâts / soins déjà chiffrés).
+  const effectTags = (p: GamePower | null): string => {
+    const prm = p?.params;
+    if (!p || !prm) return "";
+    const t: string[] = [];
+    const edm = pnum(p, "enemy_damage_mult");
+    if (edm !== undefined) t.push(`monstres −${Math.round((1 - edm) * 100)} % · ${pnum(p, "turns") ?? 2} tours`);
+    if (prm["redirect_single_target"] === true) t.push("les monstres te visent");
+    const ab = pnum(p, "ally_bonus");
+    if (ab !== undefined) t.push(`alliés +${Math.round((ab - 1) * 100)} %`);
+    if (prm["acts_first"] === true) t.push("agit en premier");
+    const nh = pnum(p, "next_hit_mult");
+    if (nh !== undefined) t.push(`prochaine attaque du monstre −${Math.round((1 - nh) * 100)} %`);
+    if (pnum(p, "pm_return_ratio") !== undefined) t.push("rend des PM");
+    if (prm["cancel_if_hit"] === true) t.push("annulée si tu es touché");
+    const bp = pnum(p, "bonus_per_20pct_missing");
+    if (bp !== undefined) t.push(`+${Math.round(bp * 100)} % dégâts par 20 % de PV perdus · ${pnum(p, "turns") ?? 3} tours`);
+    if (prm["stack"] === true) t.push("cumulable");
+    if (isSelfOnly(p)) t.push("sur toi");
+    return t.join(" · ");
+  };
+
   const send = async (powerKey: string | null) => {
     if (!active || myDead || replaying) return;
     const gp = powerKey ? powers.find((p) => p.power_key === powerKey) : null;
@@ -512,8 +534,8 @@ export function ExpeditionBattle({
         })}
       </div>
 
-      {/* Journal de combat : haut gauche */}
-      <div className="absolute left-4 top-4 z-30 w-72 rounded-lg border border-[#7a4a22]/60 bg-[#2b1406]/90 text-[#fff3d6]">
+      {/* Journal de combat : bas droite */}
+      <div className="absolute bottom-14 right-4 z-30 w-72 rounded-lg border border-[#7a4a22]/60 bg-[#2b1406]/90 text-[#fff3d6]">
         <button type="button" className="flex w-full items-center justify-between px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest opacity-80" onClick={() => setShowLog((v) => !v)}>
           Journal de combat <span>{showLog ? "−" : "+"}</span>
         </button>
@@ -576,12 +598,22 @@ export function ExpeditionBattle({
                     >
                       <div>{b.name}</div>
                       {prev && <div className="text-[11px] font-bold text-[#fbbf24]">{prev}</div>}
+                      {effectTags(b.p) && <div className="max-w-40 text-[10px] font-normal leading-tight text-[#fff3d6]/85">{effectTags(b.p)}</div>}
                       <div className="text-[10px] font-normal opacity-80">
                         {b.cd > 0 ? `recharge : ${b.cd} tour${b.cd > 1 ? "s" : ""}` : b.cost > 0 ? `${b.cost} PM${noPm ? " (insuffisant)" : ""}` : "gratuit"}
                       </div>
                     </button>
                   );
                 })}
+              <button
+                type="button"
+                disabled
+                title="Les objets ne sont pas encore là : l'inventaire arrive plus tard."
+                className="min-w-28 cursor-not-allowed rounded-lg border border-[#7a4a22]/70 bg-black/25 px-3 py-2 text-sm font-bold text-[#fff3d6] opacity-40"
+              >
+                <div>Inventaire</div>
+                <div className="text-[10px] font-normal">bientôt</div>
+              </button>
             </div>
           )}
           {!myDead && !replaying && selectedPower && powers.find((p) => p.power_key === selectedPower && isAllyPower(p)) && (
