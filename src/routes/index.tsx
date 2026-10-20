@@ -1694,6 +1694,19 @@ function Index() {
     startWalk(exit.position, () => changeScene(exit));
   };
 
+  // Marche jusqu'à un endroit PUIS fait l'action (portail, forgeron…) : rien ne s'active de loin.
+  const walkThen = (position: Point, action: () => void) => {
+    if (!character || !sceneRef.current) return;
+    const rect = sceneRef.current.getBoundingClientRect();
+    const origin = walking && charSpriteRef.current ? currentSpritePercent(charSpriteRef.current, rect) : pos;
+    if (distanceInPx(rect, origin, position) < 4) {
+      if (walkTimer.current) window.clearTimeout(walkTimer.current);
+      action();
+      return;
+    }
+    startWalk(position, action);
+  };
+
   // ---------- Chat ----------
   const handleSendChat = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1907,7 +1920,7 @@ function Index() {
         )}
 
         {character && !inExpeditionScene && hotspots.map((h) => (
-          <HotspotMarker key={h.id} hotspot={h} onClick={() => setOpenHotspot(h)} />
+          <HotspotMarker key={h.id} hotspot={h} onClick={() => walkThen(h.position, () => setOpenHotspot(h))} />
         ))}
         {openHotspot && (
           <HotspotPanel
@@ -1924,7 +1937,7 @@ function Index() {
             isSelfReady={selfReady}
             readyCount={readyCount}
             totalCount={groupIds.length}
-            onClick={handleTogglePortal}
+            onClick={() => walkThen(scenePortal.position, handleTogglePortal)}
           />
         )}
 

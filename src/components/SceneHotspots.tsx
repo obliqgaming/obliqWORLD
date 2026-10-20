@@ -23,9 +23,6 @@ export function HotspotMarker({ hotspot, onClick }: { hotspot: SceneHotspot; onC
       >
         {info.icon}
       </span>
-      <span className="rounded-full bg-black/65 px-2 py-0.5 text-[11px] font-bold text-[#fff3d6]" style={{ fontFamily: "'Baloo 2', cursive" }}>
-        {hotspot.label ?? info.label}
-      </span>
     </button>
   );
 }
