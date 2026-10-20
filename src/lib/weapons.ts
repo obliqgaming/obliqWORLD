@@ -1,8 +1,8 @@
 // Forge v1 (SQL 014) : armes dessinées, équipement, affichage sur les personnages.
 import { scenesClient, ensureUserId, type Point } from "./scenes-supabase";
 
-export const WEAPON_W = 170;
-export const WEAPON_H = 150;
+export const WEAPON_W = 256;
+export const WEAPON_H = 160;
 /** Taille du canvas d'un personnage : sert d'échelle pour afficher l'arme à la bonne taille. */
 export const CHARACTER_CANVAS = 512;
 export const DEFAULT_HAND: Point = { x: (2 / 3) * 100, y: (2 / 3) * 100 };
@@ -10,7 +10,7 @@ export const DEFAULT_HAND: Point = { x: (2 / 3) * 100, y: (2 / 3) * 100 };
 export type WeaponType = "magic" | "blunt_slash";
 export const WEAPON_TYPES: { key: WeaponType; label: string }[] = [
   { key: "magic", label: "Arme magique (bâton, baguette…)" },
-  { key: "blunt_slash", label: "Arme contondante / tranchante (épée, masse…)" },
+  { key: "blunt_slash", label: "Arme de mêlée (épée, masse, hache…)" },
 ];
 
 export type Rarity = "common" | "uncommon" | "rare" | "epic" | "legendary";
@@ -70,11 +70,18 @@ export type WeaponItem = {
   is_prototype: boolean;
   durability: number;
   durability_max: number;
+  adjust_dx: number;
+  adjust_dy: number;
+  adjust_rot: number;
   weapon: Weapon;
 };
 
 /** Ce qu'il faut pour dessiner une arme tenue par un personnage. */
 export type WornWeapon = {
+  /** Réglage personnel : décalage en % de l'image du personnage + rotation en degrés. */
+  dx?: number;
+  dy?: number;
+  rot?: number;
   imageUrl: string;
   grip: Point;
   width: number;
@@ -90,7 +97,7 @@ export async function fetchMyItems(): Promise<WeaponItem[]> {
   const uid = await ensureUserId();
   const { data, error } = await scenesClient
     .from("weapon_items")
-    .select("id, weapon_id, is_prototype, durability, durability_max, weapon:weapons(*)")
+    .select("id, weapon_id, is_prototype, durability, durability_max, adjust_dx, adjust_dy, adjust_rot, weapon:weapons(*)")
     .eq("owner_user_id", uid)
     .order("created_at", { ascending: false });
   if (error) throw error;
@@ -142,7 +149,7 @@ export async function fetchWornWeapons(characterIds: string[]): Promise<Record<s
   if (characterIds.length === 0) return out;
   const { data, error } = await scenesClient
     .from("character_build")
-    .select("character_id, item:equipped_item_id(weapon:weapons(image_url, grip_anchor, width, height, hidden)), characters(visual_assets(hand_anchor))")
+    .select("character_id, item:equipped_item_id(adjust_dx, adjust_dy, adjust_rot, weapon:weapons(image_url, grip_anchor, width, height, hidden)), characters(visual_assets(hand_anchor))")
     .in("character_id", characterIds)
     .not("equipped_item_id", "is", null);
   if (error) return out;
@@ -155,9 +162,21 @@ export async function fetchWornWeapons(characterIds: string[]): Promise<Record<s
       width: w.width,
       height: w.height,
       hand: r.characters?.visual_assets?.hand_anchor ?? DEFAULT_HAND,
+      dx: Number(r.item.adjust_dx ?? 0),
+      dy: Number(r.item.adjust_dy ?? 0),
+      rot: Number(r.item.adjust_rot ?? 0),
     };
   }
   return out;
+}
+
+export async function adjustItem(itemId: string, dx: number, dy: number, rot: number): Promise<void> {
+  const { error } = await scenesClient.rpc("weapon_item_adjust", { p_item_id: itemId, p_dx: dx, p_dy: dy, p_rot: rot });
+  if (error) throw error;
+}
+
+export function weaponKindLabel(t: WeaponType): string {
+  return t === "magic" ? "magique" : "mêlée";
 }
 
 /** Arme au hasard mais stable pour un monstre (même résultat chez tous les joueurs). */

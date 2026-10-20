@@ -1,7 +1,7 @@
 // Onglet « Armes » de /admin : toutes les armes dessinées, à cacher ou supprimer
 // après coup (aucune validation avant publication).
 import { useEffect, useState } from "react";
-import { bonusText, EFFECT_INFO, RARITY_INFO, adminDeleteWeapon, adminFetchAllWeapons, adminSetWeaponHidden, type Weapon } from "../lib/weapons";
+import { bonusText, weaponKindLabel, EFFECT_INFO, RARITY_INFO, adminDeleteWeapon, adminFetchAllWeapons, adminSetWeaponHidden, type Weapon } from "../lib/weapons";
 
 export function AdminWeapons() {
   const [weapons, setWeapons] = useState<Weapon[]>([]);
@@ -43,7 +43,7 @@ export function AdminWeapons() {
             <img src={w.image_url} alt="" className="h-20 w-24 shrink-0 rounded bg-neutral-800 object-contain" />
             <div className="min-w-0 flex-1 text-xs">
               <div className="truncate text-sm font-bold" style={{ color: RARITY_INFO[w.rarity].color }}>{w.name}</div>
-              <div>{RARITY_INFO[w.rarity].label} · {w.weapon_type === "magic" ? "magique" : "contondant/tranchant"} · {bonusText(w.bonus_damage)}</div>
+              <div>{RARITY_INFO[w.rarity].label} · {weaponKindLabel(w.weapon_type)} · {bonusText(w.bonus_damage)}</div>
               {w.effect_key && <div>{EFFECT_INFO[w.effect_key]?.name}</div>}
               <div className="opacity-60">auteur {w.author_user_id.slice(0, 8)}… · {new Date(w.created_at).toLocaleDateString("fr-FR")}</div>
               <div className="mt-1 flex gap-2">

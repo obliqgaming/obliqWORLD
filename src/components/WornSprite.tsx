@@ -16,8 +16,10 @@ export function WeaponOverlay({ weapon }: { weapon: WornWeapon }) {
       style={{
         width: `${wPct}%`,
         height: `${hPct}%`,
-        left: `${weapon.hand.x - (weapon.grip.x / 100) * wPct}%`,
-        top: `${weapon.hand.y - (weapon.grip.y / 100) * hPct}%`,
+        left: `${weapon.hand.x + (weapon.dx ?? 0) - (weapon.grip.x / 100) * wPct}%`,
+        top: `${weapon.hand.y + (weapon.dy ?? 0) - (weapon.grip.y / 100) * hPct}%`,
+        transformOrigin: `${weapon.grip.x}% ${weapon.grip.y}%`,
+        transform: weapon.rot ? `rotate(${weapon.rot}deg)` : undefined,
       }}
     />
   );

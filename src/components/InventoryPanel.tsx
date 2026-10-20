@@ -1,10 +1,10 @@
 // Inventaire v1 : les armes que je porte sur moi, équiper / ranger / jeter.
 // (Pas de changement d'arme en combat : on équipe au village.)
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { WornSprite } from "./WornSprite";
 import type { Point } from "../lib/scenes-supabase";
 import {
-  DEFAULT_HAND, EFFECT_INFO, bonusText, RARITY_INFO, WEAPON_H, WEAPON_W,
+  DEFAULT_HAND, EFFECT_INFO, bonusText, weaponKindLabel, adjustItem, RARITY_INFO, WEAPON_H, WEAPON_W,
   deleteMyItem, equipItem, fetchEquippedItemId, fetchHandAnchor, fetchMyItems, itemDisplayName,
   type WeaponItem,
 } from "../lib/weapons";
@@ -23,7 +23,7 @@ export function ItemDetails({ it }: { it: WeaponItem }) {
   return (
     <div className="text-[11px] leading-tight">
       <div className="opacity-80">
-        {RARITY_INFO[it.weapon.rarity].label} · {it.weapon.weapon_type === "magic" ? "magique" : "contondant/tranchant"} · {bonusText(it.weapon.bonus_damage)} · durabilité {it.durability}/{it.durability_max}
+        {RARITY_INFO[it.weapon.rarity].label} · {weaponKindLabel(it.weapon.weapon_type)} · {bonusText(it.weapon.bonus_damage)} · durabilité {it.durability}/{it.durability_max}
       </div>
       {eff && <div><b>{eff.name}</b> : {eff.text}</div>}
     </div>
@@ -36,6 +36,10 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
   const [hand, setHand] = useState<Point>(DEFAULT_HAND);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [adj, setAdj] = useState({ dx: 0, dy: 0, rot: 0 });
+  const previewRef = useRef<HTMLDivElement | null>(null);
+  const dragRef = useRef<{ x: number; y: number } | null>(null);
 
   const reload = useCallback(async () => {
     try {
@@ -65,7 +69,21 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
     }
   }
 
-  const eq = items.find((i) => i.id === equipped) ?? null;
+  const shownId = selectedId ?? equipped;
+  const eq = items.find((i) => i.id === shownId) ?? null;
+  const selectItem = (it: WeaponItem) => {
+    setSelectedId(it.id);
+    setAdj({ dx: it.adjust_dx, dy: it.adjust_dy, rot: it.adjust_rot });
+  };
+  const dirty = !!eq && (adj.dx !== eq.adjust_dx || adj.dy !== eq.adjust_dy || adj.rot !== eq.adjust_rot);
+  const onDragMove = (e: React.PointerEvent) => {
+    if (!dragRef.current || !previewRef.current) return;
+    const r = previewRef.current.getBoundingClientRect();
+    const ddx = ((e.clientX - dragRef.current.x) / r.width) * 100;
+    const ddy = ((e.clientY - dragRef.current.y) / r.height) * 100;
+    dragRef.current = { x: e.clientX, y: e.clientY };
+    setAdj((a) => ({ ...a, dx: Math.max(-60, Math.min(60, a.dx + ddx)), dy: Math.max(-60, Math.min(60, a.dy + ddy)) }));
+  };
   return (
     <div className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/55 p-2" onClick={(e) => e.stopPropagation()} style={{ fontFamily: "'Baloo 2', cursive" }}>
       <div className="max-h-full w-[min(40rem,98%)] overflow-y-auto rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-4 text-[#3a2410] shadow-xl">
@@ -78,14 +96,41 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
         ) : (
           <div className="mt-3 grid gap-4 sm:grid-cols-[10rem_1fr]">
             <div>
-              <div className="rounded-md border border-[#7a4a22]/60 bg-white/40 p-2">
+              <div
+                ref={previewRef}
+                className={`touch-none rounded-md border border-[#7a4a22]/60 bg-white/40 p-2 ${eq ? "cursor-move" : ""}`}
+                onPointerDown={(e) => {
+                  if (!eq) return;
+                  e.currentTarget.setPointerCapture(e.pointerId);
+                  dragRef.current = { x: e.clientX, y: e.clientY };
+                }}
+                onPointerMove={onDragMove}
+                onPointerUp={() => (dragRef.current = null)}
+                onPointerCancel={() => (dragRef.current = null)}
+              >
                 <WornSprite
                   src={character.imageUrl}
                   alt={character.name}
-                  weapon={eq ? { imageUrl: eq.weapon.image_url, grip: eq.weapon.grip_anchor, width: WEAPON_W, height: WEAPON_H, hand } : null}
+                  weapon={eq ? { imageUrl: eq.weapon.image_url, grip: eq.weapon.grip_anchor, width: WEAPON_W, height: WEAPON_H, hand, dx: adj.dx, dy: adj.dy, rot: adj.rot } : null}
                 />
               </div>
               <div className="mt-1 text-center text-xs font-bold">{eq ? itemDisplayName(eq) : "Mains nues"}</div>
+              {eq && (
+                <div className="mt-1 text-[11px]">
+                  <div className="opacity-70">Glisse l'arme pour la replacer dans la main, puis tourne-la :</div>
+                  <label className="flex items-center gap-1">
+                    Rotation
+                    <input type="range" min={-180} max={180} step={5} value={adj.rot} onChange={(e) => setAdj((a) => ({ ...a, rot: Number(e.target.value) }))} className="flex-1" />
+                    <span className="w-8 text-right">{adj.rot}°</span>
+                  </label>
+                  <div className="mt-1 flex gap-1">
+                    <button type="button" disabled={busy || !dirty} className="rounded border border-[#7a4a22] px-1.5 font-bold hover:bg-[#7a4a22]/15 disabled:opacity-40"
+                      onClick={() => void act(() => adjustItem(eq.id, adj.dx, adj.dy, adj.rot))}>Enregistrer</button>
+                    <button type="button" className="rounded border border-[#7a4a22] px-1.5 font-bold hover:bg-[#7a4a22]/15"
+                      onClick={() => setAdj({ dx: 0, dy: 0, rot: 0 })}>Remettre à zéro</button>
+                  </div>
+                </div>
+              )}
             </div>
             <div className="flex max-h-80 flex-col gap-1.5 overflow-y-auto">
               {items.length === 0 && <div className="text-sm">Aucune arme sur toi. Va voir le forgeron !</div>}
@@ -97,6 +142,9 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
                     <ItemDetails it={it} />
                   </div>
                   <div className="flex flex-col gap-1">
+                    <button type="button" className="rounded border border-[#7a4a22] px-1.5 text-[11px] font-bold hover:bg-[#7a4a22]/15" onClick={() => selectItem(it)}>
+                      Régler
+                    </button>
                     <button type="button" disabled={busy || it.weapon.hidden || it.durability <= 0} className="rounded border border-[#7a4a22] px-1.5 text-[11px] font-bold hover:bg-[#7a4a22]/15 disabled:opacity-40"
                       onClick={() => void act(() => equipItem(character.id, equipped === it.id ? null : it.id))}>
                       {equipped === it.id ? "Ranger" : it.durability <= 0 ? "Cassée" : "Équiper"}

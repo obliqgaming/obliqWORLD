@@ -134,7 +134,7 @@ export function DrawingCanvas({
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [tool, setTool] = useState<Tool>("brush");
-  const [brushSize, setBrushSize] = useState(W < 300 ? 2 : 4);
+  const [brushSize, setBrushSize] = useState(W < 300 ? 1 : 4);
   const [opacity, setOpacity] = useState(1);
   const [color, setColor] = useState("#1a1a1a");
 
@@ -509,7 +509,7 @@ export function DrawingCanvas({
 
         <label className="flex items-center gap-2 text-xs text-[#3a2210]">
           Taille
-          <input type="range" min={1} max={24} value={brushSize} onChange={(e) => setBrushSize(Number(e.target.value))} className="flex-1" />
+          <input type="range" min={1} max={W < 300 ? 8 : 24} value={brushSize} onChange={(e) => setBrushSize(Number(e.target.value))} className="flex-1" />
           <span className="w-4 text-right">{brushSize}</span>
         </label>
         <label className="flex items-center gap-2 text-xs text-[#3a2210]">

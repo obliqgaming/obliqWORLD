@@ -114,7 +114,7 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
                 <div className="text-sm"><b>{EFFECT_INFO[result.effect_key]!.name}</b> : {EFFECT_INFO[result.effect_key]!.text}</div>
               )}
               <div className="mt-1 text-xs">Prototype : durabilité très réduite (2 expéditions).</div>
-              <button type="button" onClick={() => setResult(null)} className={`${BTN} mt-3`}>OK</button>
+              <button type="button" onClick={() => { setResult(null); onClose(); }} className={`${BTN} mt-3`}>OK</button>
             </div>
           </div>
         )}
