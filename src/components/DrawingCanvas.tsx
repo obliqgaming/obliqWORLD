@@ -25,7 +25,7 @@ import {
   Hand,
 } from "lucide-react";
 
-const CANVAS_SIZE = 512;
+const DEFAULT_CANVAS = 512; // personnage : 512 × 512 ; une arme est un canvas plus petit (voir ForgePanel)
 const MAX_HISTORY = 30;
 
 // Position par défaut du repère de main (% de l'image) : 2/3 depuis la
@@ -105,22 +105,59 @@ function floodFill(ctx: CanvasRenderingContext2D, startX: number, startY: number
 export function DrawingCanvas({
   onExport,
   exporting,
+  width,
+  height,
+  anchorLabel = "Repère de main (pour une future arme)",
+  anchorTitle = "Repère de la main — glisse pour le placer (une future arme s'y accrochera)",
+  anchorOptional = true,
+  exportLabel = "Valider le dessin",
+  onPreview,
+  initialAnchor,
 }: {
   onExport: (blob: Blob, handAnchor: Point | null) => void;
   exporting?: boolean;
+  /** Taille du canvas en pixels (512 × 512 par défaut, comme un personnage). */
+  width?: number;
+  height?: number;
+  anchorLabel?: string;
+  anchorTitle?: string;
+  /** false = le repère est obligatoire (pas de case pour le désactiver), ex. la poignée d'une arme. */
+  anchorOptional?: boolean;
+  exportLabel?: string;
+  /** Appelé après chaque trait / changement de repère, pour un aperçu en direct. */
+  onPreview?: (dataUrl: string, anchor: Point | null) => void;
+  initialAnchor?: Point;
 }) {
+  const W = width ?? DEFAULT_CANVAS;
+  const H = height ?? DEFAULT_CANVAS;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [tool, setTool] = useState<Tool>("brush");
-  const [brushSize, setBrushSize] = useState(4);
+  const [brushSize, setBrushSize] = useState(W < 300 ? 2 : 4);
   const [opacity, setOpacity] = useState(1);
   const [color, setColor] = useState("#1a1a1a");
 
   // ---------- Ancrage main (pour une future arme/objet tenu) ----------
   const [handAnchorEnabled, setHandAnchorEnabled] = useState(true);
-  const [handAnchor, setHandAnchor] = useState<Point>(DEFAULT_HAND_ANCHOR);
+  const [handAnchor, setHandAnchor] = useState<Point>(initialAnchor ?? DEFAULT_HAND_ANCHOR);
   const [draggingAnchor, setDraggingAnchor] = useState(false);
+  const previewTimer = useRef<number | undefined>(undefined);
+  const anchorRef = useRef<Point | null>(null);
+  anchorRef.current = handAnchorEnabled ? handAnchor : null;
+  const onPreviewRef = useRef(onPreview);
+  onPreviewRef.current = onPreview;
+  const schedulePreview = useCallback(() => {
+    if (!onPreviewRef.current) return;
+    window.clearTimeout(previewTimer.current);
+    previewTimer.current = window.setTimeout(() => {
+      const c = canvasRef.current;
+      if (c && onPreviewRef.current) onPreviewRef.current(c.toDataURL("image/png"), anchorRef.current);
+    }, 120);
+  }, []);
+  useEffect(() => {
+    schedulePreview();
+  }, [handAnchor, handAnchorEnabled, schedulePreview]);
 
   const lineStartRef = useRef<{ x: number; y: number } | null>(null);
   const lastPointRef = useRef<{ x: number; y: number } | null>(null);
@@ -136,7 +173,7 @@ export function DrawingCanvas({
   const pushHistory = useCallback(() => {
     const ctx = canvasRef.current?.getContext("2d");
     if (!ctx) return;
-    const snap = ctx.getImageData(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+    const snap = ctx.getImageData(0, 0, W, H);
     historyRef.current.push(snap);
     if (historyRef.current.length > MAX_HISTORY) historyRef.current.shift();
     redoRef.current = [];
@@ -147,9 +184,10 @@ export function DrawingCanvas({
   const undo = useCallback(() => {
     const ctx = canvasRef.current?.getContext("2d");
     if (!ctx || historyRef.current.length === 0) return;
-    redoRef.current.push(ctx.getImageData(0, 0, CANVAS_SIZE, CANVAS_SIZE));
+    redoRef.current.push(ctx.getImageData(0, 0, W, H));
     const prev = historyRef.current.pop()!;
     ctx.putImageData(prev, 0, 0);
+    schedulePreview();
     setCanUndo(historyRef.current.length > 0);
     setCanRedo(true);
   }, []);
@@ -157,9 +195,10 @@ export function DrawingCanvas({
   const redo = useCallback(() => {
     const ctx = canvasRef.current?.getContext("2d");
     if (!ctx || redoRef.current.length === 0) return;
-    historyRef.current.push(ctx.getImageData(0, 0, CANVAS_SIZE, CANVAS_SIZE));
+    historyRef.current.push(ctx.getImageData(0, 0, W, H));
     const next = redoRef.current.pop()!;
     ctx.putImageData(next, 0, 0);
+    schedulePreview();
     setCanUndo(true);
     setCanRedo(redoRef.current.length > 0);
   }, []);
@@ -167,7 +206,7 @@ export function DrawingCanvas({
   useEffect(() => {
     const ctx = canvasRef.current?.getContext("2d");
     if (!ctx) return;
-    ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+    ctx.clearRect(0, 0, W, H);
   }, []);
 
   useEffect(() => {
@@ -199,8 +238,8 @@ export function DrawingCanvas({
 
   const getPos = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const rect = canvasRef.current!.getBoundingClientRect();
-    const scaleX = CANVAS_SIZE / rect.width;
-    const scaleY = CANVAS_SIZE / rect.height;
+    const scaleX = W / rect.width;
+    const scaleY = H / rect.height;
     return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
   };
 
@@ -238,7 +277,7 @@ export function DrawingCanvas({
 
     pushHistory();
     setIsDrawing(true);
-    strokeMaskRef.current = new Uint8Array(CANVAS_SIZE * CANVAS_SIZE);
+    strokeMaskRef.current = new Uint8Array(W * H);
     lastPointRef.current = { x, y };
 
     if (tool === "line" || tool === "circle") {
@@ -263,7 +302,7 @@ export function DrawingCanvas({
     if (tool === "line" || tool === "circle") {
       const oCtx = overlayRef.current?.getContext("2d");
       if (!oCtx || !lineStartRef.current) return;
-      oCtx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+      oCtx.clearRect(0, 0, W, H);
       oCtx.beginPath();
       oCtx.lineCap = "round";
       oCtx.lineWidth = brushSize;
@@ -299,7 +338,7 @@ export function DrawingCanvas({
       const ctx = canvasRef.current?.getContext("2d");
       if (ctx) {
         if (tool === "line") {
-          paintStrokeSegment(ctx, lineStartRef.current.x, lineStartRef.current.y, x, y, brushSize, "paint", hexToRgb(color), opacity, new Uint8Array(CANVAS_SIZE * CANVAS_SIZE));
+          paintStrokeSegment(ctx, lineStartRef.current.x, lineStartRef.current.y, x, y, brushSize, "paint", hexToRgb(color), opacity, new Uint8Array(W * H));
         } else {
           ctx.beginPath();
           ctx.lineCap = "round";
@@ -313,7 +352,7 @@ export function DrawingCanvas({
         }
       }
       const oCtx = overlayRef.current?.getContext("2d");
-      if (oCtx) oCtx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+      if (oCtx) oCtx.clearRect(0, 0, W, H);
       lineStartRef.current = null;
     }
 
@@ -327,7 +366,8 @@ export function DrawingCanvas({
     const ctx = canvasRef.current?.getContext("2d");
     if (!ctx) return;
     pushHistory();
-    ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+    ctx.clearRect(0, 0, W, H);
+    schedulePreview();
   };
 
   const handleExport = () => {
@@ -370,8 +410,9 @@ export function DrawingCanvas({
   return (
     <div className="flex flex-col gap-3 sm:flex-row">
       <div
-        className="relative aspect-square w-full max-w-[420px] overflow-hidden rounded-md border border-[#7a4a22]/70"
+        className="relative w-full max-w-[420px] overflow-hidden rounded-md border border-[#7a4a22]/70"
         style={{
+          aspectRatio: `${W} / ${H}`,
           backgroundImage: `
             linear-gradient(45deg, #ccc 25%, transparent 25%),
             linear-gradient(-45deg, #ccc 25%, transparent 25%),
@@ -384,26 +425,35 @@ export function DrawingCanvas({
       >
         <canvas
           ref={canvasRef}
-          width={CANVAS_SIZE}
-          height={CANVAS_SIZE}
+          width={W}
+          height={H}
           className="absolute inset-0 h-full w-full cursor-crosshair touch-none"
           style={{ touchAction: "none" }}
           onPointerDown={startDraw}
           onPointerMove={draw}
-          onPointerUp={stopDraw}
-          onMouseLeave={() => stopDraw()}
-          onPointerCancel={stopDraw}
+          onPointerUp={(e) => {
+            stopDraw(e);
+            schedulePreview();
+          }}
+          onMouseLeave={() => {
+            stopDraw();
+            schedulePreview();
+          }}
+          onPointerCancel={(e) => {
+            stopDraw(e);
+            schedulePreview();
+          }}
         />
         <canvas
           ref={overlayRef}
-          width={CANVAS_SIZE}
-          height={CANVAS_SIZE}
+          width={W}
+          height={H}
           className="pointer-events-none absolute inset-0 h-full w-full touch-none"
         />
         {handAnchorEnabled && (
           <div
             onPointerDown={anchorPointerDown}
-            title="Repère de la main — glisse pour le placer (une future arme s'y accrochera)"
+            title={anchorTitle}
             className="absolute z-10 flex h-6 w-6 -translate-x-1/2 -translate-y-1/2 cursor-grab items-center justify-center rounded-full border-2 border-dashed border-[#c96a2e] bg-[#c96a2e]/20 active:cursor-grabbing"
             style={{ left: `${handAnchor.x}%`, top: `${handAnchor.y}%` }}
           >
@@ -506,14 +556,18 @@ export function DrawingCanvas({
           </label>
         </div>
 
-        <label className="flex items-center gap-2 text-xs text-[#3a2210]">
-          <input
-            type="checkbox"
-            checked={handAnchorEnabled}
-            onChange={(e) => setHandAnchorEnabled(e.target.checked)}
-          />
-          Repère de main (pour une future arme)
-        </label>
+        {anchorOptional ? (
+          <label className="flex items-center gap-2 text-xs text-[#3a2210]">
+            <input
+              type="checkbox"
+              checked={handAnchorEnabled}
+              onChange={(e) => setHandAnchorEnabled(e.target.checked)}
+            />
+            {anchorLabel}
+          </label>
+        ) : (
+          <div className="text-xs font-semibold text-[#3a2210]">{anchorLabel}</div>
+        )}
 
         <button
           type="button"
@@ -522,7 +576,7 @@ export function DrawingCanvas({
           className="mt-2 flex items-center justify-center gap-1.5 rounded-lg bg-[#7a4a22] py-2 text-sm font-bold text-[#fff3d6] hover:bg-[#8f5a2c] disabled:opacity-50"
         >
           <Save className="h-4 w-4" />
-          {exporting ? "Envoi…" : "Valider le dessin"}
+          {exporting ? "Envoi…" : exportLabel}
         </button>
       </div>
     </div>

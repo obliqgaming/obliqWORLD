@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   acceptPartyInvite,
   broadcastChatMessage,
@@ -91,6 +91,8 @@ import {
 } from "../lib/expedition-combat";
 import { PLACEHOLDER_EVENTS } from "../lib/expedition-placeholder-events";
 import { HotspotMarker, HotspotPanel } from "../components/SceneHotspots";
+import { WornSprite } from "../components/WornSprite";
+import { fetchWornWeapons, type WornWeapon } from "../lib/weapons";
 import { fetchSceneHotspots, type SceneHotspot } from "../lib/hotspots";
 import { PartyInvitePopup } from "../components/PartyInvitePopup";
 import { PartyPanel } from "../components/PartyPanel";
@@ -267,6 +269,15 @@ function Index() {
   // Lieux interactifs de la scène (forgeron, éditeur d'étapes…), posés depuis /admin.
   const [hotspots, setHotspots] = useState<SceneHotspot[]>([]);
   const [openHotspot, setOpenHotspot] = useState<SceneHotspot | null>(null);
+  const [wornWeapons, setWornWeapons] = useState<Record<string, WornWeapon>>({});
+  const peerIdsKey = Object.values(peers).map((x) => x.characterId).sort().join(",");
+  const refreshWornWeapons = useCallback(() => {
+    const ids = [character?.id, ...peerIdsKey.split(",")].filter((x): x is string => !!x);
+    void fetchWornWeapons(ids).then(setWornWeapons);
+  }, [character?.id, peerIdsKey]);
+  useEffect(() => {
+    refreshWornWeapons();
+  }, [refreshWornWeapons]);
   const [openExpedition, setOpenExpedition] = useState<Expedition | null>(null);
   const [expeditionParticipants, setExpeditionParticipants] = useState<ExpeditionParticipant[]>([]);
   const expeditionChannelRef = useRef<PresenceChannel | null>(null);
@@ -1804,11 +1815,10 @@ function Index() {
                 le miroir tant que le personnage marchait (il ne redevenait
                 visible qu'à l'arrêt, une fois l'animation coupée). */}
             <div style={{ transform: facingRight ? "scaleX(-1)" : "none" }}>
-              <img
+              <WornSprite
                 src={character.image_url}
                 alt={character.name}
-                draggable={false}
-                className="block w-full"
+                weapon={wornWeapons[character.id]}
                 style={{
                   transformOrigin: "50% 100%",
                   animation: walking ? "auberge-walk 250ms linear infinite" : "none",
@@ -1843,10 +1853,10 @@ function Index() {
                 {/* pointer-events-auto seulement sur l'image : le conteneur
                     reste pointer-events-none pour ne pas intercepter les
                     clics de déplacement destinés au sol derrière le pair. */}
-                <img
+                <WornSprite
                   src={peer.image_url}
                   alt={peer.name}
-                  draggable={false}
+                  weapon={wornWeapons[peer.characterId]}
                   className="pointer-events-auto block w-full cursor-pointer"
                   style={{
                     transformOrigin: "50% 100%",
@@ -1897,7 +1907,14 @@ function Index() {
         {character && !inExpeditionScene && hotspots.map((h) => (
           <HotspotMarker key={h.id} hotspot={h} onClick={() => setOpenHotspot(h)} />
         ))}
-        {openHotspot && <HotspotPanel hotspot={openHotspot} onClose={() => setOpenHotspot(null)} />}
+        {openHotspot && (
+          <HotspotPanel
+            hotspot={openHotspot}
+            onClose={() => setOpenHotspot(null)}
+            character={character ? { id: character.id, name: character.name, imageUrl: character.image_url, visualAssetId: character.visual_asset_id } : null}
+            onWeaponChanged={refreshWornWeapons}
+          />
+        )}
 
         {scenePortal && character && !expeditionLaunched && !inExpeditionScene && (
           <ExpeditionPortalMarker

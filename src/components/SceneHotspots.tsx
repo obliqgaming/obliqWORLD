@@ -2,6 +2,7 @@
 // Pour l'instant les fenêtres sont des maquettes : le contenu arrive pas à pas
 // (forge d'abord).
 import { hotspotInfo, type SceneHotspot } from "../lib/hotspots";
+import { ForgePanel, type ForgeCharacter } from "./ForgePanel";
 
 export function HotspotMarker({ hotspot, onClick }: { hotspot: SceneHotspot; onClick: () => void }) {
   const info = hotspotInfo(hotspot.kind);
@@ -29,7 +30,20 @@ export function HotspotMarker({ hotspot, onClick }: { hotspot: SceneHotspot; onC
   );
 }
 
-export function HotspotPanel({ hotspot, onClose }: { hotspot: SceneHotspot; onClose: () => void }) {
+export function HotspotPanel({
+  hotspot,
+  onClose,
+  character,
+  onWeaponChanged,
+}: {
+  hotspot: SceneHotspot;
+  onClose: () => void;
+  character?: ForgeCharacter | null;
+  onWeaponChanged?: () => void;
+}) {
+  if (hotspot.kind === "forge") {
+    return <ForgePanel character={character ?? null} onClose={onClose} onWeaponChanged={onWeaponChanged ?? (() => {})} />;
+  }
   const info = hotspotInfo(hotspot.kind);
   return (
     <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/50" onClick={(e) => e.stopPropagation()} style={{ fontFamily: "'Baloo 2', cursive" }}>
