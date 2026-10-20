@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { WornSprite } from "./WornSprite";
 import type { Point } from "../lib/scenes-supabase";
 import {
-  DEFAULT_HAND, EFFECT_INFO, bonusText, weaponKindLabel, adjustItem, RARITY_INFO, WEAPON_H, WEAPON_W,
+  DEFAULT_HAND, EFFECT_INFO, bonusText, weaponKindLabel, adjustItem, RARITY_INFO,
   deleteMyItem, equipItem, fetchEquippedItemId, fetchHandAnchor, fetchMyItems, itemDisplayName,
   type WeaponItem,
 } from "../lib/weapons";
@@ -117,7 +117,7 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
                 <WornSprite
                   src={character.imageUrl}
                   alt={character.name}
-                  weapon={eq ? { imageUrl: eq.weapon.image_url, grip: eq.weapon.grip_anchor, width: WEAPON_W, height: WEAPON_H, hand, dx: adj.dx, dy: adj.dy, rot: adj.rot } : null}
+                  weapon={eq ? { imageUrl: eq.weapon.image_url, grip: eq.weapon.grip_anchor, width: eq.weapon.width, height: eq.weapon.height, hand, dx: adj.dx, dy: adj.dy, rot: adj.rot } : null}
                 />
               </div>
               <div className="mt-1 text-center text-xs font-bold">{eq ? itemDisplayName(eq) : "Mains nues"}</div>
