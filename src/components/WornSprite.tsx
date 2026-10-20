@@ -30,6 +30,7 @@ export function WornSprite({
   className = "block w-full",
   style,
   onClick,
+  fit = "width",
 }: {
   src: string;
   alt: string;
@@ -37,9 +38,11 @@ export function WornSprite({
   className?: string | undefined;
   style?: CSSProperties | undefined;
   onClick?: MouseEventHandler<HTMLImageElement> | undefined;
+  /** "height" : l'image remplit la hauteur de son parent (vue de combat). */
+  fit?: "width" | "height";
 }) {
   return (
-    <div className="relative" style={style}>
+    <div className={fit === "height" ? "relative inline-block h-full" : "relative"} style={style}>
       <img src={src} alt={alt} draggable={false} className={className} onClick={onClick} />
       {weapon && <WeaponOverlay weapon={weapon} />}
     </div>

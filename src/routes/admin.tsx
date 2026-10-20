@@ -28,6 +28,7 @@ import {
   type SceneExit,
 } from "../lib/scenes-supabase";
 import { AdminCharacters } from "../components/AdminCharacters";
+import { AdminWeapons } from "../components/AdminWeapons";
 import { HOTSPOT_KINDS, deleteSceneHotspot, fetchSceneHotspots, hotspotInfo, placeSceneHotspot, type SceneHotspot } from "../lib/hotspots";
 
 // Page d'admin : permet de dessiner les pièces (zone marchable), les
@@ -110,7 +111,7 @@ function AdminGate() {
 
 // Deux onglets : décors (scènes, portails, lieux) et personnages.
 function AdminTabs() {
-  const [tab, setTab] = useState<"scenes" | "characters">("scenes");
+  const [tab, setTab] = useState<"scenes" | "characters" | "weapons">("scenes");
   return (
     <div className="min-h-screen bg-[#1a0f07]">
       <div className="flex gap-2 bg-neutral-950 px-4 py-2 text-sm text-white">
@@ -120,8 +121,11 @@ function AdminTabs() {
         <button type="button" onClick={() => setTab("characters")} className={`rounded px-3 py-1 font-semibold ${tab === "characters" ? "bg-amber-600" : "bg-neutral-800"}`}>
           Personnages
         </button>
+        <button type="button" onClick={() => setTab("weapons")} className={`rounded px-3 py-1 font-semibold ${tab === "weapons" ? "bg-amber-600" : "bg-neutral-800"}`}>
+          Armes
+        </button>
       </div>
-      {tab === "scenes" ? <AdminPage /> : <AdminCharacters />}
+      {tab === "scenes" ? <AdminPage /> : tab === "characters" ? <AdminCharacters /> : <AdminWeapons />}
     </div>
   );
 }

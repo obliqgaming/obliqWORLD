@@ -280,26 +280,33 @@ export function subscribeToRunStats(expeditionId: string, onChange: () => void):
 // Images d'ennemis : les dessins des personnages existants, choisis de façon
 // DÉTERMINISTE à partir de l'identifiant de l'ennemi, pour que tout le groupe
 // voie le même monstre. (Provisoire, en attendant de vrais dessins d'ennemis.)
-export async function fetchEnemyImagePool(excludeCharacterIds: string[]): Promise<{ name: string; imageUrl: string }[]> {
+export type EnemyImage = { name: string; imageUrl: string; handAnchor: { x: number; y: number } | null };
+
+export async function fetchEnemyImagePool(excludeCharacterIds: string[]): Promise<EnemyImage[]> {
   const { data, error } = await scenesClient
     .from("characters")
-    .select("id, name, visual_assets(image_url)")
+    .select("id, name, visual_assets(image_url, hand_anchor)")
     .order("id")
     .limit(100);
   if (error) throw error;
   return (data ?? [])
     .filter((r: any) => !excludeCharacterIds.includes(r.id) && r.visual_assets?.image_url)
-    .map((r: any) => ({ name: r.name as string, imageUrl: r.visual_assets.image_url as string }));
+    .map((r: any) => ({ name: r.name as string, imageUrl: r.visual_assets.image_url as string, handAnchor: (r.visual_assets.hand_anchor ?? null) as { x: number; y: number } | null }));
 }
 
 export function pickEnemyImage(
-  pool: { name: string; imageUrl: string }[],
+  pool: EnemyImage[],
   enemyId: string,
 ): string | null {
   if (pool.length === 0) return null;
   let h = 0;
   for (let i = 0; i < enemyId.length; i++) h = (h * 31 + enemyId.charCodeAt(i)) >>> 0;
   return pool[h % pool.length]!.imageUrl;
+}
+
+export function pickEnemyEntry(pool: EnemyImage[], enemyId: string): EnemyImage | null {
+  const url = pickEnemyImage(pool, enemyId);
+  return pool.find((p) => p.imageUrl === url) ?? null;
 }
 
 // Réglages utiles à l'affichage (échelle des PV pour prévoir les dégâts).

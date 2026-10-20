@@ -15,7 +15,8 @@ import {
   fetchGamePowers,
   fetchGameSettings,
   fetchMyBuild,
-  pickEnemyImage,
+  pickEnemyEntry,
+  type EnemyImage,
   powersForBuild,
   resolveCombatTurn,
   submitCombatAction,
@@ -26,6 +27,8 @@ import {
   type GamePower,
   type MyBuild,
 } from "../lib/expedition-combat";
+import { WornSprite } from "./WornSprite";
+import { DEFAULT_HAND, fetchRandomWeaponPool, fetchWornWeapons, monsterHasWeapon, pickByHash, type WornWeapon } from "../lib/weapons";
 import { playCombatSound, type CombatSound } from "../lib/combat-sounds";
 import { leaveScenePresence, type PresenceChannel } from "../lib/scenes-supabase";
 
@@ -86,7 +89,9 @@ export function ExpeditionBattle({
   const [powers, setPowers] = useState<GamePower[]>([]);
   const [axes, setAxes] = useState<GameAxis[]>([]);
   const [settings, setSettings] = useState<Record<string, number>>({});
-  const [pool, setPool] = useState<{ name: string; imageUrl: string }[]>([]);
+  const [worn, setWorn] = useState<Record<string, WornWeapon>>({});
+  const [weaponPool, setWeaponPool] = useState<Omit<WornWeapon, "hand">[]>([]);
+  const [pool, setPool] = useState<EnemyImage[]>([]);
   const [selectedPower, setSelectedPower] = useState<string | null>(null); // null = attaque de base
   const [targetEnemy, setTargetEnemy] = useState<string | null>(null);
   const [targetAlly, setTargetAlly] = useState<string | null>(null);
@@ -133,6 +138,8 @@ export function ExpeditionBattle({
         setAxes(a);
         setSettings(st);
         setPool(imgs);
+        setWeaponPool(await fetchRandomWeaponPool());
+        setWorn(await fetchWornWeapons(allies.map((x) => x.characterId)));
       } catch (e) {
         console.error("combat setup failed", e);
       }
@@ -444,11 +451,12 @@ export function ExpeditionBattle({
             )}
             <div className={fx === "act" ? "obw-act-r h-full" : fx === "hit" ? "obw-hit h-full" : fx === "heal" ? "obw-heal h-full" : "h-full"}>
               <div style={{ transform: "scaleX(-1)", height: "100%" }}>
-                <img
+                <WornSprite
+                  fit="height"
                   src={a.imageUrl}
                   alt={a.name}
-                  draggable={false}
-                  className="h-full w-auto object-contain drop-shadow-[0_4px_6px_rgba(0,0,0,0.5)]"
+                  weapon={worn[a.characterId]}
+                  className="block h-full w-auto object-contain drop-shadow-[0_4px_6px_rgba(0,0,0,0.5)]"
                   style={{ filter: dead ? "grayscale(1) brightness(0.5)" : undefined, outline: isTargeted ? "2px solid #9effa0" : undefined }}
                 />
               </div>
@@ -465,7 +473,10 @@ export function ExpeditionBattle({
         const slot = ENEMY_SLOTS[i]!;
         const hp = shownEnemyHp(en.id, en.pv_current, en.pv_max);
         const dead = hp <= 0;
-        const img = pickEnemyImage(pool, en.id);
+        const entry = pickEnemyEntry(pool, en.id);
+        const img = entry?.imageUrl ?? null;
+        const mw = monsterHasWeapon(en.role, en.id) ? pickByHash(weaponPool, en.id) : null;
+        const mWeapon: WornWeapon | null = mw ? { ...mw, hand: entry?.handAnchor ?? DEFAULT_HAND } : null;
         const selected = targetEnemy === en.id;
         const target = en.announced_target_id ? allies.find((a) => a.characterId === en.announced_target_id) : null;
         const fx = fxFor("e", en.id);
@@ -500,7 +511,7 @@ export function ExpeditionBattle({
             )}
             <div className={fx === "act" ? "obw-act-l h-full" : fx === "hit" ? "obw-hit h-full" : fx === "heal" ? "obw-heal h-full" : "h-full"}>
               <div className="h-full" style={{ filter: dead ? "grayscale(1) brightness(0.5)" : undefined, outline: selected && !dead ? "2px dashed #fbbf24" : undefined, outlineOffset: 2 }}>
-                {img ? <img src={img} alt={en.name} draggable={false} className="h-full w-auto object-contain" /> : <PlaceholderEnemy />}
+                {img ? <WornSprite fit="height" src={img} alt={en.name} weapon={mWeapon} className="block h-full w-auto object-contain" /> : <PlaceholderEnemy />}
               </div>
             </div>
           </div>

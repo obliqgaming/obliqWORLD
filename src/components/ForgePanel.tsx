@@ -1,15 +1,15 @@
 // Forge v1 : dessiner une arme (canvas 170 × 150), voir en direct comment elle
 // se tient dans la main de son personnage, la forger, l'équiper ou la ranger.
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { DrawingCanvas } from "./DrawingCanvas";
 import { WornSprite } from "./WornSprite";
 import type { Point } from "../lib/scenes-supabase";
 import {
-  WEAPON_H, WEAPON_TYPES, WEAPON_W, DEFAULT_HAND,
-  createWeapon, deleteMyWeapon, equipWeapon, fetchHandAnchor, fetchMyWeapons,
+  EFFECT_INFO, RARITY_INFO, bonusText, WEAPON_H, WEAPON_TYPES, WEAPON_W, DEFAULT_HAND,
+  createWeapon, equipItem, fetchHandAnchor,
   type Weapon, type WeaponType, type WornWeapon,
 } from "../lib/weapons";
-import { scenesClient } from "../lib/scenes-supabase";
+import { RarityName } from "./InventoryPanel";
 
 const BTN = "rounded-lg border-2 border-[#7a4a22] bg-[#7a4a22] px-4 py-1.5 text-sm font-bold text-[#fff3d6] hover:bg-[#5e3818] disabled:opacity-50";
 
@@ -20,27 +20,13 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
   const [name, setName] = useState("");
   const [type, setType] = useState<WeaponType>("blunt_slash");
   const [preview, setPreview] = useState<{ url: string; anchor: Point } | null>(null);
-  const [weapons, setWeapons] = useState<Weapon[]>([]);
-  const [equippedId, setEquippedId] = useState<string | null>(null);
+  const [result, setResult] = useState<Weapon | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
-  const reload = useCallback(async () => {
-    try {
-      setWeapons(await fetchMyWeapons());
-      if (character) {
-        const { data } = await scenesClient.from("character_build").select("equipped_weapon_id").eq("character_id", character.id).maybeSingle();
-        setEquippedId(((data as any)?.equipped_weapon_id as string | null) ?? null);
-      }
-    } catch (e: any) {
-      setMsg(e?.message ?? "Erreur de chargement");
-    }
-  }, [character]);
-
   useEffect(() => {
-    void reload();
     if (character) void fetchHandAnchor(character.visualAssetId).then((h) => h && setHand(h));
-  }, [reload, character]);
+  }, [character]);
 
   const worn = (w: { imageUrl: string; grip: Point; width: number; height: number }): WornWeapon => ({ ...w, hand });
 
@@ -49,7 +35,6 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
     setMsg(null);
     try {
       await fn();
-      await reload();
       onWeaponChanged();
       if (ok) setMsg(ok);
     } catch (e: any) {
@@ -64,10 +49,11 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
     if (!name.trim()) return setMsg("Donne un nom à ton arme.");
     if (!anchor) return setMsg("Place le point poignée.");
     void act(async () => {
-      const w = await createWeapon(blob, name.trim(), type, anchor);
-      await equipWeapon(character.id, w.id);
+      const { weapon, itemId } = await createWeapon(blob, name.trim(), type, anchor);
+      await equipItem(character.id, itemId);
+      setResult(weapon);
       setName("");
-    }, "Arme forgée et équipée !");
+    });
   }
 
   return (
@@ -111,25 +97,24 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
                   weapon={preview ? worn({ imageUrl: preview.url, grip: preview.anchor, width: WEAPON_W, height: WEAPON_H }) : null}
                 />
               </div>
-              <div className="mt-3 text-xs font-bold uppercase tracking-widest text-[#7a4a22]">Mes armes</div>
-              {weapons.length === 0 && <div className="mt-1 text-xs">Aucune arme pour l'instant.</div>}
-              <div className="mt-1 flex max-h-56 flex-col gap-1 overflow-y-auto">
-                {weapons.map((w) => (
-                  <div key={w.id} className="flex items-center gap-2 rounded border border-[#7a4a22]/50 bg-white/40 p-1">
-                    <img src={w.image_url} alt="" className="h-9 w-10 object-contain" />
-                    <div className="min-w-0 flex-1 text-xs">
-                      <div className="truncate font-bold">{w.name}{w.hidden ? " (masquée)" : ""}</div>
-                      <div className="opacity-70">{w.weapon_type === "magic" ? "magique" : "contondant/tranchant"}</div>
-                    </div>
-                    <button type="button" disabled={busy || w.hidden} className="rounded border border-[#7a4a22] px-1.5 text-[11px] font-bold hover:bg-[#7a4a22]/15 disabled:opacity-40"
-                      onClick={() => void act(() => equipWeapon(character.id, equippedId === w.id ? null : w.id))}>
-                      {equippedId === w.id ? "Ranger" : "Équiper"}
-                    </button>
-                    <button type="button" disabled={busy} title="Supprimer" className="rounded border border-[#b91c1c] px-1.5 text-[11px] font-bold text-[#b91c1c] hover:bg-[#b91c1c]/10"
-                      onClick={() => { if (window.confirm(`Supprimer « ${w.name} » ?`)) void act(() => deleteMyWeapon(w.id)); }}>✕</button>
-                  </div>
-                ))}
+              <div className="mt-3 text-xs">Ton prototype est équipé tout de suite ; tes armes sont dans ton 🎒 Inventaire. Sa rareté est tirée au hasard à la validation.</div>
+            </div>
+          </div>
+        )}
+        {result && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 p-3">
+            <div className="w-[min(24rem,96%)] rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-5 text-center shadow-xl">
+              <div className="text-xs font-bold uppercase tracking-widest text-[#7a4a22]">Ton arme est forgée !</div>
+              <img src={result.image_url} alt="" className="mx-auto my-2 h-24 object-contain" />
+              <RarityName name={`Prototype de ${result.name}`} rarity={result.rarity} />
+              <div className="mt-2 text-sm font-bold" style={{ color: "#3a2410" }}>
+                {RARITY_INFO[result.rarity].label} · {bonusText(result.bonus_damage)}
               </div>
+              {result.effect_key && EFFECT_INFO[result.effect_key] && (
+                <div className="text-sm"><b>{EFFECT_INFO[result.effect_key]!.name}</b> : {EFFECT_INFO[result.effect_key]!.text}</div>
+              )}
+              <div className="mt-1 text-xs">Prototype : durabilité très réduite (2 expéditions).</div>
+              <button type="button" onClick={() => setResult(null)} className={`${BTN} mt-3`}>OK</button>
             </div>
           </div>
         )}
