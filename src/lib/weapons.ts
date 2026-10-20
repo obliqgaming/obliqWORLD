@@ -83,7 +83,7 @@ export type WornWeapon = {
   dx?: number;
   dy?: number;
   rot?: number;
-  scale?: number; // 90 à 110 (%)
+  scale?: number; // 80 à 120 (%)
   imageUrl: string;
   grip: Point;
   width: number;

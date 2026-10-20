@@ -36,7 +36,6 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
   const [hand, setHand] = useState<Point>(DEFAULT_HAND);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   // Réglage en cours de modification (sinon on montre le réglage enregistré de l'arme affichée).
   const [edit, setEdit] = useState<{ id: string; dx: number; dy: number; rot: number; scale: number } | null>(null);
   const previewRef = useRef<HTMLDivElement | null>(null);
@@ -70,17 +69,13 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
     }
   }
 
-  const shownId = selectedId ?? equipped;
+  const shownId = equipped;
   const eq = items.find((i) => i.id === shownId) ?? null;
   const adj = eq && edit && edit.id === eq.id ? edit : eq ? { id: eq.id, dx: eq.adjust_dx, dy: eq.adjust_dy, rot: eq.adjust_rot, scale: eq.adjust_scale } : { id: "", dx: 0, dy: 0, rot: 0, scale: 100 };
   type Adj = { dx: number; dy: number; rot: number; scale: number };
   const setAdj = (f: (a: Adj) => Adj) => {
     if (!eq) return;
     setEdit({ id: eq.id, ...f({ dx: adj.dx, dy: adj.dy, rot: adj.rot, scale: adj.scale }) });
-  };
-  const selectItem = (it: WeaponItem) => {
-    setSelectedId(it.id);
-    setEdit(null);
   };
   const dirty = !!eq && (adj.dx !== eq.adjust_dx || adj.dy !== eq.adjust_dy || adj.rot !== eq.adjust_rot || adj.scale !== eq.adjust_scale);
   const onDragMove = (e: React.PointerEvent) => {
@@ -124,7 +119,7 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
               <div className="mt-1 text-center text-xs font-bold">{eq ? itemDisplayName(eq) : "Mains nues"}</div>
               {eq && (
                 <div className="mt-1 text-[11px]">
-                  <div className="opacity-70">Arme affichée : glisse-la pour la replacer dans la main, tourne-la et ajuste sa taille, puis Enregistrer.</div>
+                  <div className="opacity-70">Glisse l'arme équipée pour la replacer dans la main, tourne-la, ajuste sa taille, puis Enregistrer : le réglage est gardé pour cette arme.</div>
                   <label className="flex items-center gap-1">
                     Rotation
                     <input type="range" min={-180} max={180} step={5} value={adj.rot} onChange={(e) => setAdj((a) => ({ ...a, rot: Number(e.target.value) }))} className="flex-1" />
@@ -132,7 +127,7 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
                   </label>
                   <label className="flex items-center gap-1">
                     Taille
-                    <input type="range" min={90} max={110} step={1} value={adj.scale} onChange={(e) => setAdj((a) => ({ ...a, scale: Number(e.target.value) }))} className="flex-1" />
+                    <input type="range" min={80} max={120} step={1} value={adj.scale} onChange={(e) => setAdj((a) => ({ ...a, scale: Number(e.target.value) }))} className="flex-1" />
                     <span className="w-9 text-right">{adj.scale}%</span>
                   </label>
                   <div className="mt-1 flex gap-1">
@@ -154,9 +149,6 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
                     <ItemDetails it={it} />
                   </div>
                   <div className="flex flex-col gap-1">
-                    <button type="button" className="rounded border border-[#7a4a22] px-1.5 text-[11px] font-bold hover:bg-[#7a4a22]/15" onClick={() => selectItem(it)}>
-                      Régler
-                    </button>
                     <button type="button" disabled={busy || it.weapon.hidden || it.durability <= 0} className="rounded border border-[#7a4a22] px-1.5 text-[11px] font-bold hover:bg-[#7a4a22]/15 disabled:opacity-40"
                       onClick={() => void act(() => equipItem(character.id, equipped === it.id ? null : it.id))}>
                       {equipped === it.id ? "Ranger" : it.durability <= 0 ? "Cassée" : "Équiper"}
