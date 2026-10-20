@@ -38,7 +38,7 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
   const [msg, setMsg] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // Réglage en cours de modification (sinon on montre le réglage enregistré de l'arme affichée).
-  const [edit, setEdit] = useState<{ id: string; dx: number; dy: number; rot: number } | null>(null);
+  const [edit, setEdit] = useState<{ id: string; dx: number; dy: number; rot: number; scale: number } | null>(null);
   const previewRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -72,16 +72,17 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
 
   const shownId = selectedId ?? equipped;
   const eq = items.find((i) => i.id === shownId) ?? null;
-  const adj = eq && edit && edit.id === eq.id ? edit : eq ? { id: eq.id, dx: eq.adjust_dx, dy: eq.adjust_dy, rot: eq.adjust_rot } : { id: "", dx: 0, dy: 0, rot: 0 };
-  const setAdj = (f: (a: { dx: number; dy: number; rot: number }) => { dx: number; dy: number; rot: number }) => {
+  const adj = eq && edit && edit.id === eq.id ? edit : eq ? { id: eq.id, dx: eq.adjust_dx, dy: eq.adjust_dy, rot: eq.adjust_rot, scale: eq.adjust_scale } : { id: "", dx: 0, dy: 0, rot: 0, scale: 100 };
+  type Adj = { dx: number; dy: number; rot: number; scale: number };
+  const setAdj = (f: (a: Adj) => Adj) => {
     if (!eq) return;
-    setEdit({ id: eq.id, ...f({ dx: adj.dx, dy: adj.dy, rot: adj.rot }) });
+    setEdit({ id: eq.id, ...f({ dx: adj.dx, dy: adj.dy, rot: adj.rot, scale: adj.scale }) });
   };
   const selectItem = (it: WeaponItem) => {
     setSelectedId(it.id);
     setEdit(null);
   };
-  const dirty = !!eq && (adj.dx !== eq.adjust_dx || adj.dy !== eq.adjust_dy || adj.rot !== eq.adjust_rot);
+  const dirty = !!eq && (adj.dx !== eq.adjust_dx || adj.dy !== eq.adjust_dy || adj.rot !== eq.adjust_rot || adj.scale !== eq.adjust_scale);
   const onDragMove = (e: React.PointerEvent) => {
     if (!dragRef.current || !previewRef.current) return;
     const r = previewRef.current.getBoundingClientRect();
@@ -117,23 +118,28 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
                 <WornSprite
                   src={character.imageUrl}
                   alt={character.name}
-                  weapon={eq ? { imageUrl: eq.weapon.image_url, grip: eq.weapon.grip_anchor, width: eq.weapon.width, height: eq.weapon.height, hand, dx: adj.dx, dy: adj.dy, rot: adj.rot } : null}
+                  weapon={eq ? { imageUrl: eq.weapon.image_url, grip: eq.weapon.grip_anchor, width: eq.weapon.width, height: eq.weapon.height, hand, dx: adj.dx, dy: adj.dy, rot: adj.rot, scale: adj.scale } : null}
                 />
               </div>
               <div className="mt-1 text-center text-xs font-bold">{eq ? itemDisplayName(eq) : "Mains nues"}</div>
               {eq && (
                 <div className="mt-1 text-[11px]">
-                  <div className="opacity-70">Glisse l'arme pour la replacer dans la main, puis tourne-la :</div>
+                  <div className="opacity-70">Arme affichée : glisse-la pour la replacer dans la main, tourne-la et ajuste sa taille, puis Enregistrer.</div>
                   <label className="flex items-center gap-1">
                     Rotation
                     <input type="range" min={-180} max={180} step={5} value={adj.rot} onChange={(e) => setAdj((a) => ({ ...a, rot: Number(e.target.value) }))} className="flex-1" />
                     <span className="w-8 text-right">{adj.rot}°</span>
                   </label>
+                  <label className="flex items-center gap-1">
+                    Taille
+                    <input type="range" min={90} max={110} step={1} value={adj.scale} onChange={(e) => setAdj((a) => ({ ...a, scale: Number(e.target.value) }))} className="flex-1" />
+                    <span className="w-9 text-right">{adj.scale}%</span>
+                  </label>
                   <div className="mt-1 flex gap-1">
                     <button type="button" disabled={busy || !dirty} className="rounded border border-[#7a4a22] px-1.5 font-bold hover:bg-[#7a4a22]/15 disabled:opacity-40"
-                      onClick={() => void act(() => adjustItem(eq.id, adj.dx, adj.dy, adj.rot))}>Enregistrer</button>
+                      onClick={() => void act(() => adjustItem(eq.id, adj.dx, adj.dy, adj.rot, adj.scale))}>Enregistrer</button>
                     <button type="button" className="rounded border border-[#7a4a22] px-1.5 font-bold hover:bg-[#7a4a22]/15"
-                      onClick={() => setAdj(() => ({ dx: 0, dy: 0, rot: 0 }))}>Remettre à zéro</button>
+                      onClick={() => setAdj(() => ({ dx: 0, dy: 0, rot: 0, scale: 100 }))}>Remettre à zéro</button>
                   </div>
                 </div>
               )}
@@ -141,7 +147,7 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
             <div className="flex max-h-80 flex-col gap-1.5 overflow-y-auto">
               {items.length === 0 && <div className="text-sm">Aucune arme sur toi. Va voir le forgeron !</div>}
               {items.map((it) => (
-                <div key={it.id} className="flex items-center gap-2 rounded border border-[#7a4a22]/50 bg-white/40 p-1.5">
+                <div key={it.id} className={`flex items-center gap-2 rounded border p-1.5 ${it.id === shownId ? "border-[#7a4a22] bg-white/70" : "border-[#7a4a22]/50 bg-white/40"}`}>
                   <img src={it.weapon.image_url} alt="" className="h-10 w-12 shrink-0 object-contain" />
                   <div className="min-w-0 flex-1">
                     <div className="truncate"><RarityName name={itemDisplayName(it) + (it.weapon.hidden ? " (masquée)" : "")} rarity={it.weapon.rarity} /></div>

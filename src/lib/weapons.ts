@@ -73,6 +73,7 @@ export type WeaponItem = {
   adjust_dx: number;
   adjust_dy: number;
   adjust_rot: number;
+  adjust_scale: number;
   weapon: Weapon;
 };
 
@@ -82,6 +83,7 @@ export type WornWeapon = {
   dx?: number;
   dy?: number;
   rot?: number;
+  scale?: number; // 90 à 110 (%)
   imageUrl: string;
   grip: Point;
   width: number;
@@ -97,7 +99,7 @@ export async function fetchMyItems(): Promise<WeaponItem[]> {
   const uid = await ensureUserId();
   const { data, error } = await scenesClient
     .from("weapon_items")
-    .select("id, weapon_id, is_prototype, durability, durability_max, adjust_dx, adjust_dy, adjust_rot, weapon:weapons(*)")
+    .select("id, weapon_id, is_prototype, durability, durability_max, adjust_dx, adjust_dy, adjust_rot, adjust_scale, weapon:weapons(*)")
     .eq("owner_user_id", uid)
     .order("created_at", { ascending: false });
   if (error) throw error;
@@ -149,7 +151,7 @@ export async function fetchWornWeapons(characterIds: string[]): Promise<Record<s
   if (characterIds.length === 0) return out;
   const { data, error } = await scenesClient
     .from("character_build")
-    .select("character_id, item:equipped_item_id(adjust_dx, adjust_dy, adjust_rot, weapon:weapons(image_url, grip_anchor, width, height, hidden)), characters(visual_assets(hand_anchor))")
+    .select("character_id, item:equipped_item_id(adjust_dx, adjust_dy, adjust_rot, adjust_scale, weapon:weapons(image_url, grip_anchor, width, height, hidden)), characters(visual_assets(hand_anchor))")
     .in("character_id", characterIds)
     .not("equipped_item_id", "is", null);
   if (error) return out;
@@ -165,13 +167,14 @@ export async function fetchWornWeapons(characterIds: string[]): Promise<Record<s
       dx: Number(r.item.adjust_dx ?? 0),
       dy: Number(r.item.adjust_dy ?? 0),
       rot: Number(r.item.adjust_rot ?? 0),
+      scale: Number(r.item.adjust_scale ?? 100),
     };
   }
   return out;
 }
 
-export async function adjustItem(itemId: string, dx: number, dy: number, rot: number): Promise<void> {
-  const { error } = await scenesClient.rpc("weapon_item_adjust", { p_item_id: itemId, p_dx: dx, p_dy: dy, p_rot: rot });
+export async function adjustItem(itemId: string, dx: number, dy: number, rot: number, scale: number): Promise<void> {
+  const { error } = await scenesClient.rpc("weapon_item_adjust", { p_item_id: itemId, p_dx: dx, p_dy: dy, p_rot: rot, p_scale: scale });
   if (error) throw error;
 }
 

@@ -19,7 +19,7 @@ export function WeaponOverlay({ weapon }: { weapon: WornWeapon }) {
         left: `${weapon.hand.x + (weapon.dx ?? 0) - (weapon.grip.x / 100) * wPct}%`,
         top: `${weapon.hand.y + (weapon.dy ?? 0) - (weapon.grip.y / 100) * hPct}%`,
         transformOrigin: `${weapon.grip.x}% ${weapon.grip.y}%`,
-        transform: weapon.rot ? `rotate(${weapon.rot}deg)` : undefined,
+        transform: weapon.rot || (weapon.scale && weapon.scale !== 100) ? `rotate(${weapon.rot ?? 0}deg) scale(${(weapon.scale ?? 100) / 100})` : undefined,
       }}
     />
   );
