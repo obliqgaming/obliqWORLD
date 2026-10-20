@@ -410,8 +410,10 @@ export function DrawingCanvas({
   return (
     <div className="flex flex-col gap-3 sm:flex-row">
       <div
-        className="relative w-full max-w-[420px] overflow-hidden rounded-md border border-[#7a4a22]/70"
+        className="relative w-full overflow-hidden rounded-md border border-[#7a4a22]/70"
         style={{
+          // Plus haut que large : on limite la largeur pour que la hauteur reste raisonnable.
+          maxWidth: H > W ? Math.round((420 * W) / H) : 420,
           aspectRatio: `${W} / ${H}`,
           backgroundImage: `
             linear-gradient(45deg, #ccc 25%, transparent 25%),

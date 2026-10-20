@@ -82,7 +82,7 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
                 anchorTitle="Point poignée — glisse pour le placer"
                 exportLabel="Forger et équiper"
                 exporting={busy}
-                initialAnchor={{ x: 20, y: 80 }}
+                initialAnchor={{ x: 50, y: 85 }}
                 onPreview={(url, anchor) => anchor && setPreview({ url, anchor })}
                 onExport={handleExport}
               />

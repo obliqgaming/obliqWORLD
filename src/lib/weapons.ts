@@ -1,8 +1,8 @@
 // Forge v1 (SQL 014) : armes dessinées, équipement, affichage sur les personnages.
 import { scenesClient, ensureUserId, type Point } from "./scenes-supabase";
 
-export const WEAPON_W = 256;
-export const WEAPON_H = 160;
+export const WEAPON_W = 200;
+export const WEAPON_H = 320;
 /** Taille du canvas d'un personnage : sert d'échelle pour afficher l'arme à la bonne taille. */
 export const CHARACTER_CANVAS = 512;
 export const DEFAULT_HAND: Point = { x: (2 / 3) * 100, y: (2 / 3) * 100 };

@@ -37,7 +37,8 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [adj, setAdj] = useState({ dx: 0, dy: 0, rot: 0 });
+  // Réglage en cours de modification (sinon on montre le réglage enregistré de l'arme affichée).
+  const [edit, setEdit] = useState<{ id: string; dx: number; dy: number; rot: number } | null>(null);
   const previewRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -71,9 +72,14 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
 
   const shownId = selectedId ?? equipped;
   const eq = items.find((i) => i.id === shownId) ?? null;
+  const adj = eq && edit && edit.id === eq.id ? edit : eq ? { id: eq.id, dx: eq.adjust_dx, dy: eq.adjust_dy, rot: eq.adjust_rot } : { id: "", dx: 0, dy: 0, rot: 0 };
+  const setAdj = (f: (a: { dx: number; dy: number; rot: number }) => { dx: number; dy: number; rot: number }) => {
+    if (!eq) return;
+    setEdit({ id: eq.id, ...f({ dx: adj.dx, dy: adj.dy, rot: adj.rot }) });
+  };
   const selectItem = (it: WeaponItem) => {
     setSelectedId(it.id);
-    setAdj({ dx: it.adjust_dx, dy: it.adjust_dy, rot: it.adjust_rot });
+    setEdit(null);
   };
   const dirty = !!eq && (adj.dx !== eq.adjust_dx || adj.dy !== eq.adjust_dy || adj.rot !== eq.adjust_rot);
   const onDragMove = (e: React.PointerEvent) => {
@@ -127,7 +133,7 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
                     <button type="button" disabled={busy || !dirty} className="rounded border border-[#7a4a22] px-1.5 font-bold hover:bg-[#7a4a22]/15 disabled:opacity-40"
                       onClick={() => void act(() => adjustItem(eq.id, adj.dx, adj.dy, adj.rot))}>Enregistrer</button>
                     <button type="button" className="rounded border border-[#7a4a22] px-1.5 font-bold hover:bg-[#7a4a22]/15"
-                      onClick={() => setAdj({ dx: 0, dy: 0, rot: 0 })}>Remettre à zéro</button>
+                      onClick={() => setAdj(() => ({ dx: 0, dy: 0, rot: 0 }))}>Remettre à zéro</button>
                   </div>
                 </div>
               )}
