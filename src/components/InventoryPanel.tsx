@@ -5,10 +5,11 @@ import { WornSprite } from "./WornSprite";
 import type { Point } from "../lib/scenes-supabase";
 import {
   DEFAULT_HAND, EFFECT_INFO, bonusText, weaponKindLabel, adjustItem, RARITY_INFO,
-  deleteMyItem, equipItem, fetchEquippedItemId, fetchHandAnchor, fetchMyItems, itemDisplayName,
+  deleteMyItem, equipItem, fetchEquippedItemId, fetchHandAnchor, fetchMyItems, itemDisplayName, itemStats, weaponFits,
   type WeaponItem,
 } from "../lib/weapons";
 import type { ForgeCharacter } from "./ForgePanel";
+import { fetchMyBuild } from "../lib/expedition-combat";
 
 export function RarityName({ name, rarity }: { name: string; rarity: keyof typeof RARITY_INFO }) {
   return (
@@ -19,13 +20,21 @@ export function RarityName({ name, rarity }: { name: string; rarity: keyof typeo
 }
 
 export function ItemDetails({ it }: { it: WeaponItem }) {
-  const eff = it.weapon.effect_key ? EFFECT_INFO[it.weapon.effect_key] : null;
+  const st = itemStats(it);
+  const eff = st.effect ? EFFECT_INFO[st.effect] : null;
+  const modelEff = it.weapon.effect_key ? EFFECT_INFO[it.weapon.effect_key] : null;
   return (
     <div className="text-[11px] leading-tight">
       <div className="opacity-80">
-        {RARITY_INFO[it.weapon.rarity].label} · {weaponKindLabel(it.weapon.weapon_type)} · {bonusText(it.weapon.bonus_damage)} · durabilité {it.durability}/{it.durability_max}
+        {it.is_prototype ? "Prototype" : RARITY_INFO[st.rarity].label} · {weaponKindLabel(it.weapon.weapon_type)} · {bonusText(st.bonus)} · durabilité {it.durability}/{it.durability_max}
       </div>
       {eff && <div><b>{eff.name}</b> : {eff.text}</div>}
+      {it.is_prototype && (
+        <div className="opacity-70">
+          Modèle {RARITY_INFO[it.weapon.rarity].label.toLowerCase()}
+          {modelEff ? ` (${modelEff.name})` : ""} : les exemplaires qui ont cette puissance se gagnent en butin.
+        </div>
+      )}
     </div>
   );
 }
@@ -34,6 +43,7 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
   const [items, setItems] = useState<WeaponItem[]>([]);
   const [equipped, setEquipped] = useState<string | null>(null);
   const [hand, setHand] = useState<Point>(DEFAULT_HAND);
+  const [family, setFamily] = useState<"melee" | "magie" | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   // Réglage en cours de modification (sinon on montre le réglage enregistré de l'arme affichée).
@@ -53,6 +63,7 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
   useEffect(() => {
     void reload();
     if (character) void fetchHandAnchor(character.visualAssetId).then((h) => h && setHand(h));
+    if (character) void fetchMyBuild(character.id).then((b) => setFamily(b?.family ?? null)).catch(() => {});
   }, [reload, character]);
 
   async function act(fn: () => Promise<void>) {
@@ -145,13 +156,14 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
                 <div key={it.id} className={`flex items-center gap-2 rounded border p-1.5 ${it.id === shownId ? "border-[#7a4a22] bg-white/70" : "border-[#7a4a22]/50 bg-white/40"}`}>
                   <img src={it.weapon.image_url} alt="" className="h-10 w-12 shrink-0 object-contain" />
                   <div className="min-w-0 flex-1">
-                    <div className="truncate"><RarityName name={itemDisplayName(it) + (it.weapon.hidden ? " (masquée)" : "")} rarity={it.weapon.rarity} /></div>
+                    <div className="truncate"><RarityName name={itemDisplayName(it) + (it.weapon.hidden ? " (masquée)" : "")} rarity={itemStats(it).rarity} /></div>
                     <ItemDetails it={it} />
                   </div>
                   <div className="flex flex-col gap-1">
-                    <button type="button" disabled={busy || it.weapon.hidden || it.durability <= 0} className="rounded border border-[#7a4a22] px-1.5 text-[11px] font-bold hover:bg-[#7a4a22]/15 disabled:opacity-40"
+                    <button type="button" disabled={busy || it.weapon.hidden || it.durability <= 0 || !weaponFits(it.weapon.weapon_type, family)}
+                      title={!weaponFits(it.weapon.weapon_type, family) ? "Cette arme est réservée à l'autre spécialisation" : undefined} className="rounded border border-[#7a4a22] px-1.5 text-[11px] font-bold hover:bg-[#7a4a22]/15 disabled:opacity-40"
                       onClick={() => void act(() => equipItem(character.id, equipped === it.id ? null : it.id))}>
-                      {equipped === it.id ? "Ranger" : it.durability <= 0 ? "Cassée" : "Équiper"}
+                      {equipped === it.id ? "Ranger" : it.durability <= 0 ? "Cassée" : !weaponFits(it.weapon.weapon_type, family) ? (it.weapon.weapon_type === "magic" ? "Magie" : "Mêlée") : "Équiper"}
                     </button>
                     <button type="button" disabled={busy} title="Jeter" className="rounded border border-[#b91c1c] px-1.5 text-[11px] font-bold text-[#b91c1c] hover:bg-[#b91c1c]/10"
                       onClick={() => { if (window.confirm(`Jeter « ${itemDisplayName(it)} » ?`)) void act(() => deleteMyItem(it.id)); }}>Jeter</button>

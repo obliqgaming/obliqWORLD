@@ -10,6 +10,7 @@ import {
   type Weapon, type WeaponType, type WornWeapon,
 } from "../lib/weapons";
 import { RarityName } from "./InventoryPanel";
+import { fetchMyBuild } from "../lib/expedition-combat";
 
 const BTN = "rounded-lg border-2 border-[#7a4a22] bg-[#7a4a22] px-4 py-1.5 text-sm font-bold text-[#fff3d6] hover:bg-[#5e3818] disabled:opacity-50";
 
@@ -26,6 +27,8 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
 
   useEffect(() => {
     if (character) void fetchHandAnchor(character.visualAssetId).then((h) => h && setHand(h));
+    // Par défaut, le type d'arme de ta spécialisation (tu ne peux équiper que celui-là).
+    if (character) void fetchMyBuild(character.id).then((b) => b && setType(b.family === "magie" ? "magic" : "blunt_slash")).catch(() => {});
   }, [character]);
 
   const worn = (w: { imageUrl: string; grip: Point; width: number; height: number }): WornWeapon => ({ ...w, hand });
@@ -50,7 +53,11 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
     if (!anchor) return setMsg("Place le point poignée.");
     void act(async () => {
       const { weapon, itemId } = await createWeapon(blob, name.trim(), type, anchor);
-      await equipItem(character.id, itemId);
+      try {
+        await equipItem(character.id, itemId);
+      } catch {
+        // Arme de l'autre spécialisation : elle reste dans l'inventaire, non équipée.
+      }
       setResult(weapon);
       setName("");
     });
@@ -97,7 +104,7 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
                   weapon={preview ? worn({ imageUrl: preview.url, grip: preview.anchor, width: WEAPON_W, height: WEAPON_H }) : null}
                 />
               </div>
-              <div className="mt-3 text-xs">Ton prototype est équipé tout de suite ; tes armes sont dans ton 🎒 Inventaire. Sa rareté est tirée au hasard à la validation.</div>
+              <div className="mt-3 text-xs">Ton prototype est équipé tout de suite (toujours commun) ; tes armes sont dans ton 🎒 Inventaire. La rareté du modèle est tirée au hasard à la validation : les exemplaires puissants se gagnent en butin.</div>
             </div>
           </div>
         )}
@@ -106,14 +113,16 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
             <div className="w-[min(24rem,96%)] rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-5 text-center shadow-xl">
               <div className="text-xs font-bold uppercase tracking-widest text-[#7a4a22]">Ton arme est forgée !</div>
               <img src={result.image_url} alt="" className="mx-auto my-2 h-24 object-contain" />
-              <RarityName name={`Prototype de ${result.name}`} rarity={result.rarity} />
-              <div className="mt-2 text-sm font-bold" style={{ color: "#3a2410" }}>
+              <RarityName name={`Prototype de ${result.name}`} rarity="common" />
+              <div className="mt-1 text-xs">Ton prototype est commun : +1 dégât, pas d'effet, durabilité de 4 combats.</div>
+              <div className="mt-3 text-xs font-bold uppercase tracking-widest text-[#7a4a22]">Rareté de ton modèle</div>
+              <div className="text-sm font-bold" style={{ color: "#3a2410" }}>
                 {RARITY_INFO[result.rarity].label} · {bonusText(result.bonus_damage)}
               </div>
               {result.effect_key && EFFECT_INFO[result.effect_key] && (
                 <div className="text-sm"><b>{EFFECT_INFO[result.effect_key]!.name}</b> : {EFFECT_INFO[result.effect_key]!.text}</div>
               )}
-              <div className="mt-1 text-xs">Prototype : durabilité très réduite (2 expéditions).</div>
+              <div className="mt-1 text-xs">Les exemplaires de cette puissance se trouvent en butin, pas dans la forge.</div>
               <button type="button" onClick={() => { setResult(null); onClose(); }} className={`${BTN} mt-3`}>OK</button>
             </div>
           </div>

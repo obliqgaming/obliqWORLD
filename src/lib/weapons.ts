@@ -30,7 +30,7 @@ export const EFFECT_INFO: Record<string, { name: string; text: string }> = {
   saignement: { name: "Saignement", text: "l'attaque de base empoisonne la cible (1 dégât par tour, 2 tours)" },
   siphon: { name: "Siphon", text: "+1 PV à chaque attaque de base" },
   concentre: { name: "Concentré", text: "tes pouvoirs coûtent 1 PM de moins" },
-  perforant: { name: "Perforant", text: "ignore 3 points de Défense de la cible" },
+  perforant: { name: "Perforant", text: "ignore 5 points de Défense de la cible" },
   // Épique
   frappe_lourde: { name: "Frappe lourde", text: "25 % de chance de doubler les dégâts" },
   eclat: { name: "Éclat", text: "+50 % de dégâts sur une cible sous la moitié de ses PV" },
@@ -90,6 +90,19 @@ export type WornWeapon = {
   height: number;
   hand: Point;
 };
+
+/** Une arme de mêlée se porte en Mêlée, une arme magique en Magie. */
+export function weaponFits(type: WeaponType, family: "melee" | "magie" | null | undefined): boolean {
+  if (!family) return true;
+  return type === "magic" ? family === "magie" : family === "melee";
+}
+
+/** Un prototype est toujours commun (+1 dégât, pas d'effet) : l'effet du modèle se gagne en butin. */
+export function itemStats(it: WeaponItem): { rarity: Rarity; bonus: number; effect: string | null } {
+  return it.is_prototype
+    ? { rarity: "common", bonus: 1, effect: null }
+    : { rarity: it.weapon.rarity, bonus: it.weapon.bonus_damage, effect: it.weapon.effect_key };
+}
 
 export function itemDisplayName(it: WeaponItem): string {
   return it.is_prototype ? `Prototype de ${it.weapon.name}` : it.weapon.name;
