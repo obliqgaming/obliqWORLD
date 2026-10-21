@@ -8,6 +8,7 @@ import {
   deleteMyItem, equipItem, fetchEquippedItemId, fetchHandAnchor, fetchMyItems, itemDisplayName, itemStats, weaponFits,
   type WeaponItem,
 } from "../lib/weapons";
+import { fetchMyGold } from "../lib/loot";
 import type { ForgeCharacter } from "./ForgePanel";
 import { fetchMyBuild } from "../lib/expedition-combat";
 
@@ -40,6 +41,10 @@ export function ItemDetails({ it }: { it: WeaponItem }) {
 }
 
 export function InventoryPanel({ character, onClose, onWeaponChanged }: { character: ForgeCharacter | null; onClose: () => void; onWeaponChanged: () => void }) {
+  const [gold, setGold] = useState(0);
+  useEffect(() => {
+    void fetchMyGold().then(setGold);
+  }, []);
   const [items, setItems] = useState<WeaponItem[]>([]);
   const [equipped, setEquipped] = useState<string | null>(null);
   const [hand, setHand] = useState<Point>(DEFAULT_HAND);
@@ -101,7 +106,7 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
     <div className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/55 p-2" onClick={(e) => e.stopPropagation()} style={{ fontFamily: "'Baloo 2', cursive" }}>
       <div className="max-h-full w-[min(40rem,98%)] overflow-y-auto rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-4 text-[#3a2410] shadow-xl">
         <div className="flex items-center justify-between">
-          <div className="text-xl font-extrabold">🎒 Inventaire</div>
+          <div className="text-xl font-extrabold">🎒 Inventaire <span className="ml-2 text-sm text-[#92400e]">💰 {gold} or</span></div>
           <button type="button" onClick={onClose} className="rounded border border-[#7a4a22] px-3 py-0.5 text-xs font-bold hover:bg-[#7a4a22]/15">Fermer</button>
         </div>
         {!character ? (

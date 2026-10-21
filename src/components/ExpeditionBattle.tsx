@@ -28,7 +28,8 @@ import {
   type MyBuild,
 } from "../lib/expedition-combat";
 import { WornSprite } from "./WornSprite";
-import { DEFAULT_HAND, fetchRandomWeaponPool, fetchWornWeapons, monsterHasWeapon, pickByHash, type WornWeapon } from "../lib/weapons";
+import { DEFAULT_HAND, fetchWeaponsById, fetchWornWeapons, type WornWeapon } from "../lib/weapons";
+import { LootPanel } from "./LootPanel";
 import { playCombatSound, type CombatSound } from "../lib/combat-sounds";
 import { leaveScenePresence, type PresenceChannel } from "../lib/scenes-supabase";
 
@@ -90,7 +91,8 @@ export function ExpeditionBattle({
   const [axes, setAxes] = useState<GameAxis[]>([]);
   const [settings, setSettings] = useState<Record<string, number>>({});
   const [worn, setWorn] = useState<Record<string, WornWeapon>>({});
-  const [weaponPool, setWeaponPool] = useState<Omit<WornWeapon, "hand">[]>([]);
+  const [weaponPool, setWeaponPool] = useState<Record<string, Omit<WornWeapon, "hand">>>({});
+  const [lootSettled, setLootSettled] = useState(true);
   const [pool, setPool] = useState<EnemyImage[]>([]);
   const [selectedPower, setSelectedPower] = useState<string | null>(null); // null = attaque de base
   const [targetEnemy, setTargetEnemy] = useState<string | null>(null);
@@ -138,7 +140,7 @@ export function ExpeditionBattle({
         setAxes(a);
         setSettings(st);
         setPool(imgs);
-        setWeaponPool(await fetchRandomWeaponPool());
+        setWeaponPool(await fetchWeaponsById());
         setWorn(await fetchWornWeapons(allies.map((x) => x.characterId)));
       } catch (e) {
         console.error("combat setup failed", e);
@@ -475,7 +477,7 @@ export function ExpeditionBattle({
         const dead = hp <= 0;
         const entry = pickEnemyEntry(pool, en.id);
         const img = entry?.imageUrl ?? null;
-        const mw = monsterHasWeapon(en.role, en.id) ? pickByHash(weaponPool, en.id) : null;
+        const mw = en.weapon_id ? weaponPool[en.weapon_id] ?? null : null;
         const mWeapon: WornWeapon | null = mw ? { ...mw, hand: entry?.handAnchor ?? DEFAULT_HAND } : null;
         const selected = targetEnemy === en.id;
         const target = en.announced_target_id ? allies.find((a) => a.characterId === en.announced_target_id) : null;
@@ -648,8 +650,18 @@ export function ExpeditionBattle({
             {combat!.status === "victory" && combat!.xp_reward > 0 && (
               <div className="mt-2 text-base font-extrabold text-[#92400e]">+{combat!.xp_reward} XP</div>
             )}
-            <button type="button" onClick={onFinished} className="mt-3 rounded-lg border-2 border-[#7a4a22] bg-[#7a4a22] px-5 py-1.5 text-sm font-bold text-[#fff3d6] hover:bg-[#5e3818]">
-              Continuer
+            {combat!.status === "victory" && me && (
+              <LootPanel
+                expeditionId={combat!.expedition_id}
+                combatId={combat!.id}
+                characterId={me.characterId}
+                names={Object.fromEntries(allies.map((a) => [a.characterId, a.name]))}
+                gold={combat!.gold_reward ?? 0}
+                onSettled={setLootSettled}
+              />
+            )}
+            <button type="button" onClick={onFinished} disabled={combat!.status === "victory" && !lootSettled} className="mt-3 rounded-lg border-2 border-[#7a4a22] bg-[#7a4a22] px-5 py-1.5 text-sm font-bold text-[#fff3d6] hover:bg-[#5e3818] disabled:opacity-50">
+              {combat!.status === "victory" && !lootSettled ? "Butin en cours…" : "Continuer"}
             </button>
           </div>
         </div>

@@ -65,3 +65,8 @@ export async function adminSetLevel(characterId: string, level: number, resetAxi
   });
   if (error) throw error;
 }
+
+export async function adminSetFamily(characterId: string, family: "melee" | "magie"): Promise<void> {
+  const { error } = await scenesClient.rpc("admin_set_character_family", { p_character_id: characterId, p_family: family });
+  if (error) throw error;
+}

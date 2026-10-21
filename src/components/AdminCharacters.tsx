@@ -5,6 +5,7 @@ import {
   adminResurrect,
   adminSetHandAnchor,
   adminSetLevel,
+  adminSetFamily,
   fetchAdminCharacters,
   type AdminCharacter,
 } from "../lib/admin-characters";
@@ -17,6 +18,7 @@ export function AdminCharacters() {
   const [filter, setFilter] = useState("");
   const [anchorFor, setAnchorFor] = useState<AdminCharacter | null>(null);
   const [levelFor, setLevelFor] = useState<AdminCharacter | null>(null);
+  const [familyFor, setFamilyFor] = useState<AdminCharacter | null>(null);
 
   const reload = async () => {
     try {
@@ -94,6 +96,11 @@ export function AdminCharacters() {
                         Niveau / axe
                       </button>
                     )}
+                    {c.family && (
+                      <button type="button" className="rounded bg-neutral-700 px-2 py-0.5 text-xs" onClick={() => setFamilyFor(c)}>
+                        Spécialisation
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -110,6 +117,18 @@ export function AdminCharacters() {
             void run(p ? "Ancrage enregistré" : "Ancrage retiré", async () => {
               await adminSetHandAnchor(anchorFor.visual_asset_id, p);
               setAnchorFor(null);
+            })
+          }
+        />
+      )}
+      {familyFor && (
+        <FamilyEditor
+          character={familyFor}
+          onClose={() => setFamilyFor(null)}
+          onSave={(fam) =>
+            void run(`${familyFor.name} passe en ${fam === "melee" ? "Mêlée" : "Magie"}`, async () => {
+              await adminSetFamily(familyFor.id, fam);
+              setFamilyFor(null);
             })
           }
         />
@@ -207,6 +226,28 @@ function LevelEditor({ character, onClose, onSave }: { character: AdminCharacter
         Effacer l'axe déjà choisi{character.axis_key ? ` (${character.axis_key})` : ""} pour pouvoir le rechoisir
       </label>
       <button type="button" className="mt-3 rounded bg-emerald-700 px-3 py-1 text-sm" onClick={() => onSave(level, reset)}>
+        Enregistrer
+      </button>
+    </Modal>
+  );
+}
+
+function FamilyEditor({ character, onClose, onSave }: { character: AdminCharacter; onClose: () => void; onSave: (f: "melee" | "magie") => void }) {
+  const [fam, setFam] = useState<"melee" | "magie">(character.family ?? "melee");
+  return (
+    <Modal title={`Spécialisation — ${character.name}`} onClose={onClose}>
+      <div className="flex gap-3 text-sm">
+        <label className="flex items-center gap-1">
+          <input type="radio" checked={fam === "melee"} onChange={() => setFam("melee")} /> Mêlée
+        </label>
+        <label className="flex items-center gap-1">
+          <input type="radio" checked={fam === "magie"} onChange={() => setFam("magie")} /> Magie
+        </label>
+      </div>
+      <p className="mt-2 text-xs text-neutral-400">
+        L'axe choisi{character.axis_key ? ` (${character.axis_key})` : ""} est effacé ; à partir du niveau 3, le choix d'axe se rouvre. Une arme équipée d'un autre type est rangée.
+      </p>
+      <button type="button" disabled={fam === character.family} className="mt-3 rounded bg-emerald-700 px-3 py-1 text-sm disabled:opacity-40" onClick={() => onSave(fam)}>
         Enregistrer
       </button>
     </Modal>

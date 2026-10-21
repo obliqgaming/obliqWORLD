@@ -15,7 +15,7 @@ export function HotspotMarker({ hotspot, onClick }: { hotspot: SceneHotspot; onC
       }}
       title={hotspot.label ?? info.label}
       className="pointer-events-auto absolute z-20 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-0.5"
-      style={{ left: `${hotspot.position.x}%`, top: `${hotspot.position.y}%` }}
+      style={{ left: `${hotspot.position.x}%`, top: `${hotspot.position.y}%`, cursor: "zoom-in" }}
     >
       <span
         className="flex h-11 w-11 items-center justify-center rounded-full border-2 text-xl transition-transform hover:scale-110"

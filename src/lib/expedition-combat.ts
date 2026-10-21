@@ -140,6 +140,7 @@ export type Combat = {
   aoe_warning: boolean;
   created_at: string;
   xp_reward: number;
+  gold_reward?: number;
 };
 
 export type CombatEnemyRow = {
@@ -153,6 +154,7 @@ export type CombatEnemyRow = {
   announced_target_id: string | null;
   force: number;
   defense: number;
+  weapon_id?: string | null;
   status: Record<string, unknown>;
 };
 

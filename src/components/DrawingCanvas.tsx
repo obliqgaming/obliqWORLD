@@ -305,7 +305,8 @@ export function DrawingCanvas({
       oCtx.clearRect(0, 0, W, H);
       oCtx.beginPath();
       oCtx.lineCap = "round";
-      oCtx.lineWidth = brushSize;
+      // Le trait final est peint avec un diamètre de taille × 2,4 : l'aperçu doit avoir la même épaisseur.
+      oCtx.lineWidth = tool === "line" ? Math.max(1, brushSize * 2.4) : brushSize;
       oCtx.strokeStyle = hexToRgba(color, opacity);
       if (tool === "line") {
         oCtx.moveTo(lineStartRef.current.x, lineStartRef.current.y);

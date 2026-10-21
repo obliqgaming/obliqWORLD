@@ -25,7 +25,7 @@ export function ExpeditionPortalMarker({
         onClick();
       }}
       className="pointer-events-auto absolute z-20 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1"
-      style={{ left: `${position.x}%`, top: `${position.y}%` }}
+      style={{ left: `${position.x}%`, top: `${position.y}%`, cursor: "zoom-in" }}
       title={isSelfReady ? "Annuler (ne plus être prêt)" : "Entrer dans le portail — se déclarer prêt"}
     >
       <div

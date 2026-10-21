@@ -113,16 +113,16 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
             <div className="w-[min(24rem,96%)] rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-5 text-center shadow-xl">
               <div className="text-xs font-bold uppercase tracking-widest text-[#7a4a22]">Ton arme est forgée !</div>
               <img src={result.image_url} alt="" className="mx-auto my-2 h-24 object-contain" />
-              <RarityName name={`Prototype de ${result.name}`} rarity="common" />
-              <div className="mt-1 text-xs">Ton prototype est commun : +1 dégât, pas d'effet, durabilité de 4 combats.</div>
-              <div className="mt-3 text-xs font-bold uppercase tracking-widest text-[#7a4a22]">Rareté de ton modèle</div>
-              <div className="text-sm font-bold" style={{ color: "#3a2410" }}>
+              <RarityName name={result.name} rarity={result.rarity} />
+              <div className="mt-2 text-base font-extrabold" style={{ color: "#3a2410" }}>
                 {RARITY_INFO[result.rarity].label} · {bonusText(result.bonus_damage)}
               </div>
               {result.effect_key && EFFECT_INFO[result.effect_key] && (
                 <div className="text-sm"><b>{EFFECT_INFO[result.effect_key]!.name}</b> : {EFFECT_INFO[result.effect_key]!.text}</div>
               )}
-              <div className="mt-1 text-xs">Les exemplaires de cette puissance se trouvent en butin, pas dans la forge.</div>
+              <div className="mt-3 rounded border border-[#7a4a22]/50 bg-white/40 p-2 text-xs">
+                Ce n'est qu'un <b>prototype</b> : il est <b>commun</b> (+1 dégât, pas d'effet, durabilité de 4 combats). Les exemplaires de cette puissance se trouvent en butin.
+              </div>
               <button type="button" onClick={() => { setResult(null); onClose(); }} className={`${BTN} mt-3`}>OK</button>
             </div>
           </div>

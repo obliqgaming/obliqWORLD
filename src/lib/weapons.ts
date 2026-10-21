@@ -196,15 +196,17 @@ export function weaponKindLabel(t: WeaponType): string {
 }
 
 /** Arme au hasard mais stable pour un monstre (même résultat chez tous les joueurs). */
-export async function fetchRandomWeaponPool(): Promise<Omit<WornWeapon, "hand">[]> {
+/** Armes (modèles) visibles, indexées par id : le serveur choisit l'arme de chaque monstre (combat_enemies.weapon_id). */
+export async function fetchWeaponsById(): Promise<Record<string, Omit<WornWeapon, "hand">>> {
   const { data, error } = await scenesClient
     .from("weapons")
-    .select("image_url, grip_anchor, width, height")
+    .select("id, image_url, grip_anchor, width, height")
     .eq("hidden", false)
-    .order("id")
-    .limit(60);
-  if (error) return [];
-  return (data ?? []).map((w: any) => ({ imageUrl: w.image_url, grip: w.grip_anchor, width: w.width, height: w.height }));
+    .limit(500);
+  if (error) return {};
+  const out: Record<string, Omit<WornWeapon, "hand">> = {};
+  for (const w of (data ?? []) as any[]) out[w.id] = { imageUrl: w.image_url, grip: w.grip_anchor, width: w.width, height: w.height };
+  return out;
 }
 
 export function hashOf(key: string): number {
