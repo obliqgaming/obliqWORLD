@@ -29,6 +29,7 @@ import {
 } from "../lib/expedition-combat";
 import { WornSprite } from "./WornSprite";
 import { DEFAULT_HAND, fetchWeaponsById, fetchWornWeapons, type WornWeapon } from "../lib/weapons";
+import { CURSOR_INTERACT } from "../lib/cursors";
 import { LootPanel } from "./LootPanel";
 import { CONSUMABLE_INFO, fetchMyConsumables, submitCombatItem, type ConsumableStack } from "../lib/consumables";
 import { playCombatSound, type CombatSound } from "../lib/combat-sounds";
@@ -458,7 +459,7 @@ export function ExpeditionBattle({
           <div
             key={a.characterId}
             className="absolute"
-            style={{ left: `${slot.x}%`, top: `${slot.y}%`, height: "26%", transform: "translate(-50%, -100%)", zIndex: Math.round(slot.y), cursor: clickable ? "pointer" : undefined }}
+            style={{ left: `${slot.x}%`, top: `${slot.y}%`, height: "26%", transform: "translate(-50%, -100%)", zIndex: Math.round(slot.y), cursor: clickable ? CURSOR_INTERACT : undefined }}
             onClick={() => {
               if (clickable) {
                 setTargetAlly(a.characterId);
@@ -509,7 +510,7 @@ export function ExpeditionBattle({
           <div
             key={en.id}
             className="absolute"
-            style={{ left: `${slot.x}%`, top: `${slot.y}%`, height: en.role === "boss" ? "34%" : "26%", transform: "translate(-50%, -100%)", zIndex: Math.round(slot.y), cursor: dead || !active || replaying ? undefined : "pointer" }}
+            style={{ left: `${slot.x}%`, top: `${slot.y}%`, height: en.role === "boss" ? "34%" : "26%", transform: "translate(-50%, -100%)", zIndex: Math.round(slot.y), cursor: dead || !active || replaying ? undefined : CURSOR_INTERACT }}
             onClick={() => {
               if (dead || !active || replaying) return;
               setTargetEnemy(en.id);

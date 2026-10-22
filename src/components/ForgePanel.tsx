@@ -1,17 +1,17 @@
 // Forge v1 : dessiner une arme (canvas 170 × 150), voir en direct comment elle
 // se tient dans la main de son personnage, la forger, l'équiper ou la ranger.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DrawingCanvas } from "./DrawingCanvas";
 import { WornSprite } from "./WornSprite";
 import type { Point } from "../lib/scenes-supabase";
 import {
   EFFECT_INFO, RARITY_INFO, bonusText, WEAPON_H, WEAPON_TYPES, WEAPON_W, DEFAULT_HAND,
-  createWeapon, equipItem, fetchHandAnchor,
-  type Weapon, type WeaponType, type WornWeapon,
+  createWeapon, equipItem, weaponFits, weaponKindLabel, fetchHandAnchor, fetchMyItems, itemDisplayName,
+  type Weapon, type WeaponItem, type WeaponType, type WornWeapon,
 } from "../lib/weapons";
 import { RarityName } from "./InventoryPanel";
 import { fetchMyBuild } from "../lib/expedition-combat";
-import { fetchForgeCost, fetchMyGold } from "../lib/loot";
+import { fetchForgeCost, fetchMyGold, fetchRepairCosts, repairItem } from "../lib/loot";
 
 const BTN = "rounded-lg border-2 border-[#7a4a22] bg-[#7a4a22] px-4 py-1.5 text-sm font-bold text-[#fff3d6] hover:bg-[#5e3818] disabled:opacity-50";
 
@@ -20,6 +20,20 @@ export type ForgeCharacter = { id: string; name: string; imageUrl: string; visua
 export function ForgePanel({ character, onClose, onWeaponChanged }: { character: ForgeCharacter | null; onClose: () => void; onWeaponChanged: () => void }) {
   const [hand, setHand] = useState<Point>(DEFAULT_HAND);
   const [cost, setCost] = useState(0);
+  const [repairOpen, setRepairOpen] = useState(false);
+  const [repairItems, setRepairItems] = useState<WeaponItem[]>([]);
+  const [repairCosts, setRepairCosts] = useState<Record<string, number>>({});
+  const reloadRepair = async () => {
+    try {
+      setRepairItems((await fetchMyItems()).filter((i) => !i.is_prototype && i.durability < i.durability_max));
+      setRepairCosts(await fetchRepairCosts());
+    } catch (e) {
+      console.error(e);
+    }
+  };
+  useEffect(() => {
+    if (repairOpen) void reloadRepair();
+  }, [repairOpen]);
   const [gold, setGold] = useState(0);
   useEffect(() => {
     void fetchForgeCost().then(setCost);
@@ -27,6 +41,8 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
   }, []);
   const [name, setName] = useState("");
   const [type, setType] = useState<WeaponType>("blunt_slash");
+  const typeTouched = useRef(false);
+  const [family, setFamily] = useState<"melee" | "magie" | null>(null);
   const [preview, setPreview] = useState<{ url: string; anchor: Point } | null>(null);
   const [result, setResult] = useState<Weapon | null>(null);
   const [busy, setBusy] = useState(false);
@@ -35,7 +51,7 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
   useEffect(() => {
     if (character) void fetchHandAnchor(character.visualAssetId).then((h) => h && setHand(h));
     // Par défaut, le type d'arme de ta spécialisation (tu ne peux équiper que celui-là).
-    if (character) void fetchMyBuild(character.id).then((b) => b && setType(b.family === "magie" ? "magic" : "blunt_slash")).catch(() => {});
+    if (character) void fetchMyBuild(character.id).then((b) => { if (b) { setFamily(b.family === "magie" ? "magie" : "melee"); if (!typeTouched.current) setType(b.family === "magie" ? "magic" : "blunt_slash"); } }).catch(() => {});
   }, [character]);
 
   const worn = (w: { imageUrl: string; grip: Point; width: number; height: number }): WornWeapon => ({ ...w, hand });
@@ -85,10 +101,15 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
             <div>
               <div className="mb-2 flex flex-wrap gap-2">
                 <input value={name} maxLength={40} onChange={(e) => setName(e.target.value)} placeholder="Nom de l'arme" className="min-w-0 flex-1 rounded border border-[#7a4a22] bg-white/70 px-2 py-1 text-sm" />
-                <select value={type} onChange={(e) => setType(e.target.value as WeaponType)} className="rounded border border-[#7a4a22] bg-white/70 px-2 py-1 text-sm">
+                <select value={type} onChange={(e) => { typeTouched.current = true; setType(e.target.value as WeaponType); }} className="rounded border border-[#7a4a22] bg-white/70 px-2 py-1 text-sm">
                   {WEAPON_TYPES.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
                 </select>
               </div>
+              {family && !weaponFits(type, family) && (
+                <div className="mb-2 rounded border border-[#c96a2e] bg-[#fde7c8] px-2 py-1 text-xs font-bold text-[#7a3a0e]">
+                  ⚠ Ton personnage est {family === "magie" ? "Magie" : "Mêlée"} : il ne pourra pas porter une arme de ce type (elle restera dans ton inventaire).
+                </div>
+              )}
               <DrawingCanvas
                 width={WEAPON_W}
                 height={WEAPON_H}
@@ -102,6 +123,42 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
                 onExport={handleExport}
               />
               {msg && <div className="mt-2 text-xs font-bold text-[#92400e]">{msg}</div>}
+              <div className="mt-3 rounded border border-[#7a4a22]/60 bg-white/40 p-2">
+                <button type="button" onClick={() => setRepairOpen((o) => !o)} className="text-sm font-extrabold">
+                  🔧 Réparer mes armes {repairOpen ? "▲" : "▼"}
+                </button>
+                {repairOpen && (
+                  <div className="mt-1 text-xs">
+                    <div className="mb-1 opacity-80">Prix par point de durabilité manquant, selon la rareté. Un prototype ne se répare pas, une arme à 0 disparaît.</div>
+                    {repairItems.length === 0 && <div>Aucune arme à réparer.</div>}
+                    {repairItems.map((it) => {
+                      const price = (it.durability_max - it.durability) * (repairCosts[it.weapon.rarity] ?? 2);
+                      return (
+                        <div key={it.id} className="mb-1 flex items-center gap-2">
+                          <div className="min-w-0 flex-1 truncate">
+                            <b>{itemDisplayName(it)}</b> · {RARITY_INFO[it.weapon.rarity].label} · {it.durability}/{it.durability_max}
+                          </div>
+                          <button
+                            type="button"
+                            disabled={busy || gold < price}
+                            className={BTN}
+                            onClick={() =>
+                              void act(async () => {
+                                await repairItem(it.id);
+                                await reloadRepair();
+                                setGold(await fetchMyGold());
+                                onWeaponChanged();
+                              })
+                            }
+                          >
+                            Réparer · {price} 💰
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
             <div>
               <div className="text-xs font-bold uppercase tracking-widest text-[#7a4a22]">Aperçu sur {character.name}</div>
@@ -123,7 +180,7 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
               <img src={result.image_url} alt="" className="mx-auto my-2 h-24 object-contain" />
               <RarityName name={result.name} rarity={result.rarity} />
               <div className="mt-2 text-base font-extrabold" style={{ color: "#3a2410" }}>
-                {RARITY_INFO[result.rarity].label} · {bonusText(result.bonus_damage)}
+                {RARITY_INFO[result.rarity].label} · {weaponKindLabel(result.weapon_type)} · {bonusText(result.bonus_damage)}
               </div>
               {result.effect_key && EFFECT_INFO[result.effect_key] && (
                 <div className="text-sm"><b>{EFFECT_INFO[result.effect_key]!.name}</b> : {EFFECT_INFO[result.effect_key]!.text}</div>

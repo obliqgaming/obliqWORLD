@@ -233,6 +233,10 @@ export async function adminFetchAllWeapons(): Promise<Weapon[]> {
   if (error) throw error;
   return (data ?? []) as Weapon[];
 }
+export async function adminSetWeaponType(id: string, type: WeaponType) {
+  const { error } = await scenesClient.rpc("admin_set_weapon_type", { p_weapon_id: id, p_type: type });
+  if (error) throw error;
+}
 export async function adminSetWeaponHidden(id: string, hidden: boolean) {
   const { error } = await scenesClient.rpc("admin_set_weapon_hidden", { p_weapon_id: id, p_hidden: hidden });
   if (error) throw error;

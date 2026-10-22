@@ -1,7 +1,7 @@
 // Onglet « Armes » de /admin : toutes les armes dessinées, à cacher ou supprimer
 // après coup (aucune validation avant publication).
 import { useEffect, useState } from "react";
-import { bonusText, weaponKindLabel, EFFECT_INFO, RARITY_INFO, adminDeleteWeapon, adminFetchAllWeapons, adminSetWeaponHidden, type Weapon } from "../lib/weapons";
+import { bonusText, weaponKindLabel, EFFECT_INFO, RARITY_INFO, adminDeleteWeapon, adminFetchAllWeapons, adminSetWeaponHidden, adminSetWeaponType, type Weapon } from "../lib/weapons";
 
 export function AdminWeapons() {
   const [weapons, setWeapons] = useState<Weapon[]>([]);
@@ -47,6 +47,9 @@ export function AdminWeapons() {
               {w.effect_key && <div>{EFFECT_INFO[w.effect_key]?.name}</div>}
               <div className="opacity-60">auteur {w.author_user_id.slice(0, 8)}… · {new Date(w.created_at).toLocaleDateString("fr-FR")}</div>
               <div className="mt-1 flex gap-2">
+                <button type="button" className="rounded bg-sky-800 px-2 py-0.5 font-semibold hover:bg-sky-700" title="Corriger le type de l'arme" onClick={() => void act(() => adminSetWeaponType(w.id, w.weapon_type === "magic" ? "blunt_slash" : "magic"))}>
+                  → {w.weapon_type === "magic" ? "mêlée" : "magique"}
+                </button>
                 <button type="button" className="rounded bg-neutral-700 px-2 py-0.5 font-semibold hover:bg-neutral-600" onClick={() => void act(() => adminSetWeaponHidden(w.id, !w.hidden))}>
                   {w.hidden ? "Réafficher" : "Cacher"}
                 </button>

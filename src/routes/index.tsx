@@ -92,6 +92,7 @@ import {
 import { PLACEHOLDER_EVENTS } from "../lib/expedition-placeholder-events";
 import { HotspotMarker, HotspotPanel } from "../components/SceneHotspots";
 import { WornSprite } from "../components/WornSprite";
+import { CURSOR_INTERACT } from "../lib/cursors";
 import { InventoryPanel } from "../components/InventoryPanel";
 import { fetchWornWeapons, type WornWeapon } from "../lib/weapons";
 import { fetchSceneHotspots, type SceneHotspot } from "../lib/hotspots";
@@ -1872,8 +1873,9 @@ function Index() {
                   src={peer.image_url}
                   alt={peer.name}
                   weapon={wornWeapons[peer.characterId]}
-                  className="pointer-events-auto block w-full cursor-pointer"
+                  className="pointer-events-auto block w-full"
                   style={{
+                    cursor: CURSOR_INTERACT,
                     transformOrigin: "50% 100%",
                     animation: isWalking ? "auberge-walk 250ms linear infinite" : "none",
                   }}

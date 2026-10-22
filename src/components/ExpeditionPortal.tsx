@@ -2,6 +2,7 @@
 // sortie de scène ordinaire (décidé le 2026-10-14 : rien dans le décor ne le
 // signale encore, donc un marqueur visible compense en attendant l'art dédié
 // de la forêt). Cliquer dessus = se déclarer prêt, pas lancer l'expédition.
+import { CURSOR_INTERACT } from "../lib/cursors";
 import type { Point } from "../lib/scenes-supabase";
 
 export function ExpeditionPortalMarker({
@@ -25,7 +26,7 @@ export function ExpeditionPortalMarker({
         onClick();
       }}
       className="pointer-events-auto absolute z-20 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1"
-      style={{ left: `${position.x}%`, top: `${position.y}%`, cursor: "zoom-in" }}
+      style={{ left: `${position.x}%`, top: `${position.y}%`, cursor: CURSOR_INTERACT }}
       title={isSelfReady ? "Annuler (ne plus être prêt)" : "Entrer dans le portail — se déclarer prêt"}
     >
       <div
