@@ -9,6 +9,7 @@ import {
   type WeaponItem,
 } from "../lib/weapons";
 import { fetchMyGold } from "../lib/loot";
+import { CONSUMABLE_INFO, fetchMyConsumables, type ConsumableStack } from "../lib/consumables";
 import type { ForgeCharacter } from "./ForgePanel";
 import { fetchMyBuild } from "../lib/expedition-combat";
 
@@ -42,6 +43,10 @@ export function ItemDetails({ it }: { it: WeaponItem }) {
 
 export function InventoryPanel({ character, onClose, onWeaponChanged }: { character: ForgeCharacter | null; onClose: () => void; onWeaponChanged: () => void }) {
   const [gold, setGold] = useState(0);
+  const [stacks, setStacks] = useState<ConsumableStack[]>([]);
+  useEffect(() => {
+    void fetchMyConsumables().then(setStacks);
+  }, []);
   useEffect(() => {
     void fetchMyGold().then(setGold);
   }, []);
@@ -156,6 +161,16 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
               )}
             </div>
             <div className="flex max-h-80 flex-col gap-1.5 overflow-y-auto">
+              {stacks.length > 0 && (
+                <div className="mb-2 rounded border border-[#b98a54] bg-[#f6e8c4] p-2 text-sm">
+                  <div className="text-xs font-extrabold uppercase">Objets (utilisables en combat)</div>
+                  {stacks.map((st) => (
+                    <div key={st.kind}>
+                      {CONSUMABLE_INFO[st.kind].icon} <b>{CONSUMABLE_INFO[st.kind].name}</b> ×{st.count} — <span className="text-xs">{CONSUMABLE_INFO[st.kind].text}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
               {items.length === 0 && <div className="text-sm">Aucune arme sur toi. Va voir le forgeron !</div>}
               {items.map((it) => (
                 <div key={it.id} className={`flex items-center gap-2 rounded border p-1.5 ${it.id === shownId ? "border-[#7a4a22] bg-white/70" : "border-[#7a4a22]/50 bg-white/40"}`}>

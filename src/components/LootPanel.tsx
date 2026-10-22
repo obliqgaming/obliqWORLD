@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchLoot, lootRespond, lootResolve, subscribeToLoot, type LootItem, type LootRoll, type LootWeapon } from "../lib/loot";
 import { EFFECT_INFO, RARITY_INFO, bonusText } from "../lib/weapons";
+import { CONSUMABLE_INFO, type ConsumableKind } from "../lib/consumables";
 import { RarityName } from "./InventoryPanel";
 
 export function LootPanel({
@@ -89,9 +90,10 @@ export function LootPanel({
         return (
           <div key={it.id} className="mt-2 rounded border border-[#b98a54] bg-[#f6e8c4] p-2">
             <div className="flex items-center gap-2">
+              {!w && it.item_key && CONSUMABLE_INFO[it.item_key as ConsumableKind] && <div className="text-[11px]">{CONSUMABLE_INFO[it.item_key as ConsumableKind]!.text}</div>}
               {w && <img src={w.image_url} alt="" className="h-12 w-8 object-contain" />}
               <div className="min-w-0 flex-1">
-                {w ? <RarityName name={w.name} rarity={w.rarity} /> : <span className="font-bold">Objet</span>}
+                {w ? <RarityName name={w.name} rarity={w.rarity} /> : <span className="font-bold">{it.item_key && CONSUMABLE_INFO[it.item_key as ConsumableKind] ? `${CONSUMABLE_INFO[it.item_key as ConsumableKind]!.icon} ${CONSUMABLE_INFO[it.item_key as ConsumableKind]!.name}` : "Objet"}</span>}
                 {w && <div className="text-[11px]">{RARITY_INFO[w.rarity].label} · {bonusText(w.bonus_damage)}{w.effect_key && EFFECT_INFO[w.effect_key] ? ` · ${EFFECT_INFO[w.effect_key]?.name}` : ""}</div>}
               </div>
               {it.status === "rolling" && <div className="text-xs font-bold tabular-nums">{left} s</div>}

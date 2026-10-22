@@ -7,6 +7,7 @@ export type LootItem = {
   combat_id: string | null;
   kind: string;
   weapon_id: string | null;
+  item_key: string | null;
   status: "rolling" | "assigned" | "delivered" | "lost";
   roll_deadline: string;
   winner_character_id: string | null;
@@ -15,7 +16,7 @@ export type LootWeapon = { id: string; name: string; image_url: string; rarity: 
 
 export async function fetchLoot(expeditionId: string, combatId: string) {
   const [i, r] = await Promise.all([
-    scenesClient.from("loot_items").select("id, combat_id, kind, weapon_id, status, roll_deadline, winner_character_id").eq("expedition_id", expeditionId).eq("combat_id", combatId),
+    scenesClient.from("loot_items").select("id, combat_id, kind, weapon_id, item_key, status, roll_deadline, winner_character_id").eq("expedition_id", expeditionId).eq("combat_id", combatId),
     scenesClient.from("loot_rolls").select("loot_id, character_id, wants, roll").eq("expedition_id", expeditionId),
   ]);
   const items = (i.data ?? []) as LootItem[];

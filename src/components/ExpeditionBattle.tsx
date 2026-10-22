@@ -30,6 +30,7 @@ import {
 import { WornSprite } from "./WornSprite";
 import { DEFAULT_HAND, fetchWeaponsById, fetchWornWeapons, type WornWeapon } from "../lib/weapons";
 import { LootPanel } from "./LootPanel";
+import { CONSUMABLE_INFO, fetchMyConsumables, submitCombatItem, type ConsumableStack } from "../lib/consumables";
 import { playCombatSound, type CombatSound } from "../lib/combat-sounds";
 import { leaveScenePresence, type PresenceChannel } from "../lib/scenes-supabase";
 
@@ -93,6 +94,9 @@ export function ExpeditionBattle({
   const [worn, setWorn] = useState<Record<string, WornWeapon>>({});
   const [weaponPool, setWeaponPool] = useState<Record<string, Omit<WornWeapon, "hand">>>({});
   const [lootSettled, setLootSettled] = useState(true);
+  const [stacks, setStacks] = useState<ConsumableStack[]>([]);
+  const [itemsOpen, setItemsOpen] = useState(false);
+  const [itemKind, setItemKind] = useState<ConsumableStack | null>(null);
   const [pool, setPool] = useState<EnemyImage[]>([]);
   const [selectedPower, setSelectedPower] = useState<string | null>(null); // null = attaque de base
   const [targetEnemy, setTargetEnemy] = useState<string | null>(null);
@@ -333,6 +337,24 @@ export function ExpeditionBattle({
     if (prm["stack"] === true) t.push("cumulable");
     if (isSelfOnly(p)) t.push("sur toi");
     return t.join(" · ");
+  };
+
+  useEffect(() => {
+    void fetchMyConsumables().then(setStacks);
+  }, [turn, combat?.status]);
+
+  const useItem = async (st: ConsumableStack, ally: string | null) => {
+    if (!active || myDead || replaying) return;
+    setError(null);
+    try {
+      await submitCombatItem(combatId, characterId, st.firstId, ally);
+      setSentTurn(turn);
+      setSelectedPower(null);
+      setItemsOpen(false);
+      setItemKind(null);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : ((e as { message?: string })?.message ?? "Erreur"));
+    }
   };
 
   const send = async (powerKey: string | null) => {
@@ -620,13 +642,44 @@ export function ExpeditionBattle({
                 })}
               <button
                 type="button"
-                disabled
-                title="Les objets ne sont pas encore là : l'inventaire arrive plus tard."
-                className="min-w-28 cursor-not-allowed rounded-lg border border-[#7a4a22]/70 bg-black/25 px-3 py-2 text-sm font-bold text-[#fff3d6] opacity-40"
+                disabled={stacks.length === 0}
+                title="Boire une potion ou lire un parchemin prend ton tour."
+                onClick={() => {
+                  setItemsOpen((o) => !o);
+                  setItemKind(null);
+                }}
+                className="min-w-28 rounded-lg border border-[#7a4a22]/70 bg-black/25 px-3 py-2 text-sm font-bold text-[#fff3d6] hover:bg-[#7a4a22]/60 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                <div>Inventaire</div>
-                <div className="text-[10px] font-normal">bientôt</div>
+                <div>🎒 Objets</div>
+                <div className="text-[10px] font-normal">{stacks.length === 0 ? "aucun objet" : "prend ton tour"}</div>
               </button>
+            </div>
+          )}
+          {!myDead && !replaying && itemsOpen && (
+            <div className="flex flex-wrap items-center justify-center gap-2 rounded-xl border border-[#7a4a22]/60 bg-[#2b1406]/95 p-2">
+              {itemKind === null
+                ? stacks.map((st) => (
+                    <button
+                      key={st.kind}
+                      type="button"
+                      title={CONSUMABLE_INFO[st.kind].text}
+                      onClick={() => (st.kind === "potion_soin" && aliveAllies.length > 1 ? setItemKind(st) : void useItem(st, null))}
+                      className="rounded-lg border border-[#7a4a22]/70 bg-black/25 px-3 py-1.5 text-sm font-bold text-[#fff3d6] hover:bg-[#7a4a22]/60"
+                    >
+                      {CONSUMABLE_INFO[st.kind].icon} {CONSUMABLE_INFO[st.kind].name} ×{st.count}
+                      <div className="max-w-44 text-[10px] font-normal leading-tight opacity-85">{CONSUMABLE_INFO[st.kind].text}</div>
+                    </button>
+                  ))
+                : (
+                    <>
+                      <span className="text-xs text-[#fff3d6]">Soigner qui ?</span>
+                      {aliveAllies.map((a) => (
+                        <button key={a.characterId} type="button" onClick={() => void useItem(itemKind, a.characterId)} className="rounded border border-[#7a4a22]/70 bg-black/25 px-2 py-1 text-xs font-bold text-[#fff3d6] hover:bg-[#7a4a22]/60">
+                          {a.characterId === characterId ? "Moi" : a.name}
+                        </button>
+                      ))}
+                    </>
+                  )}
             </div>
           )}
           {!myDead && !replaying && selectedPower && powers.find((p) => p.power_key === selectedPower && isAllyPower(p)) && (
