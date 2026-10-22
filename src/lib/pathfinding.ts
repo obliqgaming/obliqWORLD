@@ -38,10 +38,10 @@ const gridCache = new WeakMap<object, Grid>();
 function pointInPolygon(p: Pt, polygon: Pt[]): boolean {
   let inside = false;
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const xi = polygon[i].x,
-      yi = polygon[i].y;
-    const xj = polygon[j].x,
-      yj = polygon[j].y;
+    const xi = polygon[i]!.x,
+      yi = polygon[i]!.y;
+    const xj = polygon[j]!.x,
+      yj = polygon[j]!.y;
     const intersect = yi > p.y !== yj > p.y && p.x < ((xj - xi) * (p.y - yi)) / (yj - yi) + xi;
     if (intersect) inside = !inside;
   }
@@ -184,8 +184,12 @@ function gridAStar(grid: Grid, start: Cell, goal: Cell): Cell[] | null {
   const heap: number[] = [startIdx];
   const heapF: number[] = [fScore[startIdx]];
   const swap = (a: number, b: number) => {
-    [heap[a], heap[b]] = [heap[b], heap[a]];
-    [heapF[a], heapF[b]] = [heapF[b], heapF[a]];
+    const tmp = heap[a]!;
+    heap[a] = heap[b]!;
+    heap[b] = tmp;
+    const tmpF = heapF[a]!;
+    heapF[a] = heapF[b]!;
+    heapF[b] = tmpF;
   };
   function heapPush(id: number, f: number) {
     heap.push(id);
@@ -193,13 +197,13 @@ function gridAStar(grid: Grid, start: Cell, goal: Cell): Cell[] | null {
     let c = heap.length - 1;
     while (c > 0) {
       const p = (c - 1) >> 1;
-      if (heapF[p] <= heapF[c]) break;
+      if (heapF[p]! <= heapF[c]!) break;
       swap(p, c);
       c = p;
     }
   }
   function heapPop(): number {
-    const top = heap[0];
+    const top = heap[0]!;
     const lastId = heap.pop()!;
     const lastF = heapF.pop()!;
     if (heap.length > 0) {
@@ -210,8 +214,8 @@ function gridAStar(grid: Grid, start: Cell, goal: Cell): Cell[] | null {
         const l = c * 2 + 1;
         const r = c * 2 + 2;
         let smallest = c;
-        if (l < heap.length && heapF[l] < heapF[smallest]) smallest = l;
-        if (r < heap.length && heapF[r] < heapF[smallest]) smallest = r;
+        if (l < heap.length && heapF[l]! < heapF[smallest]!) smallest = l;
+        if (r < heap.length && heapF[r]! < heapF[smallest]!) smallest = r;
         if (smallest === c) break;
         swap(c, smallest);
         c = smallest;
@@ -249,8 +253,8 @@ function gridAStar(grid: Grid, start: Cell, goal: Cell): Cell[] | null {
       }
       const nIdx = idx(ni, nj);
       if (closed[nIdx]) continue;
-      const tentative = gScore[current] + cost;
-      if (tentative < gScore[nIdx]) {
+      const tentative = gScore[current]! + cost;
+      if (tentative < gScore[nIdx]!) {
         cameFrom[nIdx] = current;
         gScore[nIdx] = tentative;
         fScore[nIdx] = tentative + h(ni, nj);
@@ -266,7 +270,7 @@ function gridAStar(grid: Grid, start: Cell, goal: Cell): Cell[] | null {
   while (cur !== -1) {
     path.unshift({ i: cur % cols, j: (cur / cols) | 0 });
     if (cur === startIdx) break;
-    cur = cameFrom[cur];
+    cur = cameFrom[cur]!;
   }
   return path;
 }
@@ -276,13 +280,13 @@ function gridAStar(grid: Grid, start: Cell, goal: Cell): Cell[] | null {
 // point conservé ("ancre") ne reste plus entièrement marchable.
 function simplifyPath(grid: Grid, points: Pt[]): Pt[] {
   if (points.length <= 2) return points;
-  const result: Pt[] = [points[0]];
+  const result: Pt[] = [points[0]!];
   for (let i = 1; i < points.length - 1; i++) {
-    if (!hasLineOfSight(grid, result[result.length - 1], points[i + 1])) {
-      result.push(points[i]);
+    if (!hasLineOfSight(grid, result[result.length - 1]!, points[i + 1]!)) {
+      result.push(points[i]!);
     }
   }
-  result.push(points[points.length - 1]);
+  result.push(points[points.length - 1]!);
   return result;
 }
 
