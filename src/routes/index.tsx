@@ -2025,7 +2025,7 @@ function Index() {
           className="absolute right-5 top-16 z-30 h-2.5 w-2.5 rounded-full opacity-40 transition-opacity hover:opacity-90"
           style={{ background: presenceDebugOn ? "#9effa0" : "#fff3d6" }}
         />
-        {character && !inExpeditionScene && (
+        {character && !activeCombatId && (
           <button
             type="button"
             onClick={(e) => {
@@ -2038,7 +2038,7 @@ function Index() {
             🎒 Inventaire
           </button>
         )}
-        {inventoryOpen && character && (
+        {inventoryOpen && character && !activeCombatId && (
           <InventoryPanel
             character={{ id: character.id, name: character.name, imageUrl: character.image_url, visualAssetId: character.visual_asset_id }}
             onClose={() => setInventoryOpen(false)}
