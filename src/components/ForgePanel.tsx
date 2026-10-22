@@ -11,6 +11,7 @@ import {
 } from "../lib/weapons";
 import { RarityName } from "./InventoryPanel";
 import { fetchMyBuild } from "../lib/expedition-combat";
+import { fetchForgeCost, fetchMyGold } from "../lib/loot";
 
 const BTN = "rounded-lg border-2 border-[#7a4a22] bg-[#7a4a22] px-4 py-1.5 text-sm font-bold text-[#fff3d6] hover:bg-[#5e3818] disabled:opacity-50";
 
@@ -18,6 +19,12 @@ export type ForgeCharacter = { id: string; name: string; imageUrl: string; visua
 
 export function ForgePanel({ character, onClose, onWeaponChanged }: { character: ForgeCharacter | null; onClose: () => void; onWeaponChanged: () => void }) {
   const [hand, setHand] = useState<Point>(DEFAULT_HAND);
+  const [cost, setCost] = useState(0);
+  const [gold, setGold] = useState(0);
+  useEffect(() => {
+    void fetchForgeCost().then(setCost);
+    void fetchMyGold().then(setGold);
+  }, []);
   const [name, setName] = useState("");
   const [type, setType] = useState<WeaponType>("blunt_slash");
   const [preview, setPreview] = useState<{ url: string; anchor: Point } | null>(null);
@@ -60,6 +67,7 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
       }
       setResult(weapon);
       setName("");
+      void fetchMyGold().then(setGold);
     });
   }
 
@@ -67,7 +75,7 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
     <div className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/55 p-2" onClick={(e) => e.stopPropagation()} style={{ fontFamily: "'Baloo 2', cursive" }}>
       <div className="max-h-full w-[min(56rem,98%)] overflow-y-auto rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-4 text-[#3a2410] shadow-xl">
         <div className="flex items-center justify-between">
-          <div className="text-xl font-extrabold">⚒ Forgeron</div>
+          <div className="text-xl font-extrabold">⚒ Forgeron{cost > 0 && <span className="ml-2 text-sm text-[#92400e]">Forger coûte {cost} or · tu as {gold} 💰</span>}</div>
           <button type="button" onClick={onClose} className="rounded border border-[#7a4a22] px-3 py-0.5 text-xs font-bold hover:bg-[#7a4a22]/15">Fermer</button>
         </div>
         {!character ? (

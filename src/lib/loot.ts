@@ -56,3 +56,8 @@ export function subscribeToLoot(expeditionId: string, onChange: () => void) {
     .on("postgres_changes", { event: "*", schema: "public", table: "loot_rolls", filter: `expedition_id=eq.${expeditionId}` }, () => onChange())
     .subscribe();
 }
+
+export async function fetchForgeCost(): Promise<number> {
+  const { data } = await scenesClient.from("game_settings").select("value").eq("key", "forge_cost").maybeSingle();
+  return Number((data as any)?.value ?? 0);
+}
