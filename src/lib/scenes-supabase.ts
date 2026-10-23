@@ -565,26 +565,16 @@ export async function enterExpeditionPortal(
   createdByCharacterId: string,
   portalSceneId: string,
 ): Promise<Expedition> {
-  let expedition = await fetchOpenExpeditionForParty(partyId, portalSceneId);
-  if (!expedition) {
-    const { data, error } = await scenesClient
-      .from("expeditions")
-      .insert({ party_id: partyId, created_by_character_id: createdByCharacterId, portal_scene_id: portalSceneId })
-      .select("*")
-      .single();
-    if (error) throw error;
-    expedition = data as Expedition;
-  }
-
-  const { error: upsertError } = await scenesClient
-    .from("expedition_participants")
-    .upsert(
-      { expedition_id: expedition.id, character_id: myCharacterId, entered_portal_at: new Date().toISOString() },
-      { onConflict: "expedition_id,character_id" },
-    );
-  if (upsertError) throw upsertError;
-
-  return expedition;
+  // Tout passe par une fonction serveur (SQL 024) : le navigateur n'écrit plus directement
+  // dans expeditions / expedition_participants.
+  const { data, error } = await scenesClient.rpc("expedition_enter_portal", {
+    p_character_id: myCharacterId,
+    p_party_id: partyId,
+    p_created_by: createdByCharacterId,
+    p_portal_scene_id: portalSceneId,
+  });
+  if (error) throw error;
+  return (Array.isArray(data) ? data[0] : data) as Expedition;
 }
 
 // Annule le "prêt" de ce personnage (reclique sur le portail pour se retirer,
@@ -592,11 +582,10 @@ export async function enterExpeditionPortal(
 // explicitement mais cohérent avec "le portail attend tout le groupe" : si on
 // peut attendre, on doit pouvoir changer d'avis pendant l'attente.
 export async function leaveExpeditionPortal(expeditionId: string, myCharacterId: string): Promise<void> {
-  const { error } = await scenesClient
-    .from("expedition_participants")
-    .update({ entered_portal_at: null })
-    .eq("expedition_id", expeditionId)
-    .eq("character_id", myCharacterId);
+  const { error } = await scenesClient.rpc("expedition_leave_portal", {
+    p_expedition_id: expeditionId,
+    p_character_id: myCharacterId,
+  });
   if (error) throw error;
 }
 
@@ -608,11 +597,7 @@ export async function leaveExpeditionPortal(expeditionId: string, myCharacterId:
 // sans danger — un seul des appels concurrents a un effet, les autres sont
 // des no-op silencieux.
 export async function startExpedition(expeditionId: string): Promise<void> {
-  const { error } = await scenesClient
-    .from("expeditions")
-    .update({ status: "active", started_at: new Date().toISOString() })
-    .eq("id", expeditionId)
-    .eq("status", "lobby");
+  const { error } = await scenesClient.rpc("expedition_start", { p_expedition_id: expeditionId });
   if (error) throw error;
 }
 
