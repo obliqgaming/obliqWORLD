@@ -9,13 +9,15 @@ import { RarityName } from "./InventoryPanel";
 export function LootPanel({
   expeditionId,
   combatId,
+  stepId,
   characterId,
   names,
   gold,
   onSettled,
 }: {
   expeditionId: string;
-  combatId: string;
+  combatId?: string;
+  stepId?: string;
   characterId: string;
   names: Record<string, string>;
   gold: number;
@@ -29,14 +31,14 @@ export function LootPanel({
 
   const reload = useCallback(async () => {
     try {
-      const d = await fetchLoot(expeditionId, combatId);
+      const d = await fetchLoot(expeditionId, combatId ?? null, stepId);
       setItems(d.items);
       setRolls(d.rolls);
       setWeapons(d.weapons);
     } catch (e) {
       console.error("loot load failed", e);
     }
-  }, [expeditionId, combatId]);
+  }, [expeditionId, combatId, stepId]);
 
   useEffect(() => {
     void reload();

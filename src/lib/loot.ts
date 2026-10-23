@@ -14,9 +14,11 @@ export type LootItem = {
 };
 export type LootWeapon = { id: string; name: string; image_url: string; rarity: "common" | "uncommon" | "rare" | "epic" | "legendary"; weapon_type: string; bonus_damage: number; effect_key: string | null };
 
-export async function fetchLoot(expeditionId: string, combatId: string) {
+export async function fetchLoot(expeditionId: string, combatId: string | null, stepId?: string) {
+  let q = scenesClient.from("loot_items").select("id, combat_id, kind, weapon_id, item_key, status, roll_deadline, winner_character_id").eq("expedition_id", expeditionId);
+  q = stepId ? q.eq("step_id", stepId) : q.eq("combat_id", combatId as string);
   const [i, r] = await Promise.all([
-    scenesClient.from("loot_items").select("id, combat_id, kind, weapon_id, item_key, status, roll_deadline, winner_character_id").eq("expedition_id", expeditionId).eq("combat_id", combatId),
+    q,
     scenesClient.from("loot_rolls").select("loot_id, character_id, wants, roll").eq("expedition_id", expeditionId),
   ]);
   const items = (i.data ?? []) as LootItem[];

@@ -90,6 +90,8 @@ import {
   type RunStat,
 } from "../lib/expedition-combat";
 import { PLACEHOLDER_EVENTS } from "../lib/expedition-placeholder-events";
+import { openNarrativeStep, fetchNarrativeEvent, type NarrativeEvent } from "../lib/narrative";
+import { NarrativeStepPanel } from "../components/NarrativeStepPanel";
 import { HotspotMarker, HotspotPanel } from "../components/SceneHotspots";
 import { WornSprite } from "../components/WornSprite";
 import { CURSOR_INTERACT } from "../lib/cursors";
@@ -293,6 +295,7 @@ function Index() {
   // les votes aussi (voir 004_vote_partage_expedition.sql).
   const [runStep, setRunStep] = useState<ExpeditionStep | null>(null);
   const [stepVotes, setStepVotes] = useState<StepVote[]>([]);
+  const [narrativeEvent, setNarrativeEvent] = useState<NarrativeEvent | null>(null);
   // Système de jeu (SQL 006 à 009) : PV/PM réels, combat, résultat d'événement, axe.
   const [runStats, setRunStats] = useState<RunStat[]>([]);
   const [activeCombatId, setActiveCombatId] = useState<string | null>(null);
@@ -954,6 +957,23 @@ function Index() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeExpedition?.id, inExpeditionScene, character?.id]);
 
+  // Étape narrative (rencontre écrite) si une rencontre approuvée existe, sinon ancienne étape d'exemple.
+  const syncStep = async (expId: string, idx: number, ev: (typeof PLACEHOLDER_EVENTS)[number]) => {
+    if (ev.kind === "event") {
+      try {
+        const ns = await openNarrativeStep(expId, idx);
+        if (ns && ns.community_event_id) {
+          const ne = await fetchNarrativeEvent(ns.community_event_id);
+          if (ne) return { step: ns as ExpeditionStep, narrative: ne };
+        }
+      } catch (e) {
+        console.error("Narrative step failed, fallback to legacy", e);
+      }
+    }
+    const step = await ensureExpeditionStep(expId, idx, ev.kind, ev.situation);
+    return { step, narrative: null as NarrativeEvent | null };
+  };
+
   const stepIndex = activeExpedition?.current_step_index ?? 0;
   const currentEvent = PLACEHOLDER_EVENTS[stepIndex % PLACEHOLDER_EVENTS.length]!;
   const expeditionPhase = currentEvent.kind;
@@ -970,11 +990,13 @@ function Index() {
     let cancelled = false;
     let channel: PresenceChannel | null = null;
     setRunStep(null);
+    setNarrativeEvent(null);
     setStepVotes([]);
     (async () => {
       try {
-        const step = await ensureExpeditionStep(expId, idx, ev.kind, ev.situation);
+        const { step, narrative } = await syncStep(expId, idx, ev);
         if (cancelled) return;
+        setNarrativeEvent(narrative);
         setRunStep(step);
         const reloadVotes = async () => {
           const v = await fetchStepVotes(step.id);
@@ -1164,8 +1186,20 @@ function Index() {
           const prev = await fetchStepOutcome(expId, idx - 1);
           if (cancelled) return;
           if (prev?.outcome_text) {
+            const nd = prev.outcome_data;
+            const isNarr = !!prev.step_type && prev.step_type !== "legacy" && !!prev.id;
+            const nameMap: Record<string, string> = Object.fromEntries(partyMembers.map((m) => [m.character_id, m.name]));
+            if (character) nameMap[character.id] = nameMap[character.id] ?? character.name;
             setOutcomeInfo({
               stepIndex: idx - 1,
+              narrative: isNarr
+                ? {
+                    stepId: prev.id as string,
+                    success: prev.step_outcome === "success",
+                    hits: (nd?.hit ?? []).map((h) => ({ name: nameMap[h.c] ?? "Un équipier", lost: h.n })),
+                    potion: !!nd?.potion,
+                  }
+                : undefined,
               text: prev.outcome_text,
               pvLossPct: prev.outcome_pv_loss_pct ?? 0,
               reward: prev.outcome_reward,
@@ -1204,7 +1238,7 @@ function Index() {
   // Le résultat s'efface tout seul après 15 s.
   useEffect(() => {
     if (!outcomeInfo) return;
-    const t = window.setTimeout(() => setOutcomeInfo(null), 25000);
+    const t = window.setTimeout(() => setOutcomeInfo(null), outcomeInfo.narrative?.potion ? 45000 : 25000);
     return () => window.clearTimeout(t);
   }, [outcomeInfo]);
 
@@ -1218,7 +1252,8 @@ function Index() {
       if (e) setActiveExpedition(e);
       if (e && e.status === "active") {
         const ev = PLACEHOLDER_EVENTS[e.current_step_index % PLACEHOLDER_EVENTS.length]!;
-        const step = await ensureExpeditionStep(e.id, e.current_step_index, ev.kind, ev.situation);
+        const { step, narrative } = await syncStep(e.id, e.current_step_index, ev);
+        setNarrativeEvent(narrative);
         setRunStep(step);
         setStepVotes(await fetchStepVotes(step.id));
       }
@@ -1964,12 +1999,27 @@ function Index() {
             event={demoEvent}
             myVote={myVote}
             votedCount={stepVotes.length}
-            hideEvent={!!outcomeInfo}
+            hideEvent={!!outcomeInfo || !!narrativeEvent || !runStep}
             voteDeadlineMs={runStep?.vote_deadline ? new Date(runStep.vote_deadline).getTime() : null}
             onVote={handleExpeditionVote}
             allies={combatAllies}
             enemies={[]}
             turn={1}
+          />
+        )}
+
+        {inExpeditionScene && character && !activeCombatId && expeditionPhase === "event" && narrativeEvent && runStep && !outcomeInfo && (
+          <NarrativeStepPanel
+            event={narrativeEvent}
+            players={combatAllies
+              .filter((a) => (statOf(a.characterId)?.pv_current ?? 1) > 0 && !statOf(a.characterId)?.left_expedition_at)
+              .map((a) => ({ characterId: a.characterId, name: a.name }))}
+            myCharacterId={character.id}
+            myVote={myVote}
+            votedCount={stepVotes.length}
+            voterCount={participantCount}
+            deadlineMs={runStep.vote_deadline ? new Date(runStep.vote_deadline).getTime() : null}
+            onVote={handleExpeditionVote}
           />
         )}
 
@@ -1983,7 +2033,20 @@ function Index() {
         )}
 
         {inExpeditionScene && outcomeInfo && (
-          <OutcomePanel outcome={outcomeInfo} myPvMax={character ? (runStats.find((r) => r.character_id === character.id)?.pv_max ?? null) : null} onClose={() => setOutcomeInfo(null)} />
+          <OutcomePanel
+            outcome={outcomeInfo}
+            myPvMax={character ? (runStats.find((r) => r.character_id === character.id)?.pv_max ?? null) : null}
+            onClose={() => setOutcomeInfo(null)}
+            loot={
+              character && activeExpedition
+                ? {
+                    expeditionId: activeExpedition.id,
+                    characterId: character.id,
+                    names: { ...Object.fromEntries(partyMembers.map((m) => [m.character_id, m.name])), [character.id]: character.name },
+                  }
+                : undefined
+            }
+          />
         )}
 
         {endBanner && <EndBanner title={endBanner.title} text={endBanner.text} onClose={() => setEndBanner(null)} />}

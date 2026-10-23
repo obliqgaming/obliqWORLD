@@ -115,12 +115,16 @@ export type StepOutcome = {
   outcome_triggers_combat: boolean;
   outcome_xp: number | null;
   resolved_at: string | null;
+  id?: string;
+  step_type?: string | null;
+  step_outcome?: string | null;
+  outcome_data?: { chance?: number; target?: string; hit?: { c: string; n: number }[]; potion?: boolean } | null;
 };
 
 export async function fetchStepOutcome(expeditionId: string, stepIndex: number): Promise<StepOutcome | null> {
   const { data, error } = await scenesClient
     .from("expedition_steps")
-    .select("step_index, event_key, winning_choice_key, outcome_text, outcome_pv_loss_pct, outcome_reward, outcome_triggers_combat, outcome_xp, resolved_at")
+    .select("id, step_index, event_key, winning_choice_key, outcome_text, outcome_pv_loss_pct, outcome_reward, outcome_triggers_combat, outcome_xp, resolved_at, step_type, step_outcome, outcome_data")
     .eq("expedition_id", expeditionId)
     .eq("step_index", stepIndex)
     .maybeSingle();

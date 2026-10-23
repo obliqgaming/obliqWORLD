@@ -1,6 +1,7 @@
 // Petits panneaux autour de l'expédition : résultat d'un événement, bandeau de
 // fin d'expédition, choix de l'axe au niveau 3.
 import type { GameAxis, GamePower } from "../lib/expedition-combat";
+import { LootPanel } from "./LootPanel";
 
 const PANEL_FONT = { fontFamily: "'Baloo 2', cursive" };
 
@@ -11,9 +12,26 @@ export type OutcomeInfo = {
   reward: string | null;
   triggersCombat: boolean;
   xp: number;
+  /** Étape narrative (rencontre écrite) : réussite/échec, dégâts nommés, potion en jeu. */
+  narrative?: {
+    stepId: string;
+    success: boolean;
+    hits: { name: string; lost: number }[];
+    potion: boolean;
+  } | undefined;
 };
 
-export function OutcomePanel({ outcome, myPvMax, onClose }: { outcome: OutcomeInfo; myPvMax: number | null; onClose: () => void }) {
+export function OutcomePanel({
+  outcome,
+  myPvMax,
+  onClose,
+  loot,
+}: {
+  outcome: OutcomeInfo;
+  myPvMax: number | null;
+  onClose: () => void;
+  loot?: { expeditionId: string; characterId: string; names: Record<string, string> } | undefined;
+}) {
   // Points réels pour CE joueur (même arrondi que le serveur, au moins 1 point).
   const pts = myPvMax && outcome.pvLossPct !== 0 ? Math.max(1, Math.round((myPvMax * Math.abs(outcome.pvLossPct)) / 100)) : 0;
   const pv =
@@ -22,16 +40,32 @@ export function OutcomePanel({ outcome, myPvMax, onClose }: { outcome: OutcomeIn
       : outcome.pvLossPct < 0
         ? { label: pts ? `Tu récupères ${pts} PV` : "Le groupe récupère des PV", color: "#047857" }
         : { label: "Aucune perte de PV", color: "#5e3818" };
+  const nar = outcome.narrative;
   return (
     <div className="absolute left-1/2 top-[14%] z-40 w-[min(30rem,92%)] -translate-x-1/2 rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6]/97 p-4 text-[#3a2410] shadow-xl" style={PANEL_FONT}>
-      <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-[#7a4a22]">Résultat du vote</div>
+      <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-[#7a4a22]">
+        {nar ? (nar.success ? "Réussite !" : "Échec…") : "Résultat du vote"}
+      </div>
       <div className="text-sm font-semibold leading-snug">{outcome.text}</div>
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs font-bold">
-        <span style={{ color: pv.color }}>{pv.label}</span>
+        {nar ? (
+          nar.hits.length > 0 ? (
+            nar.hits.map((h) => (
+              <span key={h.name} style={{ color: "#b91c1c" }}>{h.name} perd {h.lost} PV</span>
+            ))
+          ) : (
+            <span style={{ color: "#5e3818" }}>Aucune perte de PV</span>
+          )
+        ) : (
+          <span style={{ color: pv.color }}>{pv.label}</span>
+        )}
         {outcome.reward ? <span className="text-[#92400e]">Trouvé : {outcome.reward}</span> : null}
         {outcome.xp > 0 ? <span className="text-[#1d4ed8]">+{outcome.xp} XP</span> : null}
         {outcome.triggersCombat ? <span className="text-[#b91c1c]">⚔ Un combat éclate !</span> : null}
       </div>
+      {nar?.potion && loot && (
+        <LootPanel expeditionId={loot.expeditionId} stepId={nar.stepId} characterId={loot.characterId} names={loot.names} gold={0} onSettled={() => {}} />
+      )}
       <button type="button" onClick={onClose} className="mt-2 rounded border border-[#7a4a22] px-3 py-0.5 text-xs font-bold text-[#5e3818] hover:bg-[#7a4a22]/15">
         OK
       </button>
