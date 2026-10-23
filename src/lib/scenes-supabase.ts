@@ -798,14 +798,36 @@ function flattenCharacter(row: any): Character {
 // à corriger : un personnage n'existe qu'après un choix explicite de l'utilisateur).
 export async function fetchMyCharacter(): Promise<Character | null> {
   const userId = await ensureUserId();
+  // Personnage vivant ou mort, mais pas archivé (SQL 025) ; le plus récent si plusieurs.
   const { data, error } = await scenesClient
     .from("characters")
     .select("*, visual_assets(image_url)")
     .eq("user_id", userId)
+    .is("archived_at", null)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (error) throw error;
+  const row = (data ?? [])[0];
+  if (!row) return null;
+  return flattenCharacter(row);
+}
+
+// Mort définitive : le personnage est-il tombé ? (SQL 007/010 : character_build.is_alive)
+export async function fetchMyDeath(characterId: string): Promise<{ dead: boolean; cause: string | null }> {
+  const { data, error } = await scenesClient
+    .from("character_build")
+    .select("is_alive, death_cause")
+    .eq("character_id", characterId)
     .maybeSingle();
   if (error) throw error;
-  if (!data) return null;
-  return flattenCharacter(data);
+  const row = data as { is_alive: boolean | null; death_cause: string | null } | null;
+  return { dead: row?.is_alive === false, cause: row?.death_cause ?? null };
+}
+
+// Archive les personnages morts du compte (jamais supprimés) pour pouvoir en dessiner un nouveau.
+export async function archiveDeadCharacter(): Promise<void> {
+  const { error } = await scenesClient.rpc("character_archive_dead");
+  if (error) throw error;
 }
 
 export async function fetchCharacterAssets(): Promise<VisualAsset[]> {

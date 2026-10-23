@@ -18,6 +18,8 @@ import {
   fetchExpeditionParticipants,
   fetchMyActiveParty,
   fetchMyCharacter,
+  fetchMyDeath,
+  archiveDeadCharacter,
   fetchOpenExpeditionForParty,
   fetchActiveExpeditionForParty,
   fetchExpeditionScene,
@@ -72,6 +74,7 @@ import {
 import { AccountBadge } from "../components/AccountBadge";
 import { CharacterSelect } from "../components/CharacterSelect";
 import { LoginScreen } from "../components/LoginScreen";
+import { DeadScreen } from "../components/DeadScreen";
 import { REQUIRE_PROVIDER_LOGIN } from "../lib/alpha-config";
 import { ExpeditionPortalMarker } from "../components/ExpeditionPortal";
 import { ExpeditionCombatView, type CombatAlly, type ExpeditionEvent } from "../components/ExpeditionCombatView";
@@ -238,6 +241,9 @@ function Index() {
   const [creatingCharacter, setCreatingCharacter] = useState(false);
   const [authIdentity, setAuthIdentity] = useState<AuthIdentity | null>(null);
   const [loginRequired, setLoginRequired] = useState(false);
+  const [deadInfo, setDeadInfo] = useState<{ name: string; cause: string | null } | null>(null);
+  const [deadBusy, setDeadBusy] = useState(false);
+  const [deadError, setDeadError] = useState<string | null>(null);
   // Journal visible à l'écran (dernières lignes), pour diagnostiquer sans
   // avoir besoin d'ouvrir la console du navigateur (F12).
   const [presenceLog, setPresenceLog] = useState<string[]>([]);
@@ -590,10 +596,26 @@ function Index() {
         if (c === null && REQUIRE_PROVIDER_LOGIN) return;
         if (cancelled) return;
         if (c) {
-          setCharacter(c);
-          characterRef.current = c;
-          setPos(c.position);
-          lastLogicalPosRef.current = c.position;
+          fetchMyDeath(c.id)
+            .then((d) => {
+              if (cancelled) return;
+              if (d.dead) {
+                setDeadInfo({ name: c.name, cause: d.cause });
+                return;
+              }
+              setCharacter(c);
+              characterRef.current = c;
+              setPos(c.position);
+              lastLogicalPosRef.current = c.position;
+            })
+            .catch((e) => {
+              console.error("Death check failed", e);
+              if (cancelled) return;
+              setCharacter(c);
+              characterRef.current = c;
+              setPos(c.position);
+              lastLogicalPosRef.current = c.position;
+            });
         } else {
           fetchCharacterAssets().then((assets) => {
             if (!cancelled) setCharacterAssets(assets);
@@ -612,6 +634,34 @@ function Index() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Après une expédition : si le personnage est tombé, écran de mort puis nouveau dessin.
+  const checkDeathNow = async () => {
+    if (!character) return;
+    try {
+      const d = await fetchMyDeath(character.id);
+      if (d.dead) setDeadInfo({ name: character.name, cause: d.cause });
+    } catch (e) {
+      console.error("Death check failed", e);
+    }
+  };
+
+  const handleNewCharacterAfterDeath = async () => {
+    setDeadBusy(true);
+    setDeadError(null);
+    try {
+      await archiveDeadCharacter();
+      setCharacter(null);
+      characterRef.current = null;
+      setDeadInfo(null);
+      setCharacterAssets(await fetchCharacterAssets());
+    } catch (e) {
+      console.error("Archive dead character failed", e);
+      setDeadError("Impossible de préparer un nouveau personnage. Réessaie dans un instant.");
+    } finally {
+      setDeadBusy(false);
+    }
+  };
 
   const handleCharacterChosen = async (visualAssetId: string, name: string, family: CharacterFamily) => {
     setCharacterError(null);
@@ -1789,6 +1839,10 @@ function Index() {
     return <div className="flex h-screen w-screen items-center justify-center bg-black text-[#fff3d6]">Chargement…</div>;
   }
 
+  if (deadInfo) {
+    return <DeadScreen name={deadInfo.name} cause={deadInfo.cause} busy={deadBusy} error={deadError} onNewCharacter={() => void handleNewCharacterAfterDeath()} />;
+  }
+
   if (loginRequired) {
     return <LoginScreen onConnect={handleConnectProvider} />;
   }
@@ -2070,7 +2124,14 @@ function Index() {
           />
         )}
 
-        {endBanner && <EndBanner title={endBanner.title} text={endBanner.text} onClose={() => setEndBanner(null)} />}
+        {endBanner && <EndBanner
+            title={endBanner.title}
+            text={endBanner.text}
+            onClose={() => {
+              setEndBanner(null);
+              void checkDeathNow();
+            }}
+          />}
 
         {axisChoice && !endBanner && !inExpeditionScene && (
           <AxisChoiceModal axes={axisChoice.axes} powers={axisChoice.powers} busy={axisBusy} error={axisError} onChoose={(k) => void handleChooseAxis(k)} />
