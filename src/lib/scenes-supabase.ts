@@ -1,3 +1,4 @@
+import { REQUIRE_PROVIDER_LOGIN } from "./alpha-config";
 import { createClient, type RealtimeChannel } from "@supabase/supabase-js";
 
 const SCENES_SUPABASE_URL = "https://xbesddgqhvwcyjnoxtaz.supabase.co";
@@ -130,6 +131,8 @@ export type PresenceChannel = RealtimeChannel;
 export async function ensureUserId(): Promise<string> {
   const { data } = await scenesClient.auth.getSession();
   if (data.session?.user) return data.session.user.id;
+  // Alpha : plus de session invité automatique, il faut passer par Twitch / Discord.
+  if (REQUIRE_PROVIDER_LOGIN) throw new Error("LOGIN_REQUIRED");
 
   const { data: signIn, error } = await scenesClient.auth.signInAnonymously();
   if (error || !signIn.user) throw error ?? new Error("Anonymous sign-in failed");
@@ -187,7 +190,7 @@ export async function getAuthIdentity(): Promise<AuthIdentity> {
 // juste plus accessible sans se reconnecter en invité avant de lier un autre
 // compte).
 export async function connectIdentityProvider(provider: "twitch" | "discord"): Promise<void> {
-  await ensureUserId();
+  if (!REQUIRE_PROVIDER_LOGIN) await ensureUserId();
   const { data } = await scenesClient.auth.getSession();
   const redirectTo = window.location.href.split("#")[0];
 
@@ -1072,22 +1075,29 @@ function flattenPartyMember(row: any): PartyMember {
 // groupes actifs à la fois (règle appliquée côté appelant — voir
 // inviteToParty ci-dessous — pas de contrainte SQL portable pour ça).
 export async function fetchMyActiveParty(characterId: string): Promise<{ party: Party; members: PartyMember[] } | null> {
-  const { data: memberRow, error: memberError } = await scenesClient
+  // Un personnage peut avoir plusieurs lignes « invited / joined » (anciens groupes, invitations
+  // non répondues) : on prend le groupe non dissous le plus pertinent (joined d'abord, puis le plus récent).
+  const { data: memberRows, error: memberError } = await scenesClient
     .from("party_members")
-    .select("party_id, status")
+    .select("party_id, status, invited_at")
     .eq("character_id", characterId)
     .in("status", ["invited", "joined"])
-    .maybeSingle();
+    .order("invited_at", { ascending: false });
   if (memberError) throw memberError;
-  if (!memberRow) return null;
+  if (!memberRows || memberRows.length === 0) return null;
 
-  const { data: partyRow, error: partyError } = await scenesClient
+  const { data: partyRows, error: partyError } = await scenesClient
     .from("parties")
     .select("*")
-    .eq("id", memberRow.party_id)
-    .is("disbanded_at", null)
-    .maybeSingle();
+    .in("id", memberRows.map((m: any) => m.party_id))
+    .is("disbanded_at", null);
   if (partyError) throw partyError;
+  const alive = new Set((partyRows ?? []).map((p: any) => p.id));
+  const pick =
+    memberRows.find((m: any) => m.status === "joined" && alive.has(m.party_id)) ??
+    memberRows.find((m: any) => alive.has(m.party_id));
+  if (!pick) return null;
+  const partyRow = (partyRows ?? []).find((p: any) => p.id === pick.party_id);
   if (!partyRow) return null;
 
   const members = await fetchPartyMembers(partyRow.id);

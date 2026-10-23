@@ -71,6 +71,8 @@ import {
 } from "../lib/scenes-supabase";
 import { AccountBadge } from "../components/AccountBadge";
 import { CharacterSelect } from "../components/CharacterSelect";
+import { LoginScreen } from "../components/LoginScreen";
+import { REQUIRE_PROVIDER_LOGIN } from "../lib/alpha-config";
 import { ExpeditionPortalMarker } from "../components/ExpeditionPortal";
 import { ExpeditionCombatView, type CombatAlly, type ExpeditionEvent } from "../components/ExpeditionCombatView";
 import { ExpeditionBattle } from "../components/ExpeditionBattle";
@@ -235,6 +237,7 @@ function Index() {
   const [characterError, setCharacterError] = useState<string | null>(null);
   const [creatingCharacter, setCreatingCharacter] = useState(false);
   const [authIdentity, setAuthIdentity] = useState<AuthIdentity | null>(null);
+  const [loginRequired, setLoginRequired] = useState(false);
   // Journal visible à l'écran (dernières lignes), pour diagnostiquer sans
   // avoir besoin d'ouvrir la console du navigateur (F12).
   const [presenceLog, setPresenceLog] = useState<string[]>([]);
@@ -569,8 +572,22 @@ function Index() {
   // ---------- Personnage : on vérifie s'il existe déjà, sinon on demande à en choisir un ----------
   useEffect(() => {
     let cancelled = false;
-    fetchMyCharacter()
+    (async () => {
+      // Alpha : connexion Twitch / Discord obligatoire (un invité existant doit d'abord relier son compte).
+      if (REQUIRE_PROVIDER_LOGIN) {
+        const id = await getAuthIdentity();
+        if (!id.userId || id.isAnonymous) {
+          if (!cancelled) {
+            setLoginRequired(true);
+            setCheckingCharacter(false);
+          }
+          return null;
+        }
+      }
+      return fetchMyCharacter();
+    })()
       .then((c) => {
+        if (c === null && REQUIRE_PROVIDER_LOGIN) return;
         if (cancelled) return;
         if (c) {
           setCharacter(c);
@@ -1770,6 +1787,10 @@ function Index() {
 
   if (checkingCharacter) {
     return <div className="flex h-screen w-screen items-center justify-center bg-black text-[#fff3d6]">Chargement…</div>;
+  }
+
+  if (loginRequired) {
+    return <LoginScreen onConnect={handleConnectProvider} />;
   }
 
   if (!character) {

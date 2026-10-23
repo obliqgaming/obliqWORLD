@@ -7,7 +7,7 @@ import { SoundControl } from "./SoundControl";
 // Provisoire pendant le développement : permet de se connecter en invité avec un
 // « personnage déjà existant ». À passer à false quand le jeu sera ouvert : les
 // nouveaux joueurs devront alors dessiner leur personnage.
-const DEV_ALLOW_EXISTING_CHARACTERS = true;
+const DEV_ALLOW_EXISTING_CHARACTERS = false;
 
 export function CharacterSelect({
   assets,
