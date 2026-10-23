@@ -1,9 +1,10 @@
 // Marqueur cliquable d'un lieu interactif + fenêtre qui s'ouvre au clic.
 // Pour l'instant les fenêtres sont des maquettes : le contenu arrive pas à pas
-// (forge d'abord).
+// (forge, éditeur d'étapes).
 import { CURSOR_INTERACT } from "../lib/cursors";
 import { hotspotInfo, type SceneHotspot } from "../lib/hotspots";
 import { ForgePanel, type ForgeCharacter } from "./ForgePanel";
+import { EncounterEditor } from "./EncounterEditor";
 
 export function HotspotMarker({ hotspot, onClick }: { hotspot: SceneHotspot; onClick: () => void }) {
   const info = hotspotInfo(hotspot.kind);
@@ -41,6 +42,9 @@ export function HotspotPanel({
 }) {
   if (hotspot.kind === "forge") {
     return <ForgePanel character={character ?? null} onClose={onClose} onWeaponChanged={onWeaponChanged ?? (() => {})} />;
+  }
+  if (hotspot.kind === "step_editor") {
+    return <EncounterEditor onClose={onClose} />;
   }
   const info = hotspotInfo(hotspot.kind);
   return (

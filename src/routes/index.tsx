@@ -96,7 +96,6 @@ import { HotspotMarker, HotspotPanel } from "../components/SceneHotspots";
 import { WornSprite } from "../components/WornSprite";
 import { CURSOR_INTERACT } from "../lib/cursors";
 import { InventoryPanel } from "../components/InventoryPanel";
-import { EncounterEditor } from "../components/EncounterEditor";
 import { fetchWornWeapons, type WornWeapon } from "../lib/weapons";
 import { fetchSceneHotspots, type SceneHotspot } from "../lib/hotspots";
 import { PartyInvitePopup } from "../components/PartyInvitePopup";
@@ -275,7 +274,6 @@ function Index() {
   const [hotspots, setHotspots] = useState<SceneHotspot[]>([]);
   const [openHotspot, setOpenHotspot] = useState<SceneHotspot | null>(null);
   const [inventoryOpen, setInventoryOpen] = useState(false);
-  const [encounterOpen, setEncounterOpen] = useState(false);
   const [wornWeapons, setWornWeapons] = useState<Record<string, WornWeapon>>({});
   const peerIdsKey = Object.values(peers).map((x) => x.characterId).sort().join(",");
   const refreshWornWeapons = useCallback(() => {
@@ -2105,20 +2103,6 @@ function Index() {
             🎒 Inventaire
           </button>
         )}
-        {character && !activeCombatId && !inExpeditionScene && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setEncounterOpen(true);
-            }}
-            className="absolute right-5 top-32 z-30 rounded-lg border-2 border-[#7a4a22] bg-[#2b1406]/85 px-2.5 py-1 text-sm font-bold text-[#fff3d6] hover:bg-[#5e3818]"
-            style={{ fontFamily: "'Baloo 2', cursive" }}
-          >
-            ✍ Rencontres
-          </button>
-        )}
-        {encounterOpen && character && !activeCombatId && <EncounterEditor onClose={() => setEncounterOpen(false)} />}
         {inventoryOpen && character && !activeCombatId && (
           <InventoryPanel
             character={{ id: character.id, name: character.name, imageUrl: character.image_url, visualAssetId: character.visual_asset_id }}
