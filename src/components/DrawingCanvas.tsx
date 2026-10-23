@@ -71,10 +71,10 @@ function floodFill(ctx: CanvasRenderingContext2D, startX: number, startY: number
   const sy = Math.round(startY);
   if (sx < 0 || sx >= w || sy < 0 || sy >= h) return;
   const startIdx = (sy * w + sx) * 4;
-  const targetR = data[startIdx];
-  const targetG = data[startIdx + 1];
-  const targetB = data[startIdx + 2];
-  const targetA = data[startIdx + 3];
+  const targetR = data[startIdx]!;
+  const targetG = data[startIdx + 1]!;
+  const targetB = data[startIdx + 2]!;
+  const targetA = data[startIdx + 3]!;
   if (targetA === fillA && Math.abs(targetR - fillR) <= 5 &&
       Math.abs(targetG - fillG) <= 5 && Math.abs(targetB - fillB) <= 5) return;
   const stack: [number, number][] = [[sx, sy]];
@@ -86,7 +86,7 @@ function floodFill(ctx: CanvasRenderingContext2D, startX: number, startY: number
     const pi = idx * 4;
     const isTransparentTarget = targetA < 10;
     const matches = isTransparentTarget
-      ? data[pi + 3] < 10
+      ? data[pi + 3]! < 10
       : colorsMatch(data, pi, targetR, targetG, targetB, targetA, 30);
     if (!matches) continue;
     visited[idx] = 1;
@@ -249,9 +249,10 @@ export function DrawingCanvas({
     const ctx = canvasRef.current?.getContext("2d");
     if (!ctx) return;
     const pixel = ctx.getImageData(Math.round(x), Math.round(y), 1, 1).data;
-    if (pixel[3] > 0) {
-      setColor(rgbToHex(pixel[0], pixel[1], pixel[2]));
-      setOpacity(Math.round((pixel[3] / 255) * 100) / 100);
+    const pickedAlpha = pixel[3] ?? 0;
+    if (pickedAlpha > 0) {
+      setColor(rgbToHex(pixel[0] ?? 0, pixel[1] ?? 0, pixel[2] ?? 0));
+      setOpacity(Math.round((pickedAlpha / 255) * 100) / 100);
     }
     if (!altHeld) setTool(prevToolRef.current === "eyedropper" ? "brush" : prevToolRef.current);
   };

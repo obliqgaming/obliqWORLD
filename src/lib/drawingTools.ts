@@ -39,10 +39,10 @@ function writePixel(
   if (alphaByte <= 0) return;
 
   const sourceAlpha = alphaByte / 255;
-  const baseR = baseData ? baseData[offset] : data[offset];
-  const baseG = baseData ? baseData[offset + 1] : data[offset + 1];
-  const baseB = baseData ? baseData[offset + 2] : data[offset + 2];
-  const baseA = (baseData ? baseData[offset + 3] : data[offset + 3]) / 255;
+  const baseR = baseData ? baseData[offset]! : data[offset]!;
+  const baseG = baseData ? baseData[offset + 1]! : data[offset + 1]!;
+  const baseB = baseData ? baseData[offset + 2]! : data[offset + 2]!;
+  const baseA = (baseData ? baseData[offset + 3]! : data[offset + 3]!) / 255;
 
   const outA = sourceAlpha + baseA * (1 - sourceAlpha);
   if (outA <= 0) {
