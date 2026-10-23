@@ -62,3 +62,16 @@ export async function fetchForgeCost(): Promise<number> {
   const { data } = await scenesClient.from("game_settings").select("value").eq("key", "forge_cost").maybeSingle();
   return Number((data as any)?.value ?? 0);
 }
+
+export async function repairItem(itemId: string): Promise<number> {
+  const { data, error } = await scenesClient.rpc("weapon_repair", { p_item_id: itemId });
+  if (error) throw error;
+  return Number(data ?? 0);
+}
+
+export async function fetchRepairCosts(): Promise<Record<string, number>> {
+  const { data } = await scenesClient.from("game_settings").select("key, value").like("key", "repair_cost_%");
+  const out: Record<string, number> = {};
+  for (const r of (data ?? []) as { key: string; value: number }[]) out[r.key.replace("repair_cost_", "")] = Number(r.value);
+  return out;
+}
