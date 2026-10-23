@@ -599,7 +599,7 @@ function Index() {
           fetchMyDeath(c.id)
             .then((d) => {
               if (cancelled) return;
-              if (d.dead) {
+              if (d.dead && !d.inExpedition) {
                 setDeadInfo({ name: c.name, cause: d.cause });
                 return;
               }
@@ -640,7 +640,7 @@ function Index() {
     if (!character) return;
     try {
       const d = await fetchMyDeath(character.id);
-      if (d.dead) setDeadInfo({ name: character.name, cause: d.cause });
+      if (d.dead && !d.inExpedition) setDeadInfo({ name: character.name, cause: d.cause });
     } catch (e) {
       console.error("Death check failed", e);
     }

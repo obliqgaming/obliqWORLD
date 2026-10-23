@@ -813,7 +813,7 @@ export async function fetchMyCharacter(): Promise<Character | null> {
 }
 
 // Mort définitive : le personnage est-il tombé ? (SQL 007/010 : character_build.is_alive)
-export async function fetchMyDeath(characterId: string): Promise<{ dead: boolean; cause: string | null }> {
+export async function fetchMyDeath(characterId: string): Promise<{ dead: boolean; cause: string | null; inExpedition: boolean }> {
   const { data, error } = await scenesClient
     .from("character_build")
     .select("is_alive, death_cause")
@@ -821,7 +821,18 @@ export async function fetchMyDeath(characterId: string): Promise<{ dead: boolean
     .maybeSingle();
   if (error) throw error;
   const row = data as { is_alive: boolean | null; death_cause: string | null } | null;
-  return { dead: row?.is_alive === false, cause: row?.death_cause ?? null };
+  const dead = row?.is_alive === false;
+  let inExpedition = false;
+  if (dead) {
+    // Un mort reste spectateur de l'expédition en cours (une résurrection est possible plus tard).
+    const { data: parts } = await scenesClient
+      .from("expedition_participants")
+      .select("expedition_id, expeditions(status)")
+      .eq("character_id", characterId)
+      .is("left_expedition_at", null);
+    inExpedition = ((parts ?? []) as any[]).some((p) => p.expeditions?.status === "active");
+  }
+  return { dead, cause: row?.death_cause ?? null, inExpedition };
 }
 
 // Archive les personnages morts du compte (jamais supprimés) pour pouvoir en dessiner un nouveau.
