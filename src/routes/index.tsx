@@ -1816,16 +1816,44 @@ function Index() {
   };
 
   // Marche jusqu'à un endroit PUIS fait l'action (portail, forgeron…) : rien ne s'active de loin.
+  // Marche vers un lieu cliquable (portail, forgeron, tas d'or…) mais s'arrête À PROXIMITÉ au lieu de marcher dessus
+  // (ex. un tas d'or posé sur le comptoir : on s'en approche sans monter dessus). Distance d'approche ≈ 6 % de la largeur de la scène.
   const walkThen = (position: Point, action: () => void) => {
     if (!character || !sceneRef.current) return;
     const rect = sceneRef.current.getBoundingClientRect();
     const origin = walking && charSpriteRef.current ? currentSpritePercent(charSpriteRef.current, rect) : pos;
-    if (distanceInPx(rect, origin, position) < 4) {
+    const reach = rect.width * 0.06;
+    if (distanceInPx(rect, origin, position) <= reach) {
       if (walkTimer.current) window.clearTimeout(walkTimer.current);
+      walkQueueRef.current = [];
       action();
       return;
     }
-    startWalk(position, action);
+    const isWalkable = (pt: Point) =>
+      !!scene.walkable_zone &&
+      scene.walkable_zone.some((room) => pointInPolygon(pt, room)) &&
+      !(scene.obstacles ?? []).some((hole) => pointInPolygon(pt, hole));
+    // Candidats : un anneau autour du lieu (rayon croissant) ; on garde celui qui est marchable et le plus proche de nous.
+    let best: Point | null = null;
+    let bestDist = Infinity;
+    for (const k of [0.5, 0.8, 1.2, 2]) {
+      for (let i = 0; i < 24; i++) {
+        const a = (i / 24) * Math.PI * 2;
+        const cand = {
+          x: position.x + ((Math.cos(a) * reach * k) / rect.width) * 100,
+          y: position.y + ((Math.sin(a) * reach * k) / rect.height) * 100,
+        };
+        if (!isWalkable(cand)) continue;
+        const d = distanceInPx(rect, origin, cand);
+        if (d < bestDist) {
+          best = cand;
+          bestDist = d;
+        }
+      }
+      if (best) break;
+    }
+    // Aucun point marchable autour : on tente le lieu lui-même (ancien comportement).
+    startWalk(best ?? position, action);
   };
 
   // ---------- Chat ----------
@@ -2199,7 +2227,7 @@ function Index() {
             }}
             title="Inventaire"
             className={`absolute bottom-2 left-1/2 z-30 -translate-x-1/2 px-2 leading-none transition-transform hover:scale-110 ${inExpeditionScene ? "text-3xl" : "text-6xl"}`}
-            style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.7))", fontFamily: "'Baloo 2', cursive" }}
+            style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.7))", fontFamily: "'Baloo 2', cursive", cursor: CURSOR_INTERACT }}
           >
             🎒
           </button>
@@ -2213,7 +2241,7 @@ function Index() {
             }}
             title="Signaler un bug, aide, confidentialité"
             className="absolute right-5 top-20 z-30 px-1 text-2xl leading-none transition-transform hover:scale-110"
-            style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.7))" }}
+            style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.7))", cursor: CURSOR_INTERACT }}
           >
             🐞
           </button>
@@ -2227,7 +2255,7 @@ function Index() {
             }}
             title="À propos / Soutien"
             className="absolute right-5 top-32 z-30 px-1 text-2xl leading-none transition-transform hover:scale-110"
-            style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.7))" }}
+            style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.7))", cursor: CURSOR_INTERACT }}
           >
             ❤️
           </button>
