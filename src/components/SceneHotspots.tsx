@@ -5,6 +5,7 @@ import { CURSOR_INTERACT } from "../lib/cursors";
 import { hotspotInfo, type SceneHotspot } from "../lib/hotspots";
 import { ForgePanel, type ForgeCharacter } from "./ForgePanel";
 import { EncounterEditor } from "./EncounterEditor";
+import { MerchantPanel } from "./MerchantPanel";
 
 export function HotspotMarker({ hotspot, onClick }: { hotspot: SceneHotspot; onClick: () => void }) {
   const info = hotspotInfo(hotspot.kind);
@@ -42,6 +43,9 @@ export function HotspotPanel({
 }) {
   if (hotspot.kind === "forge") {
     return <ForgePanel character={character ?? null} onClose={onClose} onWeaponChanged={onWeaponChanged ?? (() => {})} />;
+  }
+  if (hotspot.kind === "merchant") {
+    return <MerchantPanel onClose={onClose} onWeaponChanged={onWeaponChanged ?? (() => {})} />;
   }
   if (hotspot.kind === "step_editor") {
     return <EncounterEditor onClose={onClose} />;
