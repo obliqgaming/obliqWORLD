@@ -76,6 +76,7 @@ import { CharacterSelect } from "../components/CharacterSelect";
 import { LoginScreen } from "../components/LoginScreen";
 import { DeadScreen } from "../components/DeadScreen";
 import { HelpDialog } from "../components/HelpDialog";
+import { AboutDialog } from "../components/AboutDialog";
 import { WelcomeModal } from "../components/WelcomeModal";
 import { REQUIRE_PROVIDER_LOGIN } from "../lib/alpha-config";
 import { ExpeditionPortalMarker } from "../components/ExpeditionPortal";
@@ -244,6 +245,7 @@ function Index() {
   const [authIdentity, setAuthIdentity] = useState<AuthIdentity | null>(null);
   const [loginRequired, setLoginRequired] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [welcomeOpen, setWelcomeOpen] = useState(false);
   const [deadInfo, setDeadInfo] = useState<{ name: string; cause: string | null } | null>(null);
   const [deadBusy, setDeadBusy] = useState(false);
@@ -2193,10 +2195,11 @@ function Index() {
               e.stopPropagation();
               setInventoryOpen(true);
             }}
-            className="absolute right-5 top-20 z-30 rounded-lg border-2 border-[#7a4a22] bg-[#2b1406]/85 px-2.5 py-1 text-sm font-bold text-[#fff3d6] hover:bg-[#5e3818]"
+            title="Inventaire"
+            className="absolute bottom-3 left-1/2 z-30 -translate-x-1/2 rounded-lg border-2 border-[#7a4a22] bg-[#2b1406]/85 px-3 py-1 text-lg font-bold text-[#fff3d6] hover:bg-[#5e3818]"
             style={{ fontFamily: "'Baloo 2', cursive" }}
           >
-            🎒 Inventaire
+            🎒
           </button>
         )}
         {character && !activeCombatId && (
@@ -2207,12 +2210,27 @@ function Index() {
               setHelpOpen(true);
             }}
             title="Signaler un bug, aide, confidentialité"
-            className="absolute right-5 top-32 z-30 rounded-lg border-2 border-[#7a4a22] bg-[#2b1406]/85 px-2.5 py-1 text-sm font-bold text-[#fff3d6] hover:bg-[#5e3818]"
+            className="absolute right-5 top-20 z-30 rounded-lg border-2 border-[#7a4a22] bg-[#2b1406]/85 px-2.5 py-1 text-sm font-bold text-[#fff3d6] hover:bg-[#5e3818]"
             style={{ fontFamily: "'Baloo 2', cursive" }}
           >
             🐞
           </button>
         )}
+        {character && !activeCombatId && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setAboutOpen(true);
+            }}
+            title="À propos / Soutien"
+            className="absolute right-5 top-32 z-30 rounded-lg border-2 border-[#7a4a22] bg-[#2b1406]/85 px-2.5 py-1 text-sm font-bold text-[#fff3d6] hover:bg-[#5e3818]"
+            style={{ fontFamily: "'Baloo 2', cursive" }}
+          >
+            ❤️
+          </button>
+        )}
+        {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
         {helpOpen && character && <HelpDialog expeditionId={activeExpedition?.id ?? null} stepId={runStep?.id ?? null} onClose={() => setHelpOpen(false)} />}
         {welcomeOpen && character && (
           <WelcomeModal

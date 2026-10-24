@@ -2,12 +2,14 @@
 // demander la suppression de son compte, accéder à la page de confidentialité.
 import { useState } from "react";
 import { submitPlayerRequest } from "../lib/requests";
+import { PrivacyDialog } from "./PrivacyDialog";
 
 const FONT = { fontFamily: "'Baloo 2', cursive" };
 
 export function HelpDialog({ expeditionId, stepId, onClose }: { expeditionId: string | null; stepId: string | null; onClose: () => void }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
+  const [privacy, setPrivacy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
   async function send(kind: "bug" | "deletion") {
@@ -48,13 +50,14 @@ export function HelpDialog({ expeditionId, stepId, onClose }: { expeditionId: st
         </button>
         <div className="mt-4 border-t border-[#b98a54] pt-3 text-sm">
           <div className="font-bold">Mes données</div>
-          <a href="/confidentialite" target="_blank" rel="noreferrer" className="underline">Page de confidentialité</a>
+          <button type="button" onClick={() => setPrivacy(true)} className="underline">Confidentialité</button>
           <div>
             <button type="button" disabled={busy} onClick={() => void send("deletion")} className="mt-1 rounded border-2 border-[#b91c1c] px-3 py-0.5 text-xs font-bold text-[#b91c1c] disabled:opacity-50">
               Demander la suppression de mon compte
             </button>
           </div>
         </div>
+        {privacy && <PrivacyDialog onClose={() => setPrivacy(false)} />}
         {msg && <div className="mt-3 rounded bg-[#fff3d6] p-2 text-sm font-bold">{msg}</div>}
       </div>
     </div>

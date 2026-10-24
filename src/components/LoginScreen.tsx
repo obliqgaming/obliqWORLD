@@ -1,10 +1,12 @@
 // Écran d'accueil de l'alpha : connexion Twitch ou Discord obligatoire.
 import { useState } from "react";
+import { PrivacyDialog } from "./PrivacyDialog";
 
 const FONT = { fontFamily: "'Baloo 2', cursive" };
 
 export function LoginScreen({ onConnect }: { onConnect: (provider: "twitch" | "discord") => Promise<void> | void }) {
   const [busy, setBusy] = useState<"twitch" | "discord" | null>(null);
+  const [privacy, setPrivacy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   async function go(p: "twitch" | "discord") {
     setBusy(p);
@@ -34,9 +36,10 @@ export function LoginScreen({ onConnect }: { onConnect: (provider: "twitch" | "d
         </div>
         {error && <div className="mt-3 rounded bg-[#5e1b1b] p-2 text-sm font-bold">{error}</div>}
         <p className="mt-4 text-[11px] opacity-70">
-          Nous gardons ton identifiant de compte, ton pseudo et ton avatar Twitch/Discord, tes dessins et tes parties. Rien d'autre. <a href="/confidentialite" className="underline">En savoir plus</a>
+          Nous gardons ton identifiant de compte, ton pseudo et ton avatar Twitch/Discord, tes dessins et tes parties. Rien d'autre. <button type="button" onClick={() => setPrivacy(true)} className="underline">En savoir plus</button>
         </p>
       </div>
+      {privacy && <PrivacyDialog onClose={() => setPrivacy(false)} />}
     </div>
   );
 }
