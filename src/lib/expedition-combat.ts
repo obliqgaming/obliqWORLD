@@ -159,6 +159,7 @@ export type CombatEnemyRow = {
   force: number;
   defense: number;
   weapon_id?: string | null;
+  visual_asset_id?: string | null;
   status: Record<string, unknown>;
 };
 
@@ -298,6 +299,18 @@ export async function fetchEnemyImagePool(excludeCharacterIds: string[]): Promis
   return (data ?? [])
     .filter((r: any) => !excludeCharacterIds.includes(r.id) && r.visual_assets?.image_url)
     .map((r: any) => ({ name: r.name as string, imageUrl: r.visual_assets.image_url as string, handAnchor: (r.visual_assets.hand_anchor ?? null) as { x: number; y: number } | null }));
+}
+
+// Dessins des monstres choisis par le serveur (SQL 026) : id du dessin -> image et position de la main.
+export async function fetchMonsterAssets(ids: string[]): Promise<Record<string, EnemyImage>> {
+  const out: Record<string, EnemyImage> = {};
+  if (ids.length === 0) return out;
+  const { data, error } = await scenesClient.from("visual_assets").select("id, name, image_url, hand_anchor").in("id", ids);
+  if (error) throw error;
+  for (const r of (data ?? []) as any[]) {
+    out[r.id] = { name: r.name as string, imageUrl: r.image_url as string, handAnchor: (r.hand_anchor ?? null) as { x: number; y: number } | null };
+  }
+  return out;
 }
 
 export function pickEnemyImage(

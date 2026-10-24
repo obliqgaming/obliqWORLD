@@ -16,6 +16,7 @@ import {
   fetchGameSettings,
   fetchMyBuild,
   pickEnemyEntry,
+  fetchMonsterAssets,
   type EnemyImage,
   powersForBuild,
   resolveCombatTurn,
@@ -93,6 +94,7 @@ export function ExpeditionBattle({
   const [axes, setAxes] = useState<GameAxis[]>([]);
   const [settings, setSettings] = useState<Record<string, number>>({});
   const [worn, setWorn] = useState<Record<string, WornWeapon>>({});
+  const [monsterAssets, setMonsterAssets] = useState<Record<string, EnemyImage>>({});
   const [weaponPool, setWeaponPool] = useState<Record<string, Omit<WornWeapon, "hand">>>({});
   const [lootSettled, setLootSettled] = useState(true);
   const [stacks, setStacks] = useState<ConsumableStack[]>([]);
@@ -375,6 +377,24 @@ export function ExpeditionBattle({
   };
 
   const enemySlots = (snap?.enemies ?? []).slice(0, ENEMY_SLOTS.length);
+  // Dessins choisis par le serveur : on charge ceux qu'on n'a pas encore.
+  const missingAssetKey = enemySlots
+    .map((e) => e.visual_asset_id)
+    .filter((id): id is string => !!id && !monsterAssets[id])
+    .sort()
+    .join(",");
+  useEffect(() => {
+    if (!missingAssetKey) return;
+    let cancelled = false;
+    fetchMonsterAssets(missingAssetKey.split(","))
+      .then((m) => {
+        if (!cancelled) setMonsterAssets((prev) => ({ ...prev, ...m }));
+      })
+      .catch((e) => console.error("monster assets failed", e));
+    return () => {
+      cancelled = true;
+    };
+  }, [missingAssetKey]);
   const logLines = (snap?.log ?? []).filter((l) => !l.ev || (playedId !== null && l.id <= playedId));
   const lastLog = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -498,7 +518,7 @@ export function ExpeditionBattle({
         const slot = ENEMY_SLOTS[i]!;
         const hp = shownEnemyHp(en.id, en.pv_current, en.pv_max);
         const dead = hp <= 0;
-        const entry = pickEnemyEntry(pool, en.id);
+        const entry = (en.visual_asset_id ? monsterAssets[en.visual_asset_id] : null) ?? pickEnemyEntry(pool, en.id);
         const img = entry?.imageUrl ?? null;
         const mw = en.weapon_id ? weaponPool[en.weapon_id] ?? null : null;
         const mWeapon: WornWeapon | null = mw ? { ...mw, hand: entry?.handAnchor ?? DEFAULT_HAND } : null;
