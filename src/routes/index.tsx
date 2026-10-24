@@ -75,6 +75,8 @@ import { AccountBadge } from "../components/AccountBadge";
 import { CharacterSelect } from "../components/CharacterSelect";
 import { LoginScreen } from "../components/LoginScreen";
 import { DeadScreen } from "../components/DeadScreen";
+import { HelpDialog } from "../components/HelpDialog";
+import { WelcomeModal } from "../components/WelcomeModal";
 import { REQUIRE_PROVIDER_LOGIN } from "../lib/alpha-config";
 import { ExpeditionPortalMarker } from "../components/ExpeditionPortal";
 import { ExpeditionCombatView, type CombatAlly, type ExpeditionEvent } from "../components/ExpeditionCombatView";
@@ -241,6 +243,8 @@ function Index() {
   const [creatingCharacter, setCreatingCharacter] = useState(false);
   const [authIdentity, setAuthIdentity] = useState<AuthIdentity | null>(null);
   const [loginRequired, setLoginRequired] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [welcomeOpen, setWelcomeOpen] = useState(false);
   const [deadInfo, setDeadInfo] = useState<{ name: string; cause: string | null } | null>(null);
   const [deadBusy, setDeadBusy] = useState(false);
   const [deadError, setDeadError] = useState<string | null>(null);
@@ -645,6 +649,16 @@ function Index() {
       console.error("Death check failed", e);
     }
   };
+
+  // Message d'accueil : une seule fois par navigateur, dès qu'on a un personnage.
+  useEffect(() => {
+    if (!character) return;
+    try {
+      if (!localStorage.getItem("obliqworld-welcome-v1")) setWelcomeOpen(true);
+    } catch {
+      /* stockage indisponible : pas de message */
+    }
+  }, [character?.id]);
 
   const handleNewCharacterAfterDeath = async () => {
     setDeadBusy(true);
@@ -2184,6 +2198,34 @@ function Index() {
           >
             🎒 Inventaire
           </button>
+        )}
+        {character && !activeCombatId && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setHelpOpen(true);
+            }}
+            title="Signaler un bug, aide, confidentialité"
+            className="absolute right-5 top-32 z-30 rounded-lg border-2 border-[#7a4a22] bg-[#2b1406]/85 px-2.5 py-1 text-sm font-bold text-[#fff3d6] hover:bg-[#5e3818]"
+            style={{ fontFamily: "'Baloo 2', cursive" }}
+          >
+            🐞
+          </button>
+        )}
+        {helpOpen && character && <HelpDialog expeditionId={activeExpedition?.id ?? null} stepId={runStep?.id ?? null} onClose={() => setHelpOpen(false)} />}
+        {welcomeOpen && character && (
+          <WelcomeModal
+            name={character.name}
+            onClose={() => {
+              setWelcomeOpen(false);
+              try {
+                localStorage.setItem("obliqworld-welcome-v1", "1");
+              } catch {
+                /* ignoré */
+              }
+            }}
+          />
         )}
         {inventoryOpen && character && !activeCombatId && (
           <InventoryPanel

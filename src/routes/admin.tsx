@@ -29,6 +29,7 @@ import {
 } from "../lib/scenes-supabase";
 import { AdminCharacters } from "../components/AdminCharacters";
 import { AdminEncounters } from "../components/AdminEncounters";
+import { AdminRequests } from "../components/AdminRequests";
 import { AdminSettings } from "../components/AdminSettings";
 import { AdminWeapons } from "../components/AdminWeapons";
 import { HOTSPOT_KINDS, deleteSceneHotspot, fetchSceneHotspots, hotspotInfo, placeSceneHotspot, type SceneHotspot } from "../lib/hotspots";
@@ -113,7 +114,7 @@ function AdminGate() {
 
 // Deux onglets : décors (scènes, portails, lieux) et personnages.
 function AdminTabs() {
-  const [tab, setTab] = useState<"scenes" | "characters" | "weapons" | "settings" | "events">("scenes");
+  const [tab, setTab] = useState<"scenes" | "characters" | "weapons" | "settings" | "events" | "requests">("scenes");
   return (
     <div className="min-h-screen bg-[#1a0f07]">
       <div className="flex gap-2 bg-neutral-950 px-4 py-2 text-sm text-white">
@@ -132,8 +133,11 @@ function AdminTabs() {
         <button type="button" onClick={() => setTab("events")} className={`rounded px-3 py-1 font-semibold ${tab === "events" ? "bg-amber-600" : "bg-neutral-800"}`}>
           Rencontres
         </button>
+        <button type="button" onClick={() => setTab("requests")} className={`rounded px-3 py-1 font-semibold ${tab === "requests" ? "bg-amber-600" : "bg-neutral-800"}`}>
+          Signalements
+        </button>
       </div>
-      {tab === "scenes" ? <AdminPage /> : tab === "characters" ? <AdminCharacters /> : tab === "weapons" ? <AdminWeapons /> : tab === "settings" ? <AdminSettings /> : <AdminEncounters />}
+      {tab === "scenes" ? <AdminPage /> : tab === "characters" ? <AdminCharacters /> : tab === "weapons" ? <AdminWeapons /> : tab === "settings" ? <AdminSettings /> : tab === "events" ? <AdminEncounters /> : <AdminRequests />}
     </div>
   );
 }

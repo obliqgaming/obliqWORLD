@@ -34,7 +34,7 @@ export function LoginScreen({ onConnect }: { onConnect: (provider: "twitch" | "d
         </div>
         {error && <div className="mt-3 rounded bg-[#5e1b1b] p-2 text-sm font-bold">{error}</div>}
         <p className="mt-4 text-[11px] opacity-70">
-          Nous gardons ton identifiant de compte, ton pseudo et ton avatar Twitch/Discord, tes dessins et tes parties. Rien d'autre.
+          Nous gardons ton identifiant de compte, ton pseudo et ton avatar Twitch/Discord, tes dessins et tes parties. Rien d'autre. <a href="/confidentialite" className="underline">En savoir plus</a>
         </p>
       </div>
     </div>
