@@ -8,6 +8,7 @@ export type LootItem = {
   kind: string;
   weapon_id: string | null;
   item_key: string | null;
+  visual_asset_id?: string | null;
   status: "rolling" | "assigned" | "delivered" | "lost";
   roll_deadline: string;
   winner_character_id: string | null;
@@ -15,7 +16,7 @@ export type LootItem = {
 export type LootWeapon = { id: string; name: string; image_url: string; rarity: "common" | "uncommon" | "rare" | "epic" | "legendary"; weapon_type: string; bonus_damage: number; effect_key: string | null };
 
 export async function fetchLoot(expeditionId: string, combatId: string | null, stepId?: string) {
-  let q = scenesClient.from("loot_items").select("id, combat_id, kind, weapon_id, item_key, status, roll_deadline, winner_character_id").eq("expedition_id", expeditionId);
+  let q = scenesClient.from("loot_items").select("id, combat_id, kind, weapon_id, item_key, visual_asset_id, status, roll_deadline, winner_character_id").eq("expedition_id", expeditionId);
   q = stepId ? q.eq("step_id", stepId) : q.eq("combat_id", combatId as string);
   const [i, r] = await Promise.all([
     q,
@@ -28,7 +29,13 @@ export async function fetchLoot(expeditionId: string, combatId: string | null, s
     const w = await scenesClient.from("weapons").select("id, name, image_url, rarity, weapon_type, bonus_damage, effect_key").in("id", ids);
     weapons = (w.data ?? []) as LootWeapon[];
   }
-  return { items, rolls: (r.data ?? []) as LootRoll[], weapons };
+  const vids = items.map((x) => x.visual_asset_id).filter(Boolean) as string[];
+  const creatures: Record<string, string> = {};
+  if (vids.length) {
+    const v = await scenesClient.from("visual_assets").select("id, image_url").in("id", vids);
+    for (const row of (v.data ?? []) as { id: string; image_url: string }[]) creatures[row.id] = row.image_url;
+  }
+  return { items, rolls: (r.data ?? []) as LootRoll[], weapons, creatures };
 }
 
 export async function lootRespond(lootId: string, characterId: string, wants: boolean) {

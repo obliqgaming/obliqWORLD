@@ -2,11 +2,12 @@
 // et déplacés depuis /admin, comme le portail d'expédition.
 import { scenesClient, type Point } from "./scenes-supabase";
 
-export type HotspotKind = "forge" | "step_editor" | "merchant";
+export type HotspotKind = "forge" | "step_editor" | "merchant" | "farm";
 
 export const HOTSPOT_KINDS: { kind: HotspotKind; label: string; icon: string; hint: string }[] = [
   { kind: "forge", label: "Forgeron", icon: "⚒", hint: "Dessiner et acheter des armes" },
   { kind: "merchant", label: "Marchand", icon: "🛍", hint: "Acheter des potions, revendre des objets" },
+  { kind: "farm", label: "Ferme", icon: "🐾", hint: "Tes compagnons" },
   { kind: "step_editor", label: "Éditeur d'étapes", icon: "📜", hint: "Écrire des étapes d'expédition" },
 ];
 
