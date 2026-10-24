@@ -76,6 +76,7 @@ import { CharacterSelect } from "../components/CharacterSelect";
 import { LoginScreen } from "../components/LoginScreen";
 import { DeadScreen } from "../components/DeadScreen";
 import { HelpDialog } from "../components/HelpDialog";
+import { ensureSessionCleanup } from "../lib/session";
 import { AboutDialog } from "../components/AboutDialog";
 import { WelcomeModal } from "../components/WelcomeModal";
 import { REQUIRE_PROVIDER_LOGIN } from "../lib/alpha-config";
@@ -730,7 +731,8 @@ function Index() {
     if (!character) return;
     let cancelled = false;
 
-    fetchMyActiveParty(character.id)
+    ensureSessionCleanup()
+      .then(() => fetchMyActiveParty(character.id))
       .then((result) => {
         if (cancelled || !result) return;
         setParty(result.party);

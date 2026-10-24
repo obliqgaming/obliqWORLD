@@ -43,8 +43,13 @@ export function CharacterSelect({
   const [tab, setTab] = useState<"draw" | "existing">("draw");
   const [selected, setSelected] = useState<string | null>(null);
 
+  const [formMessage, setFormMessage] = useState<string | null>(null);
   const handleDrawingExported = async (blob: Blob, handAnchor: Point | null) => {
-    if (!family) return;
+    if (!family) {
+      setFormMessage("Choisis ta spécialisation ci-dessous (Mêlée ou Magie), puis valide de nouveau ton dessin.");
+      return;
+    }
+    setFormMessage(null);
     setSaving(true);
     try {
       const asset = await uploadDrawingAsCharacterAsset(blob, name, handAnchor);
@@ -99,38 +104,6 @@ export function CharacterSelect({
           </p>
         )}
 
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Nom du personnage"
-          maxLength={30}
-          className="mb-4 w-full rounded-lg border-2 border-[#7a4a22]/70 bg-white/60 px-3 py-2 text-sm font-medium text-[#3a2210] outline-none placeholder:font-normal placeholder:text-[#7a4a22]/80"
-        />
-
-        {/* Étape 1 : la famille (définitive) */}
-        <p className="mb-2 text-center text-sm font-bold">1. Choisis ta famille (définitif)</p>
-        <div className="mb-4 grid grid-cols-2 gap-3">
-          {(
-            [
-              { id: "melee", label: "Mêlée", desc: "Tu te bats au corps à corps." },
-              { id: "magie", label: "Magie", desc: "Tu lances des sorts." },
-            ] as { id: CharacterFamily; label: string; desc: string }[]
-          ).map((f) => (
-            <button
-              key={f.id}
-              type="button"
-              disabled={saving || !!busy}
-              onClick={() => setFamily(f.id)}
-              className={`rounded-lg border-2 px-3 py-2 text-left ${
-                family === f.id ? "border-[#7a4a22] bg-[#7a4a22]/20" : "border-transparent bg-black/10"
-              }`}
-            >
-              <div className="text-base font-bold">{f.label}</div>
-              <div className="text-xs font-medium opacity-80">{f.desc}</div>
-            </button>
-          ))}
-        </div>
-
         {/* Étape 2 : le dessin (obligatoire) */}
         {DEV_ALLOW_EXISTING_CHARACTERS && (
           <div className="mb-3 flex justify-center gap-2">
@@ -154,11 +127,7 @@ export function CharacterSelect({
             </button>
           </div>
         )}
-        {!family ? (
-          <p className="rounded-lg bg-black/10 px-3 py-6 text-center text-sm font-medium">
-            Choisis d'abord ta famille pour continuer.
-          </p>
-        ) : tab === "existing" && DEV_ALLOW_EXISTING_CHARACTERS ? (
+        {tab === "existing" && DEV_ALLOW_EXISTING_CHARACTERS && family ? (
           <div>
             <div className="grid max-h-72 grid-cols-3 gap-3 overflow-y-auto sm:grid-cols-4">
               {assets.map((a) => (
@@ -186,6 +155,44 @@ export function CharacterSelect({
         ) : (
           <DrawingCanvas onExport={handleDrawingExported} exporting={saving || !!busy} />
         )}
+
+        {/* Après le dessin : le nom et la spécialisation (définitive) */}
+        <div className="mt-5 border-t-2 border-[#7a4a22]/40 pt-4">
+          <p className="mb-2 text-center text-sm font-bold">Puis donne-lui un nom et une spécialisation (définitive), et valide ton dessin</p>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Nom du personnage"
+          maxLength={30}
+          className="mb-4 w-full rounded-lg border-2 border-[#7a4a22]/70 bg-white/60 px-3 py-2 text-sm font-medium text-[#3a2210] outline-none placeholder:font-normal placeholder:text-[#7a4a22]/80"
+        />
+
+        {/* Étape 1 : la famille (définitive) */}
+        <p className="mb-2 text-center text-sm font-bold">Spécialisation</p>
+        <div className="mb-4 grid grid-cols-2 gap-3">
+          {(
+            [
+              { id: "melee", label: "Mêlée", desc: "Tu te bats au corps à corps." },
+              { id: "magie", label: "Magie", desc: "Tu lances des sorts." },
+            ] as { id: CharacterFamily; label: string; desc: string }[]
+          ).map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              disabled={saving || !!busy}
+              onClick={() => setFamily(f.id)}
+              className={`rounded-lg border-2 px-3 py-2 text-left ${
+                family === f.id ? "border-[#7a4a22] bg-[#7a4a22]/20" : "border-transparent bg-black/10"
+              }`}
+            >
+              <div className="text-base font-bold">{f.label}</div>
+              <div className="text-xs font-medium opacity-80">{f.desc}</div>
+            </button>
+          ))}
+        </div>
+
+          {formMessage && <p className="mt-2 text-center text-sm font-bold text-[#92400e]">{formMessage}</p>}
+        </div>
       </div>
     </div>
   );
