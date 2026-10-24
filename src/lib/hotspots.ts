@@ -2,9 +2,10 @@
 // et déplacés depuis /admin, comme le portail d'expédition.
 import { scenesClient, type Point } from "./scenes-supabase";
 
-export type HotspotKind = "forge" | "step_editor" | "merchant" | "farm";
+export type HotspotKind = "forge" | "step_editor" | "merchant" | "farm" | "gold";
 
-export const HOTSPOT_KINDS: { kind: HotspotKind; label: string; icon: string; hint: string }[] = [
+export const HOTSPOT_KINDS: { kind: HotspotKind; label: string; icon: string; hint: string; multi?: boolean; bare?: boolean }[] = [
+  { kind: "gold", label: "Tas d'or (quotidien)", icon: "💰", hint: "Ramasser de l'or une fois par jour", multi: true, bare: true },
   { kind: "forge", label: "Forgeron", icon: "⚒", hint: "Dessiner et acheter des armes" },
   { kind: "merchant", label: "Marchand", icon: "🛍", hint: "Acheter des potions, revendre des objets" },
   { kind: "farm", label: "Ferme", icon: "🐾", hint: "Tes compagnons" },
@@ -12,7 +13,8 @@ export const HOTSPOT_KINDS: { kind: HotspotKind; label: string; icon: string; hi
 ];
 
 export function hotspotInfo(kind: string) {
-  return HOTSPOT_KINDS.find((k) => k.kind === kind) ?? { kind, label: kind, icon: "★", hint: "" };
+  const base = kind.split(":")[0];
+  return HOTSPOT_KINDS.find((k) => k.kind === base) ?? { kind, label: kind, icon: "★", hint: "" };
 }
 
 export type SceneHotspot = {
@@ -42,6 +44,19 @@ export async function placeSceneHotspot(sceneId: string, kind: string, position:
     .single();
   if (error) throw error;
   return data as SceneHotspot;
+}
+
+// Lieux « multiples » (tas d'or) : chaque exemplaire a un kind unique « gold:1 », « gold:2 »…
+export async function addMultiHotspot(sceneId: string, base: string, position: Point, existingKinds: string[]): Promise<SceneHotspot> {
+  let n = 1;
+  while (existingKinds.includes(`${base}:${n}`)) n += 1;
+  return placeSceneHotspot(sceneId, `${base}:${n}`, position);
+}
+
+export async function claimDailyGold(hotspotId: string): Promise<number> {
+  const { data, error } = await scenesClient.rpc("daily_gold_claim", { p_hotspot_id: hotspotId });
+  if (error) throw error;
+  return Number(data ?? 0);
 }
 
 export async function deleteSceneHotspot(id: string): Promise<void> {

@@ -46,7 +46,7 @@ export function FarmPanel({ onClose }: { onClose: () => void }) {
         </div>
         <div className="mt-1 text-xs opacity-80">
           Un seul compagnon t'accompagne en expédition : il prend la moitié des dégâts que tu reçois. À 0 PV il s'enfuit (il n'est jamais perdu) et se repose
-          3 expéditions (petit), 6 (moyen) ou 9 (grand). Les compagnons se gagnent en butin sur les créatures battues, très rarement.
+          3 expéditions (petit), 6 (moyen) ou 9 (grand). Les compagnons se gagnent en butin sur les créatures de la forêt (celles de Wild et les personnages morts), très rarement.
         </div>
         {msg && <div className="mt-2 text-xs font-bold text-[#92400e]">{msg}</div>}
         {list === null && <div className="mt-3 text-sm">Chargement…</div>}

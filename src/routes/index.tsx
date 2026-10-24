@@ -2196,8 +2196,8 @@ function Index() {
               setInventoryOpen(true);
             }}
             title="Inventaire"
-            className="absolute bottom-3 left-1/2 z-30 -translate-x-1/2 rounded-lg border-2 border-[#7a4a22] bg-[#2b1406]/85 px-3 py-1 text-lg font-bold text-[#fff3d6] hover:bg-[#5e3818]"
-            style={{ fontFamily: "'Baloo 2', cursive" }}
+            className={`absolute bottom-2 left-1/2 z-30 -translate-x-1/2 px-2 leading-none transition-transform hover:scale-110 ${inExpeditionScene ? "text-3xl" : "text-6xl"}`}
+            style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.7))", fontFamily: "'Baloo 2', cursive" }}
           >
             🎒
           </button>
@@ -2210,8 +2210,8 @@ function Index() {
               setHelpOpen(true);
             }}
             title="Signaler un bug, aide, confidentialité"
-            className="absolute right-5 top-20 z-30 rounded-lg border-2 border-[#7a4a22] bg-[#2b1406]/85 px-2.5 py-1 text-sm font-bold text-[#fff3d6] hover:bg-[#5e3818]"
-            style={{ fontFamily: "'Baloo 2', cursive" }}
+            className="absolute right-5 top-20 z-30 px-1 text-2xl leading-none transition-transform hover:scale-110"
+            style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.7))" }}
           >
             🐞
           </button>
@@ -2224,8 +2224,8 @@ function Index() {
               setAboutOpen(true);
             }}
             title="À propos / Soutien"
-            className="absolute right-5 top-32 z-30 rounded-lg border-2 border-[#7a4a22] bg-[#2b1406]/85 px-2.5 py-1 text-sm font-bold text-[#fff3d6] hover:bg-[#5e3818]"
-            style={{ fontFamily: "'Baloo 2', cursive" }}
+            className="absolute right-5 top-32 z-30 px-1 text-2xl leading-none transition-transform hover:scale-110"
+            style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.7))" }}
           >
             ❤️
           </button>

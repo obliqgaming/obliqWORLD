@@ -32,7 +32,7 @@ import { AdminEncounters } from "../components/AdminEncounters";
 import { AdminRequests } from "../components/AdminRequests";
 import { AdminSettings } from "../components/AdminSettings";
 import { AdminWeapons } from "../components/AdminWeapons";
-import { HOTSPOT_KINDS, deleteSceneHotspot, fetchSceneHotspots, hotspotInfo, placeSceneHotspot, type SceneHotspot } from "../lib/hotspots";
+import { HOTSPOT_KINDS, addMultiHotspot, deleteSceneHotspot, fetchSceneHotspots, hotspotInfo, placeSceneHotspot, type SceneHotspot } from "../lib/hotspots";
 
 // Page d'admin : permet de dessiner les pièces (zone marchable), les
 // obstacles (tables, meubles isolés) et la calibration de profondeur (taille du
@@ -441,8 +441,9 @@ function AdminPage() {
     setPlacingHotspot(null);
     if (!scene) return;
     try {
-      const h = await placeSceneHotspot(scene.id, kind, p);
-      setHotspots((list) => [...list.filter((x) => x.kind !== kind), h]);
+      const multi = !!HOTSPOT_KINDS.find((k) => k.kind === kind)?.multi;
+      const h = multi ? await addMultiHotspot(scene.id, kind, p, hotspots.map((x) => x.kind)) : await placeSceneHotspot(scene.id, kind, p);
+      setHotspots((list) => (multi ? [...list, h] : [...list.filter((x) => x.kind !== kind), h]));
       setExitStatus(`${hotspotInfo(kind).label} placé ✅`);
     } catch (err) {
       console.error(err);
@@ -922,6 +923,25 @@ function AdminPage() {
             </button>
           )}
           {HOTSPOT_KINDS.map((k) => {
+            if (k.multi) {
+              const all = hotspots.filter((h) => h.kind.split(":")[0] === k.kind);
+              return (
+                <span key={k.kind} className="inline-flex flex-wrap items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setPlacingHotspot((cur) => (cur === k.kind ? null : k.kind))}
+                    className={`rounded px-3 py-1 text-xs font-semibold ${placingHotspot === k.kind ? "bg-amber-600" : "bg-neutral-700"}`}
+                  >
+                    {placingHotspot === k.kind ? `Clique sur l'image pour poser : ${k.label}…` : `${k.icon} Ajouter : ${k.label} (${all.length})`}
+                  </button>
+                  {all.map((h) => (
+                    <button key={h.id} type="button" onClick={() => void handleDeleteHotspot(h)} className="rounded bg-neutral-700 px-2 py-1 text-xs text-red-400" title="Retirer ce tas">
+                      🗑 {h.kind.split(":")[1]}
+                    </button>
+                  ))}
+                </span>
+              );
+            }
             const placed = hotspots.find((h) => h.kind === k.kind);
             return (
               <span key={k.kind} className="inline-flex items-center gap-1">
