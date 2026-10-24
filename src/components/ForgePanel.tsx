@@ -11,6 +11,7 @@ import {
 } from "../lib/weapons";
 import { RarityName } from "./InventoryPanel";
 import { fetchMyBuild } from "../lib/expedition-combat";
+import { ShopPanel } from "./ShopPanel";
 import { fetchForgeCost, fetchMyGold, fetchRepairCosts, repairItem } from "../lib/loot";
 
 const BTN = "rounded-lg border-2 border-[#7a4a22] bg-[#7a4a22] px-4 py-1.5 text-sm font-bold text-[#fff3d6] hover:bg-[#5e3818] disabled:opacity-50";
@@ -20,6 +21,7 @@ export type ForgeCharacter = { id: string; name: string; imageUrl: string; visua
 export function ForgePanel({ character, onClose, onWeaponChanged }: { character: ForgeCharacter | null; onClose: () => void; onWeaponChanged: () => void }) {
   const [hand, setHand] = useState<Point>(DEFAULT_HAND);
   const [cost, setCost] = useState(0);
+  const [tab, setTab] = useState<"forge" | "shop">("forge");
   const [repairOpen, setRepairOpen] = useState(false);
   const [repairItems, setRepairItems] = useState<WeaponItem[]>([]);
   const [repairCosts, setRepairCosts] = useState<Record<string, number>>({});
@@ -94,7 +96,15 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
           <div className="text-xl font-extrabold">⚒ Forgeron{cost > 0 && <span className="ml-2 text-sm text-[#92400e]">Forger coûte {cost} or · tu as {gold} 💰</span>}</div>
           <button type="button" onClick={onClose} className="rounded border border-[#7a4a22] px-3 py-0.5 text-xs font-bold hover:bg-[#7a4a22]/15">Fermer</button>
         </div>
-        {!character ? (
+        {character && (
+          <div className="mt-2 flex gap-2">
+            <button type="button" onClick={() => setTab("forge")} className={`rounded px-3 py-1 text-sm font-bold ${tab === "forge" ? "bg-[#7a4a22] text-[#fff3d6]" : "border border-[#7a4a22]"}`}>⚒ Forger</button>
+            <button type="button" onClick={() => setTab("shop")} className={`rounded px-3 py-1 text-sm font-bold ${tab === "shop" ? "bg-[#7a4a22] text-[#fff3d6]" : "border border-[#7a4a22]"}`}>🛒 Boutique</button>
+          </div>
+        )}
+        {character && tab === "shop" ? (
+          <ShopPanel gold={gold} family={family} onGoldChange={() => void fetchMyGold().then(setGold)} onBought={onWeaponChanged} />
+        ) : !character ? (
           <div className="mt-3 text-sm">Il te faut un personnage pour forger une arme.</div>
         ) : (
           <div className="mt-3 grid gap-4 md:grid-cols-[1fr_14rem]">
