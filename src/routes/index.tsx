@@ -115,9 +115,9 @@ import { findPath } from "../lib/pathfinding";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Auberge" },
+      { title: "ObliqWorld" },
       { name: "description", content: "Explorez le monde — auberge, village, forêt." },
-      { property: "og:title", content: "Auberge" },
+      { property: "og:title", content: "ObliqWorld" },
       { property: "og:description", content: "Explorez le monde — auberge, village, forêt." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
