@@ -77,6 +77,8 @@ import { LoginScreen } from "../components/LoginScreen";
 import { DeadScreen } from "../components/DeadScreen";
 import { HelpDialog } from "../components/HelpDialog";
 import { ensureSessionCleanup } from "../lib/session";
+import { PetSprite } from "../components/PetSprite";
+import { fetchMyCompanions } from "../lib/companions";
 import { AboutDialog } from "../components/AboutDialog";
 import { WelcomeModal } from "../components/WelcomeModal";
 import { REQUIRE_PROVIDER_LOGIN } from "../lib/alpha-config";
@@ -245,6 +247,9 @@ function Index() {
   const [creatingCharacter, setCreatingCharacter] = useState(false);
   const [authIdentity, setAuthIdentity] = useState<AuthIdentity | null>(null);
   const [loginRequired, setLoginRequired] = useState(false);
+  // Compagnon choisi à la ferme (image) : visible de tous, il marche devant son maître.
+  const [myPet, setMyPet] = useState<string | null>(null);
+  const myPetRef = useRef<string | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [welcomeOpen, setWelcomeOpen] = useState(false);
@@ -652,6 +657,29 @@ function Index() {
       console.error("Death check failed", e);
     }
   };
+
+  const refreshMyPet = async () => {
+    try {
+      const list = await fetchMyCompanions();
+      const c = list.find((x) => x.active && x.hp > 0 && x.rest_left === 0 && x.loot_expedition_id === null);
+      const url = c?.image_url ?? null;
+      if (url !== myPetRef.current) {
+        myPetRef.current = url;
+        setMyPet(url);
+        trackPresence(lastLogicalPosRef.current, 0, false);
+      }
+    } catch {
+      /* ferme non activée : pas de compagnon */
+    }
+  };
+  useEffect(() => {
+    if (!character) return;
+    void refreshMyPet();
+    const h = () => void refreshMyPet();
+    window.addEventListener("obliq-companion-changed", h);
+    return () => window.removeEventListener("obliq-companion-changed", h);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [character?.id, scene.id, activeExpedition?.status]);
 
   // Message d'accueil : une seule fois par navigateur, dès qu'on a un personnage.
   useEffect(() => {
@@ -1611,6 +1639,7 @@ function Index() {
     duration: ms,
     walking: isWalking,
     away: awayRef.current,
+    pet: myPetRef.current,
   });
 
   // Presence (track()) — réservée aux événements RARES : arrivée à
@@ -1997,6 +2026,7 @@ function Index() {
                 }}
               />
             </div>
+            {myPet && <PetSprite src={myPet} facingRight={facingRight} walking={walking} />}
             <NameTag name={character.name} away={selfAway} showName={SHOW_NAME_LABELS} />
           </div>
         )}
@@ -2041,6 +2071,7 @@ function Index() {
                   }}
                 />
               </div>
+              {peer.pet && <PetSprite src={peer.pet} facingRight={isFacingRight} walking={isWalking} />}
               <NameTag name={peer.name} away={!!peer.away} showName={SHOW_NAME_LABELS} />
             </div>
           );

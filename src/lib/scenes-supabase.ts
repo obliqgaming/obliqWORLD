@@ -110,6 +110,7 @@ export type PeerState = {
   position: Point;
   duration: number;
   walking: boolean;
+  pet?: string | null; // image du compagnon qui l'accompagne (SQL 031)
   away?: boolean; // true = absent (aucune action depuis 2 min) → "(ABS)" affiché
 };
 

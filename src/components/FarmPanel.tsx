@@ -29,6 +29,7 @@ export function FarmPanel({ onClose }: { onClose: () => void }) {
     try {
       await fn();
       await reload();
+      window.dispatchEvent(new Event("obliq-companion-changed"));
     } catch (e: any) {
       setMsg(e?.message ?? "Erreur");
     } finally {
