@@ -351,6 +351,9 @@ function Index() {
 
   // ---- Marche des autres joueurs, calculée localement (fix téléportation) ----
   const prevPeerPosRef = useRef<Record<string, Point>>({});
+  // Dernière horloge (champ t) reçue par pair : écarte les états périmés de la
+  // présence qui feraient revenir un pair en arrière pendant sa marche.
+  const peerLastTRef = useRef<Record<string, number>>({});
   const peerWalkTimers = useRef<Record<string, number>>({});
   const peerRemoveTimers = useRef<Record<string, number>>({});
   const [peerWalking, setPeerWalking] = useState<Record<string, boolean>>({});
@@ -1429,10 +1432,21 @@ function Index() {
     // On fusionne plutôt que de remplacer : un pair en attente de retrait
     // (grâce ci-dessous) doit rester affiché même s'il n'est plus dans
     // newPeers pour l'instant.
-    setPeers((prev) => ({ ...prev, ...newPeers }));
+    // La présence ne rafraîchit qu'aux arrivées : en pleine marche d'un pair,
+    // elle contient encore son ancienne position et le ferait revenir en
+    // arrière (allers-retours). On ne garde donc que les états plus récents
+    // que le dernier reçu (horloge t de l'émetteur, comparée seulement à elle-même).
+    const fresh: Record<string, PeerState> = {};
+    Object.entries(newPeers).forEach(([key, peer]) => {
+      const last = peerLastTRef.current[key];
+      if (peer.t != null && last != null && peer.t <= last) return;
+      if (peer.t != null) peerLastTRef.current[key] = peer.t;
+      fresh[key] = peer;
+    });
+    setPeers((prev) => ({ ...prev, ...fresh }));
     const rect = sceneRef.current?.getBoundingClientRect();
 
-    Object.entries(newPeers).forEach(([key, peer]) => {
+    Object.entries(fresh).forEach(([key, peer]) => {
       const prev = prevPeerPosRef.current[key];
       prevPeerPosRef.current[key] = peer.position;
 
@@ -1441,7 +1455,9 @@ function Index() {
 
       const dist = distanceInPx(rect, prev, peer.position);
       if (dist < 1) return;
-      const ms = walkDurationMs(dist);
+      // Durée choisie par l'émetteur (même vitesse pour tous, quel que soit
+      // l'écran) ; calcul local seulement en secours.
+      const ms = peer.duration > 0 ? peer.duration : walkDurationMs(dist);
 
       if (Math.abs(peer.position.x - prev.x) > 0.01) {
         setPeerFacingRight((f) => ({ ...f, [key]: peer.position.x > prev.x }));
@@ -1453,7 +1469,7 @@ function Index() {
       if (peerWalkTimers.current[key]) window.clearTimeout(peerWalkTimers.current[key]);
       peerWalkTimers.current[key] = window.setTimeout(() => {
         setPeerWalking((w) => ({ ...w, [key]: false }));
-      }, ms);
+      }, ms + 150); // marge : le pas suivant arrive avec un peu de latence, pas de micro-arrêt
     });
 
     if (!isFullRoster) return; // un message Broadcast ne concerne qu'un seul pair, jamais un retrait
@@ -1472,6 +1488,7 @@ function Index() {
         logPresence(`retrait définitif après délai de grâce: ${key.slice(0, 8)}…`);
         delete peerRemoveTimers.current[key];
         delete prevPeerPosRef.current[key];
+        delete peerLastTRef.current[key];
         if (peerWalkTimers.current[key]) window.clearTimeout(peerWalkTimers.current[key]);
         delete peerWalkTimers.current[key];
         setPeers((p) => {
@@ -1507,6 +1524,7 @@ function Index() {
     if (!character) return;
     sceneIdRef.current = scene.id;
     prevPeerPosRef.current = {};
+    peerLastTRef.current = {};
     Object.values(peerWalkTimers.current).forEach((t) => window.clearTimeout(t));
     peerWalkTimers.current = {};
     Object.values(peerRemoveTimers.current).forEach((t) => window.clearTimeout(t));
@@ -1640,6 +1658,7 @@ function Index() {
     walking: isWalking,
     away: awayRef.current,
     pet: myPetRef.current,
+    t: Date.now(),
   });
 
   // Presence (track()) — réservée aux événements RARES : arrivée à
