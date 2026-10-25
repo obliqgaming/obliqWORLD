@@ -73,6 +73,7 @@ export type SceneExit = {
   to_scene_id: string;
   position: Point;
   label: string | null;
+  arrow_rotation?: number | null; // SQL 042 : angle de la flèche-curseur (0 = droite), réglé dans /admin
 };
 
 export type VisualAsset = {
@@ -438,7 +439,7 @@ export async function createSceneExit(
 // toucher au SQL.
 export async function updateSceneExitDestination(
   exitId: string,
-  changes: { to_scene_id?: string; label?: string | null },
+  changes: { to_scene_id?: string; label?: string | null; arrow_rotation?: number },
 ): Promise<void> {
   const { error } = await scenesClient.from("scene_exits").update(changes).eq("id", exitId);
   if (error) throw error;

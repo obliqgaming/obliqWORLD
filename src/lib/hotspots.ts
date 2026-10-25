@@ -9,7 +9,7 @@ export const HOTSPOT_KINDS: { kind: HotspotKind; label: string; icon: string; hi
   { kind: "forge", label: "Forgeron", icon: "⚒", hint: "Dessiner et acheter des armes" },
   { kind: "merchant", label: "Marchand", icon: "🛍", hint: "Acheter des potions, revendre des objets" },
   { kind: "farm", label: "Ferme", icon: "🐾", hint: "Tes compagnons" },
-  { kind: "quests", label: "Quêtes (quotidienne)", icon: "📜", hint: "Accepter la quête du jour" },
+  { kind: "quests", label: "Quêtes (quotidienne)", icon: "❗", hint: "Accepter la quête du jour" },
   { kind: "step_editor", label: "Éditeur d'étapes", icon: "📜", hint: "Écrire des étapes d'expédition" },
 ];
 

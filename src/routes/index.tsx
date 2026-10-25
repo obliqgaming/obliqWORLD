@@ -105,7 +105,7 @@ import { openNarrativeStep, fetchNarrativeEvent, type NarrativeEvent } from "../
 import { NarrativeStepPanel } from "../components/NarrativeStepPanel";
 import { HotspotMarker, HotspotPanel } from "../components/SceneHotspots";
 import { WornSprite } from "../components/WornSprite";
-import { CURSOR_INTERACT } from "../lib/cursors";
+import { CURSOR_DEFAULT, CURSOR_INTERACT, arrowCursor, useArrowCursorReady } from "../lib/cursors";
 import { InventoryPanel } from "../components/InventoryPanel";
 import { fetchWornWeapons, type WornWeapon } from "../lib/weapons";
 import { fetchSceneHotspots, type SceneHotspot } from "../lib/hotspots";
@@ -291,6 +291,7 @@ function Index() {
   const inviteChannelRef = useRef<PresenceChannel | null>(null);
 
   // ---------- Portail d'expédition (§5, revu le 2026-10-14) ----------
+  useArrowCursorReady(); // recharge l'affichage quand la flèche-curseur des portails est prête
   const [scenePortals, setScenePortals] = useState<ExpeditionPortal[]>([]);
   const [longMinLevel, setLongMinLevel] = useState(5); // réglage long_expedition_min_level (SQL 040), pour l'étiquette du portail
   // Lieux interactifs de la scène (forgeron, éditeur d'étapes…), posés depuis /admin.
@@ -2034,8 +2035,8 @@ function Index() {
             onClick={(e) => handleExitClick(e, exit)}
             aria-label={exit.label ?? "Sortie"}
             title={exit.label ?? undefined}
-            className="cursor-creature absolute z-10 h-9 w-9 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#fff3d6]/80 bg-black/30 backdrop-blur-sm transition-transform hover:scale-110"
-            style={{ left: `${exit.position.x}%`, top: `${exit.position.y}%` }}
+            className="absolute z-10 h-9 w-9 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#fff3d6]/80 bg-black/30 backdrop-blur-sm transition-transform hover:scale-110"
+            style={{ left: `${exit.position.x}%`, top: `${exit.position.y}%`, cursor: arrowCursor(exit.arrow_rotation) }}
           />
         ))}
 
@@ -2336,7 +2337,7 @@ function Index() {
             }}
             title="Signaler un bug, aide, confidentialité"
             className="absolute right-5 top-20 z-30 px-1 text-2xl leading-none transition-transform hover:scale-110"
-            style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.7))", cursor: CURSOR_INTERACT }}
+            style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.7))", cursor: CURSOR_DEFAULT }}
           >
             🐞
           </button>
@@ -2350,7 +2351,7 @@ function Index() {
             }}
             title="À propos / Soutien"
             className="absolute right-5 top-32 z-30 px-1 text-2xl leading-none transition-transform hover:scale-110"
-            style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.7))", cursor: CURSOR_INTERACT }}
+            style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.7))", cursor: CURSOR_DEFAULT }}
           >
             ❤️
           </button>

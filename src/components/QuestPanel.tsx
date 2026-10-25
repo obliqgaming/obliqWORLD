@@ -73,11 +73,11 @@ export function QuestPanel({ onClose }: { onClose: () => void }) {
     <div className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/55 p-2" onClick={(e) => e.stopPropagation()} style={{ fontFamily: "'Baloo 2', cursive" }}>
       <div className="max-h-full w-[min(34rem,98%)] overflow-y-auto rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-4 text-[#3a2410] shadow-xl">
         <div className="flex items-center justify-between">
-          <div className="text-xl font-extrabold">📜 Quête du jour</div>
+          <div className="text-xl font-extrabold">❗ Quête du jour</div>
           <button type="button" onClick={onClose} className={BTN}>Fermer</button>
         </div>
         <div className="mt-2 space-y-1 text-sm leading-snug">
-          <div>📜 <b>Une seule quête par jour</b>, à choisir parmi celles-ci.</div>
+          <div>❗ <b>Une seule quête par jour</b>, à choisir parmi celles-ci.</div>
           <div>📌 Une fois acceptée, <b>elle reste</b> jusqu'à être accomplie.</div>
           <div>🎁 La récompense est un <b>booster</b> <i>(or, potion, parchemin, arme, compagnon…)</i>.</div>
         </div>

@@ -515,6 +515,18 @@ function AdminPage() {
     }
   };
 
+  // Angle de la flèche-curseur du portail (0° = droite, 90° = bas, 180° = gauche, 270° = haut).
+  const handleExitRotationChange = async (exitId: string, deg: number) => {
+    const d = ((Math.round(deg) % 360) + 360) % 360;
+    setExits((list) => list.map((x) => (x.id === exitId ? { ...x, arrow_rotation: d } : x)));
+    try {
+      await updateSceneExitDestination(exitId, { arrow_rotation: d });
+    } catch (err) {
+      console.error(err);
+      setExitStatus("Erreur en enregistrant l'angle de la flèche — as-tu lancé le SQL 042 ? (F12 pour le détail)");
+    }
+  };
+
   const handleDeleteExit = async (exitId: string) => {
     if (!window.confirm("Supprimer ce portail ?")) return;
     try {
@@ -1178,6 +1190,27 @@ function AdminPage() {
                   placeholder="Libellé (ex: Étage)"
                   className="mb-1 w-full rounded border border-neutral-700 bg-neutral-900 px-2 py-1 text-xs"
                 />
+                <div className="mb-1 flex items-center gap-1 text-xs">
+                  <img
+                    src="/cursors/cursor-arrow.png"
+                    alt=""
+                    className="h-6 w-6 object-contain"
+                    style={{ transform: `rotate(${ex.arrow_rotation ?? 0}deg)` }}
+                  />
+                  <button type="button" className="rounded bg-neutral-700 px-1.5 py-0.5" title="Tourner de 15° à gauche" onClick={() => void handleExitRotationChange(ex.id, (ex.arrow_rotation ?? 0) - 15)}>⟲</button>
+                  <input
+                    type="range"
+                    min={0}
+                    max={359}
+                    value={ex.arrow_rotation ?? 0}
+                    onChange={(e) => setExits((list) => list.map((x) => (x.id === ex.id ? { ...x, arrow_rotation: Number(e.target.value) } : x)))}
+                    onMouseUp={(e) => void handleExitRotationChange(ex.id, Number((e.target as HTMLInputElement).value))}
+                    onTouchEnd={(e) => void handleExitRotationChange(ex.id, Number((e.target as HTMLInputElement).value))}
+                    className="min-w-0 flex-1"
+                  />
+                  <button type="button" className="rounded bg-neutral-700 px-1.5 py-0.5" title="Tourner de 15° à droite" onClick={() => void handleExitRotationChange(ex.id, (ex.arrow_rotation ?? 0) + 15)}>⟳</button>
+                  <span className="w-9 text-right opacity-70">{ex.arrow_rotation ?? 0}°</span>
+                </div>
                 <select
                   value={ex.to_scene_id}
                   onChange={(e) => handleExitDestinationChange(ex.id, e.target.value)}
