@@ -4,6 +4,7 @@
 //  - épreuve : « Voter pour… » (menu des joueurs) ou « Retraite ! »
 import { useEffect, useState } from "react";
 import type { NarrativeEvent } from "../lib/narrative";
+import { AuthorLine } from "./AuthorLine";
 
 const FONT = { fontFamily: "'Baloo 2', cursive" };
 const RISK_LABEL = { faible: "Risque faible", moyen: "Risque moyen", eleve: "Risque élevé" } as const;
@@ -64,6 +65,7 @@ export function NarrativeStepPanel({
         <span style={{ color: RISK_COLOR[event.risk_level] }}>{RISK_LABEL[event.risk_level]}</span>
       </div>
       <div className="whitespace-pre-line text-sm font-semibold leading-snug">{event.situation_text}</div>
+      <AuthorLine userId={event.author_user_id} label="Rencontre écrite par" className="mt-1 text-[10px] italic opacity-60" />
 
       {t === "danger_imminent" && (
         <div className="mt-2 text-xs italic">Qui protéger en priorité ? Se désigner soi-même est permis. Ceux qui se sacrifient se partagent les dégâts.</div>

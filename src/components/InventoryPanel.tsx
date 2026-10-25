@@ -1,5 +1,6 @@
 // Inventaire v1 : les armes que je porte sur moi, équiper / ranger / jeter.
 // (Pas de changement d'arme en combat : on équipe au village.)
+import { AuthorLine } from "./AuthorLine";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { WornSprite } from "./WornSprite";
 import type { Point } from "../lib/scenes-supabase";
@@ -31,6 +32,7 @@ export function ItemDetails({ it }: { it: WeaponItem }) {
         {it.is_prototype ? "Prototype" : RARITY_INFO[st.rarity].label} · {weaponKindLabel(it.weapon.weapon_type)} · {bonusText(st.bonus)} · durabilité {it.durability}/{it.durability_max}
       </div>
       {eff && <div><b>{eff.name}</b> : {eff.text}</div>}
+      <AuthorLine userId={it.weapon.author_user_id} label="Dessinée par" />
       {it.is_prototype && (
         <div className="opacity-70">
           Modèle {RARITY_INFO[it.weapon.rarity].label.toLowerCase()}

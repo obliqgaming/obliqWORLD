@@ -10,6 +10,7 @@ export type NarrativeEvent = {
   risk_level: NarrativeRisk;
   damage_mode: "partage" | "isole";
   situation_text: string | null;
+  author_user_id?: string | null;
 };
 
 export type NarrativeStep = ExpeditionStep & { step_type?: string | null; community_event_id?: string | null };
@@ -29,7 +30,7 @@ export async function openNarrativeStep(expeditionId: string, stepIndex: number)
 export async function fetchNarrativeEvent(eventId: string): Promise<NarrativeEvent | null> {
   const { data, error } = await scenesClient
     .from("community_events")
-    .select("id, step_type, risk_level, damage_mode, situation_text")
+    .select("id, step_type, risk_level, damage_mode, situation_text, author_user_id")
     .eq("id", eventId)
     .maybeSingle();
   if (error) throw error;
