@@ -142,7 +142,7 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
               <div className="mt-1 text-center text-xs font-bold">{eq ? itemDisplayName(eq) : "Mains nues"}</div>
               {eq && (
                 <div className="mt-1 text-[11px]">
-                  <div className="opacity-70">Glisse l'arme équipée pour la replacer dans la main, tourne-la, ajuste sa taille, puis Enregistrer : le réglage est gardé pour cette arme.</div>
+                  <div className="space-y-0.5 opacity-80"><div>✋ <b>Glisse</b> l'arme équipée pour la replacer dans la main, <b>tourne-la</b>, ajuste sa <b>taille</b>.</div><div>💾 Puis <b>Enregistrer</b> : <i>le réglage est gardé pour cette arme.</i></div></div>
                   <label className="flex items-center gap-1">
                     Rotation
                     <input type="range" min={-180} max={180} step={5} value={adj.rot} onChange={(e) => setAdj((a) => ({ ...a, rot: Number(e.target.value) }))} className="flex-1" />

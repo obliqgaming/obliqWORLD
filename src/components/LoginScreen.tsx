@@ -23,9 +23,10 @@ export function LoginScreen({ onConnect }: { onConnect: (provider: "twitch" | "d
       <div className="w-[min(32rem,100%)] rounded-xl border-2 border-[#7a4a22] bg-[#2b1406] p-6 text-center shadow-xl">
         <div className="text-2xl font-extrabold">ObliqWorld</div>
         <div className="mt-1 text-sm font-bold text-[#fde68a]">Alpha privée</div>
-        <p className="mt-3 text-sm">
-          Pour jouer, connecte-toi avec Twitch ou Discord. Ton personnage, ton or et tes armes sont retrouvés sur n'importe quel appareil.
-        </p>
+        <div className="mt-3 space-y-1 text-sm">
+          <p>Pour jouer, <b>connecte-toi avec Twitch ou Discord</b>.</p>
+          <p><i>Ton personnage, ton or et tes armes sont retrouvés sur n'importe quel appareil.</i></p>
+        </div>
         <div className="mt-4 flex flex-col gap-2">
           <button type="button" disabled={busy !== null} onClick={() => void go("twitch")} className="rounded-lg bg-[#9146FF] px-4 py-2 font-extrabold text-white disabled:opacity-50">
             {busy === "twitch" ? "…" : "Se connecter avec Twitch"}

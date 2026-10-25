@@ -139,7 +139,7 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
                 </button>
                 {repairOpen && (
                   <div className="mt-1 text-xs">
-                    <div className="mb-1 opacity-80">Prix par point de durabilité manquant, selon la rareté. Un prototype ne se répare pas, une arme à 0 disparaît.</div>
+                    <div className="mb-1 space-y-0.5 opacity-90"><div>🔧 <b>Prix par point de durabilité manquant</b>, <i>selon la rareté</i>.</div><div><i>Un prototype ne se répare pas.</i> <b>Une arme à 0 disparaît.</b></div></div>
                     {repairItems.length === 0 && <div>Aucune arme à réparer.</div>}
                     {repairItems.map((it) => {
                       const price = (it.durability_max - it.durability) * (repairCosts[it.weapon.rarity] ?? 2);
@@ -179,7 +179,7 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
                   weapon={preview ? worn({ imageUrl: preview.url, grip: preview.anchor, width: WEAPON_W, height: WEAPON_H }) : null}
                 />
               </div>
-              <div className="mt-3 text-xs">Ton prototype est équipé tout de suite (toujours commun) ; tes armes sont dans ton 🎒 Inventaire. La rareté du modèle est tirée au hasard à la validation : les exemplaires puissants se gagnent en butin.</div>
+              <div className="mt-3 space-y-1 text-xs"><div>⚔ Ton <b>prototype</b> est équipé tout de suite <i>(toujours commun)</i>.</div><div>🎒 Tes armes sont dans ton <b>Inventaire</b>.</div><div>🎲 La <b>rareté du modèle</b> est tirée au hasard à la validation : <i>les exemplaires puissants se gagnent en butin.</i></div></div>
             </div>
           </div>
         )}

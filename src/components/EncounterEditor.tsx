@@ -113,8 +113,10 @@ export function EncounterEditor({ onClose }: { onClose: () => void }) {
 
         {!draft && (
           <>
-            <div className="mt-2 text-sm">
-              Tu tires au hasard un type de rencontre et un niveau de risque, puis tu écris la situation et les deux issues. Chaque fois que des aventuriers la jouent, tu gagnes de l'or dans ta boîte aux lettres.
+            <div className="mt-2 space-y-1 text-sm">
+              <div>🎲 Tu <b>tires au hasard</b> un type de rencontre et un niveau de risque.</div>
+              <div>✍ Tu écris <b>la situation</b> et <b>les deux issues</b>.</div>
+              <div>💰 Chaque fois que des aventuriers la jouent, <b>tu gagnes de l'or</b> <i>(dans ta boîte aux lettres)</i>.</div>
             </div>
             <div className="mt-2 rounded border border-[#b98a54] bg-[#f6e8c4] p-2 text-xs italic">
               Une écriture trop fainéante ou incongrue sera rejetée.

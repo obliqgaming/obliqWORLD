@@ -13,8 +13,10 @@ export function WelcomeModal({ name, onClose }: { name: string; onClose: () => v
           <li>La forge te permet de dessiner une arme : si les gens l'achètent, ça te rapporte de l'or.</li>
           <li>L'éditeur d'étapes te permet d'écrire des épreuves qui te rapporteront de l'or.</li>
         </ul>
-        <div className="mt-3 text-sm font-extrabold">
-          C'est une version de test : des choses sont encore absentes (ferme, marchand, quêtes) et l'équilibrage est provisoire. Utilise le bouton 🐞 pour signaler tout problème !
+        <div className="mt-3 space-y-1 text-sm">
+          <div className="font-extrabold">C'est une version de test.</div>
+          <div>Des choses sont encore absentes <i>(les quêtes, par exemple)</i> et l'équilibrage est provisoire.</div>
+          <div>🐞 Utilise ce bouton pour <b>signaler tout problème</b> !</div>
         </div>
         <button type="button" onClick={onClose} className="mt-4 rounded-lg border-2 border-[#166534] bg-[#16a34a] px-5 py-1.5 text-sm font-extrabold text-white">
           C'est parti

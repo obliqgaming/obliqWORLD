@@ -542,7 +542,7 @@ export function ExpeditionBattle({
           >
             <div className="absolute -top-14 left-1/2 w-32 -translate-x-1/2 text-center text-[11px] font-bold text-[#fff3d6]" style={{ textShadow: "0 1px 3px #000" }}>
               {ROLE_LABEL[en.role] ? <div className="text-[9px] uppercase tracking-widest text-[#fbbf24]">{ROLE_LABEL[en.role]}</div> : null}
-              {en.name}
+              {en.visual_asset_id && entry?.name ? entry.name : en.name}
               <HpBar current={hp} max={en.pv_max} className="mt-0.5" />
               <div className="text-[10px]" style={{ color: hpColor(hp, en.pv_max) }}>
                 {hp}/{en.pv_max}
