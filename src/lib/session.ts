@@ -35,3 +35,31 @@ export async function publishDisplayName(): Promise<void> {
     /* facultatif */
   }
 }
+
+// Déconnexion volontaire : on garde un repère pour que le jeu réaffiche l'écran de connexion
+// (au lieu de créer en douce un nouveau compte invité à chaque déconnexion).
+const LOGOUT_FLAG = "obliqworld-logged-out";
+export function markLoggedOut(name?: string | null): void {
+  try {
+    localStorage.setItem(LOGOUT_FLAG, name ? `1|${name}` : "1");
+    sessionStorage.removeItem(FLAG); // le prochain compte refera le nettoyage d'ouverture
+  } catch {
+    /* ignoré */
+  }
+}
+export function loggedOutInfo(): { loggedOut: boolean; name: string | null } {
+  try {
+    const v = localStorage.getItem(LOGOUT_FLAG);
+    if (!v) return { loggedOut: false, name: null };
+    return { loggedOut: true, name: v.includes("|") ? v.split("|").slice(1).join("|") : null };
+  } catch {
+    return { loggedOut: false, name: null };
+  }
+}
+export function clearLoggedOut(): void {
+  try {
+    localStorage.removeItem(LOGOUT_FLAG);
+  } catch {
+    /* ignoré */
+  }
+}

@@ -76,7 +76,7 @@ import { CharacterSelect } from "../components/CharacterSelect";
 import { LoginScreen } from "../components/LoginScreen";
 import { DeadScreen } from "../components/DeadScreen";
 import { HelpDialog } from "../components/HelpDialog";
-import { ensureSessionCleanup, publishDisplayName } from "../lib/session";
+import { ensureSessionCleanup, publishDisplayName, markLoggedOut, loggedOutInfo, clearLoggedOut } from "../lib/session";
 import { PetSprite } from "../components/PetSprite";
 import { fetchMyCompanions } from "../lib/companions";
 import { AboutDialog } from "../components/AboutDialog";
@@ -247,6 +247,7 @@ function Index() {
   const [creatingCharacter, setCreatingCharacter] = useState(false);
   const [authIdentity, setAuthIdentity] = useState<AuthIdentity | null>(null);
   const [loginRequired, setLoginRequired] = useState(false);
+  const loggingOutRef = useRef(false); // déconnexion en cours : plus aucune reconnexion de canal
   // Compagnon choisi à la ferme (image) : visible de tous, il marche devant son maître.
   const [myPet, setMyPet] = useState<string | null>(null);
   const myPetRef = useRef<string | null>(null);
@@ -569,6 +570,7 @@ function Index() {
 
   const handleConnectProvider = async (provider: "twitch" | "discord") => {
     try {
+      clearLoggedOut();
       await connectIdentityProvider(provider);
       // connectIdentityProvider redirige la page entière vers Twitch/Discord ;
       // on ne revient ici que si ça a échoué avant la redirection.
@@ -581,7 +583,14 @@ function Index() {
   };
 
   const handleDisconnect = async () => {
+    if (!window.confirm("Te déconnecter ? Ton personnage et tes affaires t'attendent à ta prochaine connexion.")) return;
     try {
+      // Départ propre : on quitte la scène (les autres te voient partir tout de suite) et on s'arrête de marcher.
+      loggingOutRef.current = true;
+      if (walkTimer.current) window.clearTimeout(walkTimer.current);
+      if (channelRef.current) leaveScenePresence(channelRef.current);
+      channelRef.current = null;
+      markLoggedOut(characterRef.current?.name ?? null);
       await signOutToGuest();
     } finally {
       // Une nouvelle session invité doit être recréée proprement : on
@@ -595,7 +604,7 @@ function Index() {
     let cancelled = false;
     (async () => {
       // Alpha : connexion Twitch / Discord obligatoire (un invité existant doit d'abord relier son compte).
-      if (REQUIRE_PROVIDER_LOGIN) {
+      if (REQUIRE_PROVIDER_LOGIN || loggedOutInfo().loggedOut) {
         const id = await getAuthIdentity();
         if (!id.userId || id.isAnonymous) {
           if (!cancelled) {
@@ -608,7 +617,7 @@ function Index() {
       return fetchMyCharacter();
     })()
       .then((c) => {
-        if (c === null && REQUIRE_PROVIDER_LOGIN) return;
+        if (c === null && (REQUIRE_PROVIDER_LOGIN || loggedOutInfo().loggedOut)) return;
         if (cancelled) return;
         if (c) {
           fetchMyDeath(c.id)
@@ -1568,7 +1577,7 @@ function Index() {
         // republie systématiquement notre position pour rester visible. Sur
         // une fermeture, on programme nous-mêmes une reconnexion.
         (status, err) => {
-          if (cancelled) return;
+          if (cancelled || loggingOutRef.current) return;
           logPresence(`état du canal : ${status}${err ? ` (${err.message})` : ""}`);
           if (status === "SUBSCRIBED") {
             if (stableTimer) window.clearTimeout(stableTimer);
@@ -1939,7 +1948,12 @@ function Index() {
   }
 
   if (loginRequired) {
-    return <LoginScreen onConnect={handleConnectProvider} />;
+    return (
+      <LoginScreen
+        onConnect={handleConnectProvider}
+        farewellName={loggedOutInfo().loggedOut ? loggedOutInfo().name ?? "" : null}
+      />
+    );
   }
 
   if (!character) {
