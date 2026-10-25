@@ -1,7 +1,7 @@
 // La ferme : tes compagnons (créatures gagnées en butin). Un seul t'accompagne en expédition ;
 // il prend la moitié des dégâts que tu reçois. À 0 PV il s'enfuit et se repose quelques expéditions.
 import { useEffect, useState } from "react";
-import { TIER_INFO, fetchMyCompanions, releaseCompanion, setActiveCompanion, type Companion } from "../lib/companions";
+import { TIER_INFO, claimStarterCompanion, fetchMyCompanions, fetchStarterChoices, releaseCompanion, setActiveCompanion, type Companion, type StarterCompanion } from "../lib/companions";
 
 const BTN = "rounded-lg border-2 border-[#7a4a22] bg-[#7a4a22] px-3 py-1 text-xs font-bold text-[#fff3d6] hover:bg-[#5e3818] disabled:opacity-50";
 
@@ -10,10 +10,12 @@ export function FarmPanel({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [starters, setStarters] = useState<StarterCompanion[]>([]);
 
   const reload = async () => {
     try {
       setList(await fetchMyCompanions());
+      setStarters(await fetchStarterChoices());
     } catch (e: any) {
       setMsg(e?.message?.includes("companions") ? "La ferme n'est pas encore activée (SQL 031)." : (e?.message ?? "Erreur"));
       setList([]);
@@ -50,6 +52,18 @@ export function FarmPanel({ onClose }: { onClose: () => void }) {
           <div>💤 À 0 PV, il s'enfuit <i>(il n'est jamais perdu)</i> et se repose : <b>3</b> expéditions (petit), <b>6</b> (moyen) ou <b>9</b> (grand).</div>
           <div>🎁 Les compagnons se gagnent <b>en butin</b> sur les créatures de la forêt, <i>très rarement</i>.</div>
         </div>
+        {starters.length > 0 && (
+          <div className="mt-3 rounded border-2 border-[#16a34a] bg-white/50 p-2">
+            <div className="text-sm font-extrabold">🎁 Choisis ton premier compagnon <i>(gratuit, une seule fois)</i></div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {starters.map((c) => (
+                <button key={c.id} type="button" disabled={busy} title={c.name} className="rounded border border-[#7a4a22] bg-white/60 p-1 hover:bg-[#7a4a22]/20 disabled:opacity-50" onClick={() => void act(() => claimStarterCompanion(c.id))}>
+                  <img src={c.image_url} alt={c.name} className="h-16 w-16 object-contain" />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         {msg && <div className="mt-2 text-xs font-bold text-[#92400e]">{msg}</div>}
         {list === null && <div className="mt-3 text-sm">Chargement…</div>}
         {list && list.length === 0 && <div className="mt-3 text-sm">Tu n'as aucun compagnon pour l'instant. Bats des créatures en expédition !</div>}

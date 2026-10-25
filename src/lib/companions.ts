@@ -38,3 +38,19 @@ export async function releaseCompanion(id: string): Promise<void> {
   const { error } = await scenesClient.rpc("companion_release", { p_companion_id: id });
   if (error) throw error;
 }
+
+// Compagnon de départ (SQL 043) : un seul, gratuit, une seule fois.
+export type StarterCompanion = { id: string; name: string; image_url: string; tier: Tier };
+
+export async function fetchStarterChoices(): Promise<StarterCompanion[]> {
+  const { data: ok, error: e1 } = await scenesClient.rpc("starter_companion_available");
+  if (e1 || !ok) return [];
+  const { data, error } = await scenesClient.from("starter_companions").select("id, name, image_url, tier").order("sort");
+  if (error) return [];
+  return (data ?? []) as StarterCompanion[];
+}
+
+export async function claimStarterCompanion(id: string): Promise<void> {
+  const { error } = await scenesClient.rpc("claim_starter_companion", { p_id: id });
+  if (error) throw error;
+}
