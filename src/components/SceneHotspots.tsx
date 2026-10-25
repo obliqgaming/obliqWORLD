@@ -8,6 +8,7 @@ import { ForgePanel, type ForgeCharacter } from "./ForgePanel";
 import { EncounterEditor } from "./EncounterEditor";
 import { MerchantPanel } from "./MerchantPanel";
 import { FarmPanel } from "./FarmPanel";
+import { QuestPanel } from "./QuestPanel";
 
 export function HotspotMarker({ hotspot, onClick }: { hotspot: SceneHotspot; onClick: () => void }) {
   const info = hotspotInfo(hotspot.kind);
@@ -54,6 +55,9 @@ export function HotspotPanel({
   }
   if (hotspot.kind.startsWith("gold")) {
     return <GoldPanel hotspotId={hotspot.id} onClose={onClose} />;
+  }
+  if (hotspot.kind === "quests") {
+    return <QuestPanel onClose={onClose} />;
   }
   if (hotspot.kind === "farm") {
     return <FarmPanel onClose={onClose} />;
