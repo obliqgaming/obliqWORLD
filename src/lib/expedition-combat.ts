@@ -225,10 +225,11 @@ export async function fetchCombatSnapshot(combatId: string): Promise<CombatSnaps
   };
 }
 
-export async function startCombat(expeditionId: string, isBoss: boolean): Promise<Combat> {
+export async function startCombat(expeditionId: string, isBoss: boolean, mini = false): Promise<Combat> {
   const { data, error } = await scenesClient.rpc("combat_start", {
     p_expedition_id: expeditionId,
     p_is_boss: isBoss,
+    p_mini: mini,
   });
   if (error) throw error;
   return data as Combat;

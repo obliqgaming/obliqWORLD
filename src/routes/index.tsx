@@ -34,7 +34,7 @@ import {
   fetchScene,
   fetchSceneByName,
   fetchSceneExits,
-  fetchScenePortal,
+  fetchScenePortals,
   inviteToParty,
   isChannelReady,
   isPresenceDebugEnabled,
@@ -100,7 +100,7 @@ import {
   type GamePower,
   type RunStat,
 } from "../lib/expedition-combat";
-import { PLACEHOLDER_EVENTS } from "../lib/expedition-placeholder-events";
+import { PLACEHOLDER_EVENTS, eventForStep } from "../lib/expedition-placeholder-events";
 import { openNarrativeStep, fetchNarrativeEvent, type NarrativeEvent } from "../lib/narrative";
 import { NarrativeStepPanel } from "../components/NarrativeStepPanel";
 import { HotspotMarker, HotspotPanel } from "../components/SceneHotspots";
@@ -291,7 +291,8 @@ function Index() {
   const inviteChannelRef = useRef<PresenceChannel | null>(null);
 
   // ---------- Portail d'expédition (§5, revu le 2026-10-14) ----------
-  const [scenePortal, setScenePortal] = useState<ExpeditionPortal | null>(null);
+  const [scenePortals, setScenePortals] = useState<ExpeditionPortal[]>([]);
+  const [longMinLevel, setLongMinLevel] = useState(5); // réglage long_expedition_min_level (SQL 040), pour l'étiquette du portail
   // Lieux interactifs de la scène (forgeron, éditeur d'étapes…), posés depuis /admin.
   const [hotspots, setHotspots] = useState<SceneHotspot[]>([]);
   const [openHotspot, setOpenHotspot] = useState<SceneHotspot | null>(null);
@@ -914,7 +915,7 @@ function Index() {
   // Contrôle unique au montage, puis écoute Realtime des nouvelles expéditions
   // du groupe (aucun polling : le jeu doit rester gratuit).
   useEffect(() => {
-    if (!scenePortal || !party || openExpedition) return;
+    if (scenePortals.length === 0 || !party || openExpedition) return;
     let cancelled = false;
     const check = () =>
       fetchOpenExpeditionForParty(party.id, scene.id)
@@ -939,7 +940,7 @@ function Index() {
       leaveScenePresence(channel as unknown as PresenceChannel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scenePortal?.id, party?.id, scene.id, openExpedition?.id]);
+  }, [scenePortals.map((p) => p.id).join(","), party?.id, scene.id, openExpedition?.id]);
 
   // Tout le groupe est prêt -> on tente de lancer. Tous les clients du groupe
   // exécutent ceci en même temps ; startExpedition est conditionné sur
@@ -953,10 +954,27 @@ function Index() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [readyCount, groupIds.length, openExpedition?.id, openExpedition?.status]);
 
-  const handleTogglePortal = async () => {
-    if (!character || !scenePortal || expeditionLaunched) return;
+  useEffect(() => {
+    if (!scenePortals.some((p) => p.route === "long")) return;
+    let off = false;
+    scenesClient
+      .from("game_settings")
+      .select("value")
+      .eq("key", "long_expedition_min_level")
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!off && data && typeof data.value === "number") setLongMinLevel(data.value);
+        else if (!off && data) setLongMinLevel(Number(data.value) || 5);
+      });
+    return () => {
+      off = true;
+    };
+  }, [scenePortals.map((p) => p.route).join(",")]);
+
+  const handleTogglePortal = async (portal: ExpeditionPortal) => {
+    if (!character || expeditionLaunched) return;
     try {
-      if (selfReady && openExpedition) {
+      if (selfReady && openExpedition && (openExpedition.route ?? "court") === portal.route) {
         await leaveExpeditionPortal(openExpedition.id, character.id);
         await refreshExpedition(openExpedition.id);
         return;
@@ -981,12 +999,18 @@ function Index() {
         activeParty.id,
         activeParty.created_by_character_id,
         scene.id,
+        portal.route,
       );
       setOpenExpedition(exp);
       watchExpedition(exp.id);
     } catch (e) {
       console.error("Portal toggle failed", e);
-      window.alert("Impossible d'entrer dans le portail pour l'instant. Réessaie dans un instant.");
+      const m = String((e as { message?: string })?.message ?? "");
+      window.alert(
+        m.includes("niveau") || m.includes("autre portail")
+          ? m
+          : "Impossible d'entrer dans le portail pour l'instant. Réessaie dans un instant.",
+      );
     }
   };
 
@@ -1023,9 +1047,9 @@ function Index() {
       leaveScenePresence(expeditionChannelRef.current);
       expeditionChannelRef.current = null;
     }
-    fetchScenePortal(scene.id)
+    fetchScenePortals(scene.id)
       .then((p) => {
-        if (!cancelled) setScenePortal(p);
+        if (!cancelled) setScenePortals(p);
       })
       .catch((e) => console.error("Scene portal fetch failed", e));
     setHotspots([]);
@@ -1085,7 +1109,7 @@ function Index() {
 
   // Étape narrative (rencontre écrite) si une rencontre approuvée existe, sinon ancienne étape d'exemple.
   const syncStep = async (expId: string, idx: number, ev: (typeof PLACEHOLDER_EVENTS)[number]) => {
-    if (ev.kind === "event") {
+    if (ev.kind === "event" && ev.id !== "camp") {
       try {
         const ns = await openNarrativeStep(expId, idx);
         if (ns && ns.community_event_id) {
@@ -1101,7 +1125,7 @@ function Index() {
   };
 
   const stepIndex = activeExpedition?.current_step_index ?? 0;
-  const currentEvent = PLACEHOLDER_EVENTS[stepIndex % PLACEHOLDER_EVENTS.length]!;
+  const currentEvent = eventForStep(activeExpedition?.route, stepIndex);
   const expeditionPhase = currentEvent.kind;
   const participantCount = Math.max(1, party ? partyMembers.filter((m) => m.status === "joined").length : 1);
   const myVote = character ? (stepVotes.find((v) => v.character_id === character.id)?.choice_key ?? null) : null;
@@ -1112,7 +1136,7 @@ function Index() {
     if (!inExpeditionScene || !character || !activeExpedition || activeExpedition.status !== "active") return;
     const expId = activeExpedition.id;
     const idx = activeExpedition.current_step_index;
-    const ev = PLACEHOLDER_EVENTS[idx % PLACEHOLDER_EVENTS.length]!;
+    const ev = eventForStep(activeExpedition.route, idx);
     let cancelled = false;
     let channel: PresenceChannel | null = null;
     setRunStep(null);
@@ -1297,7 +1321,7 @@ function Index() {
     if (!inExpeditionScene || !character || !activeExpedition || activeExpedition.status !== "active") return;
     const expId = activeExpedition.id;
     const idx = activeExpedition.current_step_index;
-    const ev = PLACEHOLDER_EVENTS[idx % PLACEHOLDER_EVENTS.length]!;
+    const ev = eventForStep(activeExpedition.route, idx);
     let cancelled = false;
     (async () => {
       try {
@@ -1345,7 +1369,7 @@ function Index() {
           }
         }
         if (ev.kind === "combat") {
-          const c = await startCombat(expId, ev.id === "boss-final");
+          const c = await startCombat(expId, ev.id === "boss-final", ev.id === "mini-boss");
           if (!cancelled) setActiveCombatId(c.id);
         }
         void latest;
@@ -1377,7 +1401,7 @@ function Index() {
       const e = await fetchExpeditionById(activeExpedition.id);
       if (e) setActiveExpedition(e);
       if (e && e.status === "active") {
-        const ev = PLACEHOLDER_EVENTS[e.current_step_index % PLACEHOLDER_EVENTS.length]!;
+        const ev = eventForStep(e.route, e.current_step_index);
         const { step, narrative } = await syncStep(e.id, e.current_step_index, ev);
         setNarrativeEvent(narrative);
         setRunStep(step);
@@ -2154,15 +2178,21 @@ function Index() {
           />
         )}
 
-        {scenePortal && character && !expeditionLaunched && !inExpeditionScene && (
-          <ExpeditionPortalMarker
-            position={scenePortal.position}
-            isSelfReady={selfReady}
-            readyCount={readyCount}
-            totalCount={groupIds.length}
-            onClick={() => walkThen(scenePortal.position, handleTogglePortal)}
-          />
-        )}
+        {character && !expeditionLaunched && !inExpeditionScene &&
+          scenePortals.map((portal) => {
+            const mine = !openExpedition || (openExpedition.route ?? "court") === portal.route;
+            return (
+              <ExpeditionPortalMarker
+                key={portal.id}
+                position={portal.position}
+                isSelfReady={selfReady && mine}
+                readyCount={mine ? readyCount : 0}
+                totalCount={groupIds.length}
+                label={portal.route === "long" ? `Expédition longue · niv. ${longMinLevel}` : scenePortals.length > 1 ? "Expédition courte" : undefined}
+                onClick={() => walkThen(portal.position, () => void handleTogglePortal(portal))}
+              />
+            );
+          })}
 
         {inExpeditionScene && character && activeCombatId && (
           <ExpeditionBattle

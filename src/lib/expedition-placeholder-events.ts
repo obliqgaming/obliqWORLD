@@ -182,3 +182,63 @@ export const PLACEHOLDER_EVENTS: PlaceholderEvent[] = [
     ],
   },
 ];
+
+// ---------- Seconde expédition (SQL 040) ----------
+// Expédition « long » : 14 étapes. Les étapes « événement » reprennent les exemples ci-dessus (et, quand il en
+// existe d'approuvées, les rencontres écrites par la communauté prennent leur place, comme dans la courte).
+export type ExpeditionRoute = "court" | "long";
+
+export const CAMP_EVENT: PlaceholderEvent = {
+  id: "camp",
+  kind: "event",
+  typeLabel: "Feu de camp",
+  risk: "faible",
+  situation: "Un feu de camp brûle encore au creux d'une clairière, abandonné depuis peu. Le moment de souffler.",
+  choices: [
+    { key: "repartir", label: "Repartir sans attendre", outcome: { text: "Vous laissez le feu derrière vous et reprenez la route.", pvLoss: 0 } },
+    {
+      key: "se_reposer",
+      label: "Se reposer près du feu",
+      outcome: { text: "La chaleur vous fait du bien… mais la fumée attire quelque chose.", pvLoss: -4, triggersCombat: true },
+    },
+  ],
+};
+
+export const MINI_BOSS_EVENT: PlaceholderEvent = {
+  id: "mini-boss",
+  kind: "combat",
+  typeLabel: "Gardien",
+  risk: "eleve",
+  situation: "Un gardien colossal se dresse au milieu du chemin, entouré de sa meute.",
+  choices: [
+    { key: "attaque", label: "Attaque", outcome: { text: "Vous frappez fort, mais la riposte est rude.", pvLoss: 5 } },
+    { key: "competence", label: "Compétence", outcome: { text: "Votre compétence porte, la riposte est moins dure.", pvLoss: 3 } },
+    { key: "defense", label: "Défense", outcome: { text: "Vous encaissez presque tout, mais l'ennemi tient bon.", pvLoss: 2 } },
+  ],
+};
+
+const byId = (id: string) => PLACEHOLDER_EVENTS.find((e) => e.id === id)!;
+// 14 étapes : 0-2 événements, 3 combat, 4-5 événements, 6 MINI-BOSS, 7 FEU DE CAMP, 8 événement, 9 combat, 10 événement,
+// 11 combat, 12 événement, 13 BOSS final. (5 combats dont mini-boss et boss, contre 2 dans la courte.)
+export const LONG_ROUTE: PlaceholderEvent[] = [
+  byId("passage-1"), byId("rencontre"), byId("decouverte"),
+  byId("confrontation"),
+  byId("traces"), byId("passage-2"),
+  MINI_BOSS_EVENT,
+  CAMP_EVENT,
+  byId("rencontre"),
+  byId("confrontation"),
+  byId("decouverte"),
+  byId("confrontation"),
+  byId("traces"),
+  byId("boss-final"),
+];
+
+export function routeEvents(route: ExpeditionRoute | null | undefined): PlaceholderEvent[] {
+  return route === "long" ? LONG_ROUTE : PLACEHOLDER_EVENTS;
+}
+
+export function eventForStep(route: ExpeditionRoute | null | undefined, idx: number): PlaceholderEvent {
+  const list = routeEvents(route);
+  return list[idx % list.length]!;
+}

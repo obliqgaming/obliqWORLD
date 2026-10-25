@@ -10,7 +10,7 @@ import {
   ensureUserId,
   fetchAllScenes,
   fetchScene,
-  fetchScenePortal,
+  fetchScenePortals,
   fetchSceneExits,
   getAuthIdentity,
   listMusicFiles,
@@ -197,8 +197,9 @@ function AdminPage() {
   const [exitStatus, setExitStatus] = useState<string | null>(null);
   // Portail d'expédition de la scène (au plus un par scène pour l'instant) :
   // pose/déplacement au clic quand "placingPortal" est armé.
-  const [expPortal, setExpPortal] = useState<ExpeditionPortal | null>(null);
-  const [placingPortal, setPlacingPortal] = useState(false);
+  // Deux portails possibles par scène : l'expédition courte (7 étapes) et la longue (14 étapes, niveau minimum).
+  const [expPortals, setExpPortals] = useState<ExpeditionPortal[]>([]);
+  const [placingPortal, setPlacingPortal] = useState<"court" | "long" | null>(null);
   // Lieux interactifs (forgeron, éditeur d'étapes…) : un par sorte et par scène.
   const [hotspots, setHotspots] = useState<SceneHotspot[]>([]);
   const [placingHotspot, setPlacingHotspot] = useState<string | null>(null);
@@ -279,8 +280,8 @@ function AdminPage() {
     setRecoverable(null);
     setExitStatus(null);
     setExits([]);
-    setExpPortal(null);
-    setPlacingPortal(false);
+    setExpPortals([]);
+    setPlacingPortal(null);
     setHotspots([]);
     setPlacingHotspot(null);
     setMusicStatus(null);
@@ -313,9 +314,9 @@ function AdminPage() {
     fetchSceneHotspots(sceneId)
       .then(setHotspots)
       .catch((err) => console.error("fetchSceneHotspots a échoué", err));
-    fetchScenePortal(sceneId)
-      .then(setExpPortal)
-      .catch((err) => console.error("fetchScenePortal a échoué", err));
+    fetchScenePortals(sceneId)
+      .then(setExpPortals)
+      .catch((err: unknown) => console.error("fetchScenePortals a échoué", err));
   }, [sceneId]);
 
   // Sauvegarde locale automatique à chaque modification — y compris les points
@@ -386,7 +387,7 @@ function AdminPage() {
       // Hors pose d'un nouveau portail, un clic en mode "exit" ne fait rien —
       // les portails existants se déplacent par glisser-déposer, pas par clic.
       if (placingExit) void handleCreateExitAt(p);
-      else if (placingPortal) void handlePlacePortalAt(p);
+      else if (placingPortal) void handlePlacePortalAt(p, placingPortal);
       else if (placingHotspot) void handlePlaceHotspotAt(placingHotspot, p);
       return;
     }
@@ -426,22 +427,28 @@ function AdminPage() {
 
   // Pose le portail d'expédition au point cliqué, ou le déplace s'il existe
   // déjà (un seul par scène). Sauvegarde immédiate en base.
-  const handlePlacePortalAt = async (p: Point) => {
-    setPlacingPortal(false);
+  const handlePlacePortalAt = async (p: Point, route: "court" | "long") => {
+    setPlacingPortal(null);
     if (!scene) return;
+    const existing = expPortals.find((x) => x.route === route);
+    const nom = route === "long" ? "Portail d'expédition LONGUE" : "Portail d'expédition courte";
     try {
-      if (expPortal) {
-        await updateExpeditionPortalPosition(expPortal.id, p);
-        setExpPortal({ ...expPortal, position: p });
-        setExitStatus("Portail d'expédition déplacé ✅");
+      if (existing) {
+        await updateExpeditionPortalPosition(existing.id, p);
+        setExpPortals((list) => list.map((x) => (x.id === existing.id ? { ...x, position: p } : x)));
+        setExitStatus(`${nom} déplacé ✅`);
       } else {
-        const created = await createExpeditionPortal(scene.id, p, null);
-        setExpPortal(created);
-        setExitStatus("Portail d'expédition posé ✅");
+        const created = await createExpeditionPortal(scene.id, p, null, route);
+        setExpPortals((list) => [...list, created]);
+        setExitStatus(`${nom} posé ✅`);
       }
     } catch (err) {
       console.error(err);
-      setExitStatus("Erreur avec le portail d'expédition — regarde la console (F12).");
+      setExitStatus(
+        route === "long"
+          ? "Erreur avec le portail d'expédition longue — as-tu lancé le SQL 040 ? (F12 pour le détail)"
+          : "Erreur avec le portail d'expédition — regarde la console (F12).",
+      );
     }
   };
 
@@ -471,12 +478,13 @@ function AdminPage() {
     }
   };
 
-  const handleDeletePortal = async () => {
-    if (!expPortal || !window.confirm("Supprimer le portail d'expédition de cette scène ?")) return;
+  const handleDeletePortal = async (portal: ExpeditionPortal) => {
+    const nom = portal.route === "long" ? "longue" : "courte";
+    if (!window.confirm(`Supprimer le portail d'expédition ${nom} de cette scène ?`)) return;
     try {
-      await deleteExpeditionPortal(expPortal.id);
-      setExpPortal(null);
-      setExitStatus("Portail d'expédition supprimé ✅");
+      await deleteExpeditionPortal(portal.id);
+      setExpPortals((list) => list.filter((x) => x.id !== portal.id));
+      setExitStatus(`Portail d'expédition ${nom} supprimé ✅`);
     } catch (err) {
       console.error(err);
       setExitStatus("Erreur en supprimant le portail d'expédition — regarde la console (F12).");
@@ -910,26 +918,30 @@ function AdminPage() {
           >
             {placingExit ? "Clique sur l'image pour le poser…" : "➕ Nouveau portail ici"}
           </button>
-          <button
-            type="button"
-            onClick={() => setPlacingPortal((v) => !v)}
-            className={`rounded px-3 py-1 text-xs font-semibold ${placingPortal ? "bg-amber-600" : "bg-neutral-700"}`}
-          >
-            {placingPortal
-              ? "Clique sur l'image pour poser le portail d'expédition…"
-              : expPortal
-                ? "✨ Déplacer le portail d'expédition"
-                : "✨ Poser le portail d'expédition"}
-          </button>
-          {expPortal && (
-            <button
-              type="button"
-              onClick={handleDeletePortal}
-              className="rounded bg-neutral-700 px-3 py-1 text-xs font-semibold text-red-400"
-            >
-              🗑 Retirer le portail d'expédition
-            </button>
-          )}
+          {(["court", "long"] as const).map((route) => {
+            const existing = expPortals.find((x) => x.route === route);
+            const nom = route === "long" ? "longue (14 étapes)" : "courte (7 étapes)";
+            return (
+              <span key={route} className="inline-flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setPlacingPortal((v) => (v === route ? null : route))}
+                  className={`rounded px-3 py-1 text-xs font-semibold ${placingPortal === route ? "bg-amber-600" : "bg-neutral-700"}`}
+                >
+                  {placingPortal === route
+                    ? `Clique sur l'image pour poser le portail ${nom}…`
+                    : existing
+                      ? `✨ Déplacer le portail ${nom}`
+                      : `✨ Poser le portail ${nom}`}
+                </button>
+                {existing && (
+                  <button type="button" onClick={() => void handleDeletePortal(existing)} className="rounded bg-neutral-700 px-2 py-1 text-xs font-semibold text-red-400">
+                    🗑
+                  </button>
+                )}
+              </span>
+            );
+          })}
           {HOTSPOT_KINDS.map((k) => {
             if (k.multi) {
               const all = hotspots.filter((h) => h.kind.split(":")[0] === k.kind);
@@ -1065,20 +1077,21 @@ function AdminPage() {
               </div>
             ))}
 
-            {expPortal && (
+            {expPortals.map((pt) => (
               <div
-                title="Portail d'expédition"
+                key={pt.id}
+                title={pt.route === "long" ? "Portail d'expédition longue" : "Portail d'expédition courte"}
                 className="pointer-events-none absolute flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 text-sm"
                 style={{
-                  left: `${expPortal.position.x}%`,
-                  top: `${expPortal.position.y}%`,
-                  background: "rgba(245,158,11,0.55)",
+                  left: `${pt.position.x}%`,
+                  top: `${pt.position.y}%`,
+                  background: pt.route === "long" ? "rgba(168,85,247,0.55)" : "rgba(245,158,11,0.55)",
                   borderColor: "rgba(253,230,138,0.95)",
                 }}
               >
-                ✨
+                {pt.route === "long" ? "🌑" : "✨"}
               </div>
-            )}
+            ))}
 
             {hotspots.map((h) => (
               <div

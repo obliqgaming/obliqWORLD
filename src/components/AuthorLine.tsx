@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { fetchAuthorNames } from "../lib/authors";
 
 /** « Forgée par … » / « Écrite par … » — ne s'affiche que si le nom est connu. */
-export function AuthorLine({ userId, label, className }: { userId?: string | null; label: string; className?: string }) {
+export function AuthorLine({ userId, label, className }: { userId?: string | null | undefined; label: string; className?: string | undefined }) {
   const [name, setName] = useState<string | null>(null);
   useEffect(() => {
     let off = false;

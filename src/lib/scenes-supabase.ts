@@ -460,29 +460,29 @@ export type ExpeditionPortal = {
   scene_id: string;
   position: Point;
   label: string | null;
+  route: "court" | "long"; // SQL 040 : expédition courte (7 étapes) ou longue (14, niveau minimum)
   created_at: string;
 };
 
-export async function fetchScenePortal(sceneId: string): Promise<ExpeditionPortal | null> {
+// Les portails d'une scène (un par route : courte et longue).
+export async function fetchScenePortals(sceneId: string): Promise<ExpeditionPortal[]> {
   const { data, error } = await scenesClient
     .from("expedition_portals")
     .select("*")
     .eq("scene_id", sceneId)
-    .order("created_at", { ascending: true })
-    .limit(1);
+    .order("created_at", { ascending: true });
   if (error) throw error;
-  // limit(1) plutôt que maybeSingle() : si deux portails existent par erreur
-  // dans la même scène, maybeSingle() plantait et plus personne ne voyait le portail.
-  return ((data ?? [])[0] as ExpeditionPortal | undefined) ?? null;
+  return ((data ?? []) as ExpeditionPortal[]).map((p) => ({ ...p, route: p.route ?? "court" }));
 }
 
-export async function createExpeditionPortal(sceneId: string, position: Point, label: string | null): Promise<ExpeditionPortal> {
+export async function createExpeditionPortal(sceneId: string, position: Point, label: string | null, route: "court" | "long" = "court"): Promise<ExpeditionPortal> {
   const { data, error } = await scenesClient
     .from("expedition_portals")
     .insert({
       scene_id: sceneId,
       position: { x: Math.round(position.x * 10) / 10, y: Math.round(position.y * 10) / 10 },
       label,
+      route,
     })
     .select("*")
     .single();
@@ -519,6 +519,7 @@ export type Expedition = {
   party_id: string;
   created_by_character_id: string;
   portal_scene_id: string;
+  route?: "court" | "long";
   current_step_index: number;
   loot_secured: boolean;
   created_at: string;
@@ -569,6 +570,7 @@ export async function enterExpeditionPortal(
   partyId: string,
   createdByCharacterId: string,
   portalSceneId: string,
+  route: "court" | "long" = "court",
 ): Promise<Expedition> {
   // Tout passe par une fonction serveur (SQL 024) : le navigateur n'écrit plus directement
   // dans expeditions / expedition_participants.
@@ -577,6 +579,7 @@ export async function enterExpeditionPortal(
     p_party_id: partyId,
     p_created_by: createdByCharacterId,
     p_portal_scene_id: portalSceneId,
+    p_route: route,
   });
   if (error) throw error;
   return (Array.isArray(data) ? data[0] : data) as Expedition;

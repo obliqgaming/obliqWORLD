@@ -10,12 +10,15 @@ export function ExpeditionPortalMarker({
   isSelfReady,
   readyCount,
   totalCount,
+  label,
   onClick,
 }: {
   position: Point;
   isSelfReady: boolean;
   readyCount: number;
   totalCount: number;
+  /** Nom affiché sous le portail (ex. « Expédition longue · niv. 5 »). */
+  label?: string | undefined;
   onClick: () => void;
 }) {
   return (
@@ -39,6 +42,11 @@ export function ExpeditionPortalMarker({
           animation: "portal-pulse 2.4s ease-in-out infinite",
         }}
       />
+      {label && (
+        <span className="rounded-full bg-black/60 px-2 py-0.5 text-[11px] font-bold text-[#fde68a]" style={{ fontFamily: "'Baloo 2', cursive" }}>
+          {label}
+        </span>
+      )}
       {totalCount > 1 && (
         <span
           className="rounded-full bg-black/60 px-2 py-0.5 text-xs font-bold text-[#fff3d6]"
