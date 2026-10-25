@@ -96,8 +96,10 @@ export function ShopPanel({ gold, family, onGoldChange, onBought }: { gold: numb
 
   return (
     <div className="mt-3 text-[#3a2410]">
-      <div className="text-xs opacity-80">
-        Les armes dessinées par les joueurs sont en vente ici. L'auteur fixe le prix (dans une fourchette selon la rareté) et reçoit {pct} % de chaque vente. Tu as {gold} 💰
+      <div className="space-y-1 text-sm leading-snug">
+        <div>⚔ <b>Les armes dessinées par les joueurs</b> sont en vente ici.</div>
+        <div>✍ L'auteur fixe le prix <i>(dans une fourchette selon la rareté)</i> et reçoit <b>{pct} %</b> de chaque vente.</div>
+        <div>💰 Tu as <b>{gold}</b></div>
       </div>
       {pending > 0 && (
         <div className="mt-2 flex items-center gap-2 rounded border border-[#7a4a22] bg-[#fde7c8] p-2 text-sm font-bold">

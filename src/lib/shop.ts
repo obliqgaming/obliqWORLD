@@ -1,5 +1,6 @@
 // Boutique du forgeron (SQL 029) : armes forgées par les joueurs, mises en vente.
 import { scenesClient, ensureUserId } from "./scenes-supabase";
+import { fetchAuthorNames } from "./authors";
 import type { Weapon, Rarity } from "./weapons";
 
 export type Listing = {
@@ -25,16 +26,7 @@ export async function fetchShop(): Promise<{ listings: Listing[]; ranges: Record
     .limit(200);
   if (error) throw error;
   const rows = ((data ?? []) as any[]).filter((r) => r.weapon);
-  const names: Record<string, string> = {};
-  try {
-    const ids = [...new Set(rows.map((r) => r.author_user_id as string))];
-    if (ids.length) {
-      const { data: chars } = await scenesClient.from("characters").select("user_id, name").in("user_id", ids).is("archived_at", null);
-      for (const c of (chars ?? []) as { user_id: string; name: string }[]) names[c.user_id] = c.name;
-    }
-  } catch {
-    /* noms d'auteurs facultatifs */
-  }
+  const names = await fetchAuthorNames(rows.map((r) => r.author_user_id as string));
   const ranges = {} as Record<Rarity, PriceRange>;
   let authorPct = 20;
   const { data: st } = await scenesClient.from("game_settings").select("key, value").like("key", "shop_%");

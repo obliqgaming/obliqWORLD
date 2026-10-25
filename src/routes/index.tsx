@@ -76,7 +76,7 @@ import { CharacterSelect } from "../components/CharacterSelect";
 import { LoginScreen } from "../components/LoginScreen";
 import { DeadScreen } from "../components/DeadScreen";
 import { HelpDialog } from "../components/HelpDialog";
-import { ensureSessionCleanup } from "../lib/session";
+import { ensureSessionCleanup, publishDisplayName } from "../lib/session";
 import { PetSprite } from "../components/PetSprite";
 import { fetchMyCompanions } from "../lib/companions";
 import { AboutDialog } from "../components/AboutDialog";
@@ -762,6 +762,7 @@ function Index() {
     if (!character) return;
     let cancelled = false;
 
+    void publishDisplayName();
     ensureSessionCleanup()
       .then(() => fetchMyActiveParty(character.id))
       .then((result) => {

@@ -65,7 +65,7 @@ export function MerchantPanel({ onClose, onWeaponChanged }: { onClose: () => voi
         {msg && <div className="mt-2 text-xs font-bold text-[#92400e]">{msg}</div>}
         {tab === "buy" ? (
           <div className="mt-3 space-y-2">
-            <div className="text-xs opacity-80">Stock illimité, mais tu ne peux pas porter plus de 9 objets de la même sorte.</div>
+            <div className="text-sm leading-snug">♾ <b>Stock illimité</b>, mais pas plus de <b>9</b> objets de la même sorte <i>(sur toi)</i>.</div>
             {CONSUMABLE_ORDER.map((k) => {
               const price = st?.prices[k];
               return (
@@ -84,7 +84,7 @@ export function MerchantPanel({ onClose, onWeaponChanged }: { onClose: () => voi
           </div>
         ) : (
           <div className="mt-3 space-y-2">
-            <div className="text-xs opacity-80">Le marchand rachète tout au quart. Les armes valent selon leur rareté et leur durabilité restante. Un prototype ne se revend pas.</div>
+            <div className="space-y-1 text-sm leading-snug"><div>💱 Le marchand rachète <b>tout au quart</b> du prix.</div><div>⚔ Les armes valent selon leur <b>rareté</b> et leur <b>durabilité restante</b>.</div><div><i>Un prototype ne se revend pas.</i></div></div>
             {CONSUMABLE_ORDER.filter((k) => count(k) > 0).map((k) => (
               <div key={k} className="flex items-center gap-2 rounded border border-[#7a4a22]/60 bg-white/40 p-2 text-sm">
                 <span className="text-xl">{CONSUMABLE_INFO[k].icon}</span>
