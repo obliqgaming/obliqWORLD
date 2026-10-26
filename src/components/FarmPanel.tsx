@@ -93,7 +93,11 @@ export function FarmPanel({ onClose }: { onClose: () => void }) {
                     {!c.active && <button type="button" disabled={busy || resting || provisional} className={BTN} onClick={() => void act(() => setActiveCompanion(c.id))}>Emmener</button>}
                     {c.active && <button type="button" disabled={busy} className={BTN} onClick={() => void act(() => setActiveCompanion(null))}>Laisser ici</button>}
                     {!provisional && (confirmId === c.id ? (
-                      <button type="button" disabled={busy} className="rounded border-2 border-[#b91c1c] bg-[#b91c1c] px-2 py-1 text-xs font-bold text-white" onClick={() => void act(() => releaseCompanion(c.id))}>Confirmer : relâcher</button>
+                      <>
+                        <div className="w-full text-xs font-bold text-[#b91c1c]">⚠ Définitif : tu ne le retrouveras pas.</div>
+                        <button type="button" disabled={busy} className="rounded border-2 border-[#b91c1c] bg-[#b91c1c] px-2 py-1 text-xs font-bold text-white" onClick={() => void act(() => releaseCompanion(c.id))}>Oui, le relâcher pour de bon</button>
+                        <button type="button" disabled={busy} className="rounded border-2 border-[#7a4a22] px-2 py-1 text-xs font-bold" onClick={() => setConfirmId(null)}>Non, le garder</button>
+                      </>
                     ) : (
                       <button type="button" disabled={busy} className="rounded border-2 border-[#b91c1c] px-2 py-1 text-xs font-bold text-[#b91c1c]" onClick={() => setConfirmId(c.id)}>Relâcher</button>
                     ))}
