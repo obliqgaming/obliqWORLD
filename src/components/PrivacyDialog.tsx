@@ -5,7 +5,7 @@ export function PrivacyDialog({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-3" onClick={onClose}>
       <div
-        className="max-h-[90vh] w-[min(36rem,96%)] overflow-y-auto rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-5 text-sm leading-relaxed text-[#3a2410] shadow-2xl"
+        className="max-h-[90vh] w-[min(36rem,96%)] overflow-y-auto parchment-scroll rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-5 text-sm leading-relaxed text-[#3a2410] shadow-2xl"
         style={{ fontFamily: "'Baloo 2', cursive" }}
         onClick={(e) => e.stopPropagation()}
       >

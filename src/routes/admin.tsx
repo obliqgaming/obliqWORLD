@@ -31,6 +31,7 @@ import { AdminCharacters } from "../components/AdminCharacters";
 import { AdminEncounters } from "../components/AdminEncounters";
 import { AdminRequests } from "../components/AdminRequests";
 import { AdminCreatures } from "../components/AdminCreatures";
+import { joinMusicList, parseMusicList } from "../lib/jingle";
 import { HotspotGlyph } from "../components/GameIcons";
 import { AdminPets } from "../components/AdminPets";
 import { AdminBackup } from "../components/AdminBackup";
@@ -817,19 +818,31 @@ function AdminPage() {
 
       {scene && (
         <div className="mb-4 flex flex-wrap items-center gap-3 rounded bg-neutral-800 px-3 py-2 text-sm">
-          <label className="text-xs opacity-70">🎵 Musique de "{scene.name}" :</label>
-          <select
-            value={sceneMusicUrl}
-            onChange={(e) => setSceneMusicUrl(e.target.value)}
-            className="rounded border border-neutral-700 bg-neutral-900 px-2 py-1"
-          >
-            <option value="">— Aucune —</option>
-            {musicFiles.map((f) => (
-              <option key={f.name} value={f.url}>
-                {f.name}
-              </option>
+          <label className="text-xs opacity-70">🎵 Musiques de "{scene.name}" <i>(plusieurs : un au hasard, jamais deux fois de suite)</i> :</label>
+          <div className="flex flex-wrap items-center gap-2">
+            {parseMusicList(sceneMusicUrl).length === 0 && <span className="text-xs opacity-60">Aucune musique</span>}
+            {parseMusicList(sceneMusicUrl).map((u) => (
+              <span key={u} className="inline-flex items-center gap-1 rounded bg-neutral-900 px-2 py-1 text-xs">
+                {musicFiles.find((f) => f.url === u)?.name ?? decodeURIComponent(u.split("/").pop() ?? u)}
+                <button type="button" title="Retirer" className="text-red-400" onClick={() => setSceneMusicUrl(joinMusicList(parseMusicList(sceneMusicUrl).filter((x) => x !== u)))}>✕</button>
+              </span>
             ))}
-          </select>
+            <select
+              value=""
+              onChange={(e) => {
+                const u = e.target.value;
+                if (u && !parseMusicList(sceneMusicUrl).includes(u)) setSceneMusicUrl(joinMusicList([...parseMusicList(sceneMusicUrl), u]));
+              }}
+              className="rounded border border-neutral-700 bg-neutral-900 px-2 py-1"
+            >
+              <option value="">+ Ajouter un morceau…</option>
+              {musicFiles.map((f) => (
+                <option key={f.name} value={f.url}>
+                  {f.name}
+                </option>
+              ))}
+            </select>
+          </div>
           <button
             type="button"
             onClick={handleSaveSceneMusic}

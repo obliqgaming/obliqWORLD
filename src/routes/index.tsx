@@ -104,10 +104,13 @@ import { PLACEHOLDER_EVENTS, eventForStep } from "../lib/expedition-placeholder-
 import { openNarrativeStep, fetchNarrativeEvent, type NarrativeEvent } from "../lib/narrative";
 import { NarrativeStepPanel } from "../components/NarrativeStepPanel";
 import { HotspotMarker, HotspotPanel } from "../components/SceneHotspots";
+import { InspectPanel } from "../components/InspectPanel";
 import { WornSprite } from "../components/WornSprite";
 import { CURSOR_DEFAULT, CURSOR_INTERACT, arrowCursor, useArrowCursorReady } from "../lib/cursors";
 import { InventoryPanel } from "../components/InventoryPanel";
 import { fetchWornWeapons, type WornWeapon } from "../lib/weapons";
+import { setUiAudio, uiSound } from "../lib/ui-sounds";
+import { JINGLE_FAIL, JINGLE_SUCCESS, parseMusicList, startJingle } from "../lib/jingle";
 import { fetchSceneHotspots, useClaimedGoldToday, type SceneHotspot } from "../lib/hotspots";
 import { PartyInvitePopup } from "../components/PartyInvitePopup";
 import { PartyPanel } from "../components/PartyPanel";
@@ -228,6 +231,7 @@ function Index() {
     const v = Math.min(1, Math.max(0, parseFloat(e.target.value)));
     setVolume(v);
     if (audioRef.current) audioRef.current.volume = v;
+    if (jingleRef.current) jingleRef.current.volume = v;
     try {
       localStorage.setItem("obliqworld-volume", String(v));
     } catch {
@@ -292,7 +296,8 @@ function Index() {
 
   // ---------- Portail d'expédition (§5, revu le 2026-10-14) ----------
   useArrowCursorReady();
-  const claimedGold = useClaimedGoldToday(); // recharge l'affichage quand la flèche-curseur des portails est prête
+  const claimedGold = useClaimedGoldToday();
+  const [inspectId, setInspectId] = useState<string | null>(null); // recharge l'affichage quand la flèche-curseur des portails est prête
   const [scenePortals, setScenePortals] = useState<ExpeditionPortal[]>([]);
   const [longMinLevel, setLongMinLevel] = useState(5); // réglage long_expedition_min_level (SQL 040), pour l'étiquette du portail
   // Lieux interactifs de la scène (forgeron, éditeur d'étapes…), posés depuis /admin.
@@ -417,12 +422,37 @@ function Index() {
   const sceneIdRef = useRef<string>(initialScene.id);
 
   // ---------- Musique, avec fondu au changement de scène ----------
-  const playMusic = (url: string, fade: boolean) => {
+  // Plusieurs morceaux possibles par scène (adresses séparées par « | ») : on en tire un au hasard, jamais le même deux fois
+  // de suite, puis un autre quand il se termine. Une seule musique à la fois : un « jingle » (révélation, réussite, échec)
+  // coupe la musique principale, joue une fois, puis la musique principale repart.
+  const lastTrackRef = useRef<string | null>(null);
+  const jingleRef = useRef<HTMLAudioElement | null>(null);
+  const pendingMusicRef = useRef<string | null>(null);
+
+  const playMusic = (musicSpec: string, fade: boolean) => {
+    if (jingleRef.current) {
+      pendingMusicRef.current = musicSpec; // un jingle est en cours : la nouvelle musique démarrera à sa fin
+      return;
+    }
+    const list = parseMusicList(musicSpec);
+    if (list.length === 0) {
+      audioRef.current?.pause();
+      audioRef.current = null;
+      return;
+    }
+    const candidates = list.length > 1 ? list.filter((u) => u !== lastTrackRef.current) : list;
+    const url = candidates[Math.floor(Math.random() * candidates.length)]!;
+    lastTrackRef.current = url;
     const prev = audioRef.current;
     const next = new Audio(url);
-    next.loop = true;
+    next.loop = list.length === 1;
     next.muted = mutedRef.current;
     next.volume = fade ? 0 : volumeRef.current;
+    if (list.length > 1) {
+      next.addEventListener("ended", () => {
+        if (audioRef.current === next && !jingleRef.current) playMusic(musicSpec, true);
+      });
+    }
 
     next.play().catch(() => {
       setNeedsInteraction(true);
@@ -454,6 +484,62 @@ function Index() {
     }
   };
 
+  const endJingle = () => {
+    const j = jingleRef.current;
+    if (!j) return;
+    jingleRef.current = null;
+    j.pause();
+    const pending = pendingMusicRef.current;
+    pendingMusicRef.current = null;
+    if (pending) {
+      playMusic(pending, true);
+      return;
+    }
+    const main = audioRef.current;
+    if (main) {
+      main.volume = 0;
+      main.play().catch(() => {});
+      let i = 0;
+      const t = window.setInterval(() => {
+        i++;
+        main.volume = Math.min(volumeRef.current, (i / 20) * volumeRef.current);
+        if (i >= 20) window.clearInterval(t);
+      }, 30);
+    }
+  };
+
+  useEffect(() => {
+    setUiAudio(volume, muted);
+  }, [volume, muted]);
+
+  useEffect(() => {
+    const onJingle = (e: Event) => {
+      const url = (e as CustomEvent<{ url: string }>).detail?.url;
+      if (!url) return;
+      if (jingleRef.current) {
+        jingleRef.current.pause(); // jamais deux jingles ensemble
+        jingleRef.current = null;
+      }
+      audioRef.current?.pause();
+      const j = new Audio(url);
+      j.muted = mutedRef.current;
+      j.volume = volumeRef.current;
+      jingleRef.current = j;
+      j.addEventListener("ended", () => {
+        if (jingleRef.current === j) endJingle();
+      });
+      j.play().catch(() => endJingle());
+    };
+    const onStop = () => endJingle();
+    window.addEventListener("obliq-jingle", onJingle);
+    window.addEventListener("obliq-jingle-stop", onStop);
+    return () => {
+      window.removeEventListener("obliq-jingle", onJingle);
+      window.removeEventListener("obliq-jingle-stop", onStop);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     playMusic(initialScene.music_url, false);
     return () => {
@@ -470,6 +556,7 @@ function Index() {
     audio.muted = !audio.muted;
     setMuted(audio.muted);
     mutedRef.current = audio.muted;
+    if (jingleRef.current) jingleRef.current.muted = audio.muted;
     if (needsInteraction) {
       audio.play().then(() => setNeedsInteraction(false)).catch(() => {});
     }
@@ -1249,6 +1336,14 @@ function Index() {
     const wasInside = inExpeditionScene;
     const endStatus = activeExpedition.status;
     if (wasInside) {
+      // Musique + son de fin : échec (groupe tombé) ou réussite (retour à l'auberge).
+      if (endStatus === "completed_wipe") {
+        uiSound("fail");
+        startJingle(JINGLE_FAIL[Math.floor(Math.random() * JINGLE_FAIL.length)]!);
+      } else {
+        uiSound("success");
+        startJingle(JINGLE_SUCCESS);
+      }
       setEndBanner(
         endStatus === "completed_wipe"
           ? { title: "L'expédition est terminée", text: "Le groupe est tombé. Vous revenez à l'auberge." }
@@ -2186,9 +2281,14 @@ function Index() {
               const targetPeer = peers[peerMenu.peerKey];
               if (targetPeer) handleInvitePeer(targetPeer.characterId);
             }}
+            onInspect={() => {
+              const targetPeer = peers[peerMenu.peerKey];
+              if (targetPeer) setInspectId(targetPeer.characterId);
+            }}
             onClose={() => setPeerMenu(null)}
           />
         )}
+        {inspectId && <InspectPanel characterId={inspectId} onClose={() => setInspectId(null)} />}
 
         {party && character && !inExpeditionScene && (
           <PartyPanel

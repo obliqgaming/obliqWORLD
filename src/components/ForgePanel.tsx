@@ -1,5 +1,6 @@
 // Forge v1 : dessiner une arme (canvas 170 × 150), voir en direct comment elle
 // se tient dans la main de son personnage, la forger, l'équiper ou la ranger.
+import { RARITY_TIER, RevealModal } from "./RevealModal";
 import { Coin, Bag } from "./GameIcons";
 import { useEffect, useRef, useState } from "react";
 import { DrawingCanvas } from "./DrawingCanvas";
@@ -48,6 +49,7 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
   const [family, setFamily] = useState<"melee" | "magie" | null>(null);
   const [preview, setPreview] = useState<{ url: string; anchor: Point } | null>(null);
   const [result, setResult] = useState<Weapon | null>(null);
+  const [revealDone, setRevealDone] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -84,6 +86,7 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
       } catch {
         // Arme de l'autre spécialisation : elle reste dans l'inventaire, non équipée.
       }
+      setRevealDone(false);
       setResult(weapon);
       setName("");
       void fetchMyGold().then(setGold);
@@ -91,8 +94,8 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
   }
 
   return (
-    <div className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/55 p-2" onClick={(e) => e.stopPropagation()} style={{ fontFamily: "'Baloo 2', cursive" }}>
-      <div className="max-h-full w-[min(56rem,98%)] overflow-y-auto rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-4 text-[#3a2410] shadow-xl">
+    <div className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto parchment-scroll bg-black/55 p-2" onClick={(e) => e.stopPropagation()} style={{ fontFamily: "'Baloo 2', cursive" }}>
+      <div className="max-h-full w-[min(56rem,98%)] overflow-y-auto parchment-scroll rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-4 text-[#3a2410] shadow-xl">
         <div className="flex items-center justify-between">
           <div className="text-xl font-extrabold">⚒ Forgeron{cost > 0 && <span className="ml-2 text-sm text-[#92400e]">Forger coûte {cost} or · tu as {gold} <Coin /></span>}</div>
           <button type="button" onClick={onClose} className="rounded border border-[#7a4a22] px-3 py-0.5 text-xs font-bold hover:bg-[#7a4a22]/15">Fermer</button>
@@ -184,7 +187,14 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
             </div>
           </div>
         )}
-        {result && (
+        {result && !revealDone && (
+          <RevealModal tier={RARITY_TIER[result.rarity] ?? 1} title="Ton arme est forgée !" onClose={() => setRevealDone(true)}>
+            <img src={result.image_url} alt="" className="mx-auto my-2 h-24 object-contain" />
+            <RarityName name={result.name} rarity={result.rarity} />
+            <div className="mt-1 text-sm font-extrabold">{RARITY_INFO[result.rarity].label}</div>
+          </RevealModal>
+        )}
+        {result && revealDone && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 p-3">
             <div className="w-[min(24rem,96%)] rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-5 text-center shadow-xl">
               <div className="text-xs font-bold uppercase tracking-widest text-[#7a4a22]">Ton arme est forgée !</div>

@@ -1,6 +1,8 @@
 // Petits panneaux autour de l'expédition : résultat d'un événement, bandeau de
 // fin d'expédition, choix de l'axe au niveau 3.
 import type { GameAxis, GamePower } from "../lib/expedition-combat";
+import { useEffect } from "react";
+import { uiSound } from "../lib/ui-sounds";
 import { LootPanel } from "./LootPanel";
 
 const PANEL_FONT = { fontFamily: "'Baloo 2', cursive" };
@@ -41,6 +43,11 @@ export function OutcomePanel({
         ? { label: pts ? `Tu récupères ${pts} PV` : "Le groupe récupère des PV", color: "#047857" }
         : { label: "Aucune perte de PV", color: "#5e3818" };
   const nar = outcome.narrative;
+  // Petit son de réussite ou d'échec à l'apparition du résultat d'une rencontre.
+  useEffect(() => {
+    if (nar) uiSound(nar.success ? "success" : "fail");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [outcome.stepIndex]);
   return (
     <div className="absolute left-1/2 top-[14%] z-40 w-[min(30rem,92%)] -translate-x-1/2 rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6]/97 p-4 text-[#3a2410] shadow-xl" style={PANEL_FONT}>
       <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-[#7a4a22]">
@@ -103,7 +110,7 @@ export function AxisChoiceModal({
 }) {
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 p-3" style={PANEL_FONT}>
-      <div className="max-h-full w-[min(44rem,96%)] overflow-y-auto rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-5 text-[#3a2410] shadow-xl">
+      <div className="max-h-full w-[min(44rem,96%)] overflow-y-auto parchment-scroll rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-5 text-[#3a2410] shadow-xl">
         <div className="text-center text-xl font-extrabold">Tu as atteint le niveau 3 : choisis ton axe</div>
         <div className="mt-1 text-center text-xs">Ce choix est définitif. Il détermine tes stats et tes pouvoirs.</div>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">

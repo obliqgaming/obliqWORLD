@@ -1,4 +1,5 @@
 // Onglet « Boutique » du forgeron : acheter les armes dessinées par les autres joueurs, fixer le prix des siennes.
+import { uiSound } from "../lib/ui-sounds";
 import { Coin } from "./GameIcons";
 import { useEffect, useState } from "react";
 import { EFFECT_INFO, RARITY_INFO, bonusText, weaponFits, weaponKindLabel } from "../lib/weapons";
@@ -36,10 +37,12 @@ export function ShopPanel({ gold, family, onGoldChange, onBought }: { gold: numb
     setMsg(null);
     try {
       await fn();
+      uiSound("coin");
       if (ok) setMsg(ok);
       await reload();
       onGoldChange();
     } catch (e: any) {
+      uiSound("error");
       setMsg(e?.message ?? "Erreur");
     } finally {
       setBusy(false);

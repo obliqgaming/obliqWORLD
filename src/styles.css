@@ -151,3 +151,26 @@
 .no-scrollbar::-webkit-scrollbar {
   display: none; /* Chrome, Safari */
 }
+
+/* Barre de défilement « parchemin » : fine, brune, arrondie, comme une baguette de bois sur le papier. */
+.parchment-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #8a5a2b rgba(122, 74, 34, 0.18);
+}
+.parchment-scroll::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.parchment-scroll::-webkit-scrollbar-track {
+  background: rgba(122, 74, 34, 0.15);
+  border-radius: 8px;
+  box-shadow: inset 0 0 3px rgba(60, 30, 10, 0.35);
+}
+.parchment-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(90deg, #a8742f, #7a4a22);
+  border-radius: 8px;
+  border: 1px solid #4a2c10;
+}
+.parchment-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(90deg, #c08a3f, #8a5a2b);
+}

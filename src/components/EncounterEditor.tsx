@@ -1,5 +1,6 @@
 // Éditeur de rencontres : tirage payant (type + risque au hasard), écriture en 3 textes,
 // boîte aux lettres (l'or gagné quand les autres jouent ta rencontre) et historique.
+import { uiSound } from "../lib/ui-sounds";
 import { Coin } from "./GameIcons";
 import { useCallback, useEffect, useState } from "react";
 import { fetchMyGold } from "../lib/loot";
@@ -10,7 +11,7 @@ import {
 } from "../lib/encounters";
 
 const FONT = { fontFamily: "'Baloo 2', cursive" };
-const MAX = 400;
+const MAX = 300;
 const MIN = 10;
 
 export function EncounterEditor({ onClose }: { onClose: () => void }) {
@@ -66,6 +67,7 @@ export function EncounterEditor({ onClose }: { onClose: () => void }) {
     setMsg(null);
     try {
       const e = await submitEncounter(draft.id, sit, ok, ko, mode);
+      uiSound("success");
       setDraft(null);
       setMsg(e.status === "approved" ? "✔ Ta rencontre est publiée : d'autres expéditions pourront la tirer !" : "✔ Ta rencontre est envoyée, elle sera relue avant d'être publiée.");
       await reload();
@@ -106,7 +108,7 @@ export function EncounterEditor({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/55 p-3" onClick={onClose}>
-      <div className="max-h-[92%] w-[min(40rem,96%)] overflow-y-auto rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-4 text-[#3a2410] shadow-2xl" style={FONT} onClick={(e) => e.stopPropagation()}>
+      <div className="max-h-[92%] w-[min(40rem,96%)] overflow-y-auto parchment-scroll rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-4 text-[#3a2410] shadow-2xl" style={FONT} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <div className="text-lg font-extrabold">✍ Écrire une rencontre</div>
           <button type="button" onClick={onClose} className="rounded border border-[#7a4a22] px-2 text-sm font-bold">Fermer</button>

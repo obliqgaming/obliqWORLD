@@ -1,6 +1,7 @@
 // Marqueur cliquable d'un lieu interactif + fenêtre qui s'ouvre au clic.
 // Pour l'instant les fenêtres sont des maquettes : le contenu arrive pas à pas
 // (forge, éditeur d'étapes).
+import { uiSound } from "../lib/ui-sounds";
 import { Coin, HotspotGlyph } from "./GameIcons";
 import { CURSOR_INTERACT } from "../lib/cursors";
 import { claimDailyGold, hotspotInfo, type SceneHotspot } from "../lib/hotspots";
@@ -90,7 +91,7 @@ function GoldPanel({ hotspotId, onClose }: { hotspotId: string; onClose: () => v
   useEffect(() => {
     let alive = true;
     claimDailyGold(hotspotId)
-      .then((n) => alive && setRes({ ok: true, text: `+${n} or ramassé !` }))
+      .then((n) => { uiSound("coin"); if (alive) setRes({ ok: true, text: `+${n} or ramassé !` }); })
       .catch((e: any) => alive && setRes({ ok: false, text: e?.message?.includes("daily_gold_claim") ? "Cet endroit n'est pas encore activé (SQL 032)." : (e?.message ?? "Impossible de ramasser.") }));
     return () => {
       alive = false;

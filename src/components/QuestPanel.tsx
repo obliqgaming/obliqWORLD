@@ -1,11 +1,19 @@
 // Lieu « Quêtes » : une quête par jour parmi 5. Une fois acceptée elle reste jusqu'à être accomplie ; la récompense
 // est un booster (or, potion, parchemin, arme, compagnon). Progression automatique (SQL 041).
+import { uiSound } from "../lib/ui-sounds";
 import { Coin, QuestIcon } from "./GameIcons";
 import { useEffect, useState } from "react";
 import { acceptQuest, claimQuest, fetchQuests, type BoosterResult, type MyQuest, type Quest } from "../lib/quests";
 import { CONSUMABLE_INFO, type ConsumableKind } from "../lib/consumables";
 import { RARITY_INFO, type Rarity } from "../lib/weapons";
 import { TIER_INFO } from "../lib/companions";
+import { RARITY_TIER, RevealModal } from "./RevealModal";
+
+function boosterTier(r: BoosterResult): number {
+  if (r.type === "arme") return RARITY_TIER[r.rarity as string] ?? 1;
+  if (r.type === "compagnon") return r.tier === "large" ? 4 : r.tier === "medium" ? 3 : 2;
+  return r.type === "gold" ? 0 : 1;
+}
 
 const BTN = "rounded-lg border-2 border-[#7a4a22] bg-[#7a4a22] px-3 py-1 text-sm font-bold text-[#fff3d6] hover:bg-[#5e3818] disabled:opacity-50";
 
@@ -39,6 +47,7 @@ export function QuestPanel({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [reward, setReward] = useState<BoosterResult | null>(null);
+  const [revealing, setRevealing] = useState(false);
 
   const reload = async () => {
     try {
@@ -57,8 +66,10 @@ export function QuestPanel({ onClose }: { onClose: () => void }) {
     setMsg(null);
     try {
       await fn();
+      uiSound("ok");
       await reload();
     } catch (e: any) {
+      uiSound("error");
       setMsg(e?.message ?? "Erreur");
     } finally {
       setBusy(false);
@@ -71,8 +82,8 @@ export function QuestPanel({ onClose }: { onClose: () => void }) {
   const ready = !!(mine && current && mine.progress >= current.goal);
 
   return (
-    <div className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/55 p-2" onClick={(e) => e.stopPropagation()} style={{ fontFamily: "'Baloo 2', cursive" }}>
-      <div className="max-h-full w-[min(34rem,98%)] overflow-y-auto rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-4 text-[#3a2410] shadow-xl">
+    <div className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto parchment-scroll bg-black/55 p-2" onClick={(e) => e.stopPropagation()} style={{ fontFamily: "'Baloo 2', cursive" }}>
+      <div className="max-h-full w-[min(34rem,98%)] overflow-y-auto parchment-scroll rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-4 text-[#3a2410] shadow-xl">
         <div className="flex items-center justify-between">
           <div className="text-xl font-extrabold"><QuestIcon /> Quête du jour</div>
           <button type="button" onClick={onClose} className={BTN}>Fermer</button>
@@ -85,7 +96,12 @@ export function QuestPanel({ onClose }: { onClose: () => void }) {
         {msg && <div className="mt-2 text-xs font-bold text-[#92400e]">{msg}</div>}
         {data === null && <div className="mt-3 text-sm">Chargement…</div>}
 
-        {reward && (
+        {reward && revealing && (
+          <RevealModal tier={boosterTier(reward)} title="Ton booster contenait…" onClose={() => setRevealing(false)}>
+            <BoosterView r={reward} />
+          </RevealModal>
+        )}
+        {reward && !revealing && (
           <div className="mt-3 rounded-lg border-2 border-[#b45309] bg-[#fde7c8] p-3 text-center">
             <div className="text-xs font-bold uppercase tracking-widest">Ton booster contenait</div>
             <div className="mt-1"><BoosterView r={reward} /></div>
@@ -102,7 +118,7 @@ export function QuestPanel({ onClose }: { onClose: () => void }) {
                 type="button"
                 disabled={busy}
                 className={`${BTN} mt-2`}
-                onClick={() => void act(async () => { setReward(await claimQuest()); })}
+                onClick={() => void act(async () => { const r = await claimQuest(); setReward(r); setRevealing(true); })}
               >
                 🎁 Ouvrir mon booster
               </button>

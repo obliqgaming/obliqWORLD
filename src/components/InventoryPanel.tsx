@@ -1,5 +1,6 @@
 // Inventaire v1 : les armes que je porte sur moi, équiper / ranger / jeter.
 // (Pas de changement d'arme en combat : on équipe au village.)
+import { uiSound } from "../lib/ui-sounds";
 import { Coin, Bag } from "./GameIcons";
 import { AuthorLine } from "./AuthorLine";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -84,9 +85,11 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
     setMsg(null);
     try {
       await fn();
+      uiSound("ok");
       await reload();
       onWeaponChanged();
     } catch (e: any) {
+      uiSound("error");
       setMsg(e?.message ?? "Erreur");
     } finally {
       setBusy(false);
@@ -111,8 +114,8 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
     setAdj((a) => ({ ...a, dx: Math.max(-60, Math.min(60, a.dx + ddx)), dy: Math.max(-60, Math.min(60, a.dy + ddy)) }));
   };
   return (
-    <div className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/55 p-2" onClick={(e) => e.stopPropagation()} style={{ fontFamily: "'Baloo 2', cursive" }}>
-      <div className="max-h-full w-[min(40rem,98%)] overflow-y-auto rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-4 text-[#3a2410] shadow-xl">
+    <div className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto parchment-scroll bg-black/55 p-2" onClick={(e) => e.stopPropagation()} style={{ fontFamily: "'Baloo 2', cursive" }}>
+      <div className="max-h-full w-[min(46rem,98%)] overflow-y-auto parchment-scroll rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-4 text-[#3a2410] shadow-xl">
         <div className="flex items-center justify-between">
           <div className="text-xl font-extrabold"><Bag /> Inventaire <span className="ml-2 text-sm text-[#92400e]"><Coin /> {gold} or</span></div>
           <button type="button" onClick={onClose} className="rounded border border-[#7a4a22] px-3 py-0.5 text-xs font-bold hover:bg-[#7a4a22]/15">Fermer</button>
@@ -120,7 +123,7 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
         {!character ? (
           <div className="mt-3 text-sm">Il te faut un personnage.</div>
         ) : (
-          <div className="mt-3 grid gap-4 sm:grid-cols-[10rem_1fr]">
+          <div className="mt-3 grid gap-4 sm:grid-cols-[13rem_minmax(0,1fr)]">
             <div>
               <div
                 ref={previewRef}
@@ -144,17 +147,15 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
               {eq && (
                 <div className="mt-1 text-[11px]">
                   <div className="space-y-0.5 opacity-80"><div>✋ <b>Glisse</b> l'arme équipée pour la replacer dans la main, <b>tourne-la</b>, ajuste sa <b>taille</b>.</div><div>💾 Puis <b>Enregistrer</b> : <i>le réglage est gardé pour cette arme.</i></div></div>
-                  <label className="flex items-center gap-1">
-                    Rotation
-                    <input type="range" min={-180} max={180} step={5} value={adj.rot} onChange={(e) => setAdj((a) => ({ ...a, rot: Number(e.target.value) }))} className="flex-1" />
-                    <span className="w-8 text-right">{adj.rot}°</span>
-                  </label>
-                  <label className="flex items-center gap-1">
-                    Taille
-                    <input type="range" min={80} max={120} step={1} value={adj.scale} onChange={(e) => setAdj((a) => ({ ...a, scale: Number(e.target.value) }))} className="flex-1" />
-                    <span className="w-9 text-right">{adj.scale}%</span>
-                  </label>
-                  <div className="mt-1 flex gap-1">
+                  <div className="mt-1 grid grid-cols-[3.6rem_minmax(0,1fr)_2.4rem] items-center gap-x-1 gap-y-1">
+                    <span>Rotation</span>
+                    <input type="range" min={-180} max={180} step={5} value={adj.rot} onChange={(e) => setAdj((a) => ({ ...a, rot: Number(e.target.value) }))} className="w-full min-w-0" />
+                    <span className="text-right">{adj.rot}°</span>
+                    <span>Taille</span>
+                    <input type="range" min={80} max={120} step={1} value={adj.scale} onChange={(e) => setAdj((a) => ({ ...a, scale: Number(e.target.value) }))} className="w-full min-w-0" />
+                    <span className="text-right">{adj.scale}%</span>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1">
                     <button type="button" disabled={busy || !dirty} className="rounded border border-[#7a4a22] px-1.5 font-bold hover:bg-[#7a4a22]/15 disabled:opacity-40"
                       onClick={() => void act(() => adjustItem(eq.id, adj.dx, adj.dy, adj.rot, adj.scale))}>Enregistrer</button>
                     <button type="button" className="rounded border border-[#7a4a22] px-1.5 font-bold hover:bg-[#7a4a22]/15"
@@ -163,7 +164,7 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
                 </div>
               )}
             </div>
-            <div className="flex max-h-80 flex-col gap-1.5 overflow-y-auto">
+            <div className="flex max-h-[22rem] min-w-0 flex-col gap-1.5 overflow-y-auto parchment-scroll pr-1">
               {stacks.length > 0 && (
                 <div className="mb-2 rounded border border-[#b98a54] bg-[#f6e8c4] p-2 text-sm">
                   <div className="text-xs font-extrabold uppercase">Objets (utilisables en combat)</div>

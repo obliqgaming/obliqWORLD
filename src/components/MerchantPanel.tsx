@@ -1,4 +1,5 @@
 // Fenêtre du marchand : acheter potions et parchemin, revendre ses objets et ses armes (au quart).
+import { uiSound } from "../lib/ui-sounds";
 import { Coin } from "./GameIcons";
 import { useEffect, useState } from "react";
 import { CONSUMABLE_INFO, CONSUMABLE_ORDER, fetchMyConsumables, type ConsumableStack } from "../lib/consumables";
@@ -37,10 +38,12 @@ export function MerchantPanel({ onClose, onWeaponChanged }: { onClose: () => voi
     setMsg(null);
     try {
       await fn();
+      uiSound("coin");
       if (ok) setMsg(ok);
       await reload();
       onWeaponChanged();
     } catch (e: any) {
+      uiSound("error");
       setMsg(e?.message?.includes("merchant_") && e?.message?.includes("function") ? "Le marchand n'est pas encore activé (SQL 030)." : (e?.message ?? "Erreur"));
     } finally {
       setBusy(false);
@@ -53,8 +56,8 @@ export function MerchantPanel({ onClose, onWeaponChanged }: { onClose: () => voi
     it.is_prototype ? null : Math.max(1, Math.round(((st?.weaponBase[it.weapon.rarity] ?? 6) * (st?.sellPct ?? 25)) / 100 * (it.durability / Math.max(1, it.durability_max))));
 
   return (
-    <div className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/55 p-2" onClick={(e) => e.stopPropagation()} style={{ fontFamily: "'Baloo 2', cursive" }}>
-      <div className="max-h-full w-[min(40rem,98%)] overflow-y-auto rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-4 text-[#3a2410] shadow-xl">
+    <div className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto parchment-scroll bg-black/55 p-2" onClick={(e) => e.stopPropagation()} style={{ fontFamily: "'Baloo 2', cursive" }}>
+      <div className="max-h-full w-[min(40rem,98%)] overflow-y-auto parchment-scroll rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-4 text-[#3a2410] shadow-xl">
         <div className="flex items-center justify-between">
           <div className="text-xl font-extrabold">🛍 Marchand <span className="ml-2 text-sm text-[#92400e]">tu as {gold} <Coin /></span></div>
           <button type="button" onClick={onClose} className="rounded border border-[#7a4a22] px-3 py-0.5 text-xs font-bold hover:bg-[#7a4a22]/15">Fermer</button>
