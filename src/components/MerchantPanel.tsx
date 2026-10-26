@@ -1,4 +1,5 @@
 // Fenêtre du marchand : acheter potions et parchemin, revendre ses objets et ses armes (au quart).
+import { Coin } from "./GameIcons";
 import { useEffect, useState } from "react";
 import { CONSUMABLE_INFO, CONSUMABLE_ORDER, fetchMyConsumables, type ConsumableStack } from "../lib/consumables";
 import { fetchMerchantSettings, merchantBuy, merchantSellConsumable, merchantSellWeapon, type MerchantSettings } from "../lib/merchant";
@@ -55,7 +56,7 @@ export function MerchantPanel({ onClose, onWeaponChanged }: { onClose: () => voi
     <div className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/55 p-2" onClick={(e) => e.stopPropagation()} style={{ fontFamily: "'Baloo 2', cursive" }}>
       <div className="max-h-full w-[min(40rem,98%)] overflow-y-auto rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-4 text-[#3a2410] shadow-xl">
         <div className="flex items-center justify-between">
-          <div className="text-xl font-extrabold">🛍 Marchand <span className="ml-2 text-sm text-[#92400e]">tu as {gold} 🪙</span></div>
+          <div className="text-xl font-extrabold">🛍 Marchand <span className="ml-2 text-sm text-[#92400e]">tu as {gold} <Coin /></span></div>
           <button type="button" onClick={onClose} className="rounded border border-[#7a4a22] px-3 py-0.5 text-xs font-bold hover:bg-[#7a4a22]/15">Fermer</button>
         </div>
         <div className="mt-2 flex gap-2">
@@ -76,7 +77,7 @@ export function MerchantPanel({ onClose, onWeaponChanged }: { onClose: () => voi
                     <div className="text-xs">{CONSUMABLE_INFO[k].text}</div>
                   </div>
                   <button type="button" disabled={busy || price == null || gold < price || count(k) >= 9} className={BTN} onClick={() => void act(() => merchantBuy(k, 1))}>
-                    Acheter · {price ?? "?"} 🪙
+                    Acheter · {price ?? "?"} <Coin />
                   </button>
                 </div>
               );
@@ -89,7 +90,7 @@ export function MerchantPanel({ onClose, onWeaponChanged }: { onClose: () => voi
               <div key={k} className="flex items-center gap-2 rounded border border-[#7a4a22]/60 bg-white/40 p-2 text-sm">
                 <span className="text-xl">{CONSUMABLE_INFO[k].icon}</span>
                 <div className="min-w-0 flex-1"><b>{CONSUMABLE_INFO[k].name}</b> <span className="text-xs opacity-70">× {count(k)}</span></div>
-                <button type="button" disabled={busy} className={BTN} onClick={() => void act(() => merchantSellConsumable(k, 1))}>Vendre 1 · {sellEach(k)} 🪙</button>
+                <button type="button" disabled={busy} className={BTN} onClick={() => void act(() => merchantSellConsumable(k, 1))}>Vendre 1 · {sellEach(k)} <Coin /></button>
               </div>
             ))}
             {items.map((it) => {
@@ -104,7 +105,7 @@ export function MerchantPanel({ onClose, onWeaponChanged }: { onClose: () => voi
                   {v == null ? (
                     <span className="text-xs opacity-70">non rachetable</span>
                   ) : (
-                    <button type="button" disabled={busy} className={BTN} onClick={() => void act(() => merchantSellWeapon(it.id), "✔ Arme vendue.")}>Vendre · {v} 🪙</button>
+                    <button type="button" disabled={busy} className={BTN} onClick={() => void act(() => merchantSellWeapon(it.id), "✔ Arme vendue.")}>Vendre · {v} <Coin /></button>
                   )}
                 </div>
               );

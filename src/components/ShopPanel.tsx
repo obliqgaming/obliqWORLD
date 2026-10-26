@@ -1,4 +1,5 @@
 // Onglet « Boutique » du forgeron : acheter les armes dessinées par les autres joueurs, fixer le prix des siennes.
+import { Coin } from "./GameIcons";
 import { useEffect, useState } from "react";
 import { EFFECT_INFO, RARITY_INFO, bonusText, weaponFits, weaponKindLabel } from "../lib/weapons";
 import { fetchShop, shopBuy, shopCollect, shopSetPrice, type Listing, type PriceRange } from "../lib/shop";
@@ -66,7 +67,7 @@ export function ShopPanel({ gold, family, onGoldChange, onBought }: { gold: numb
           <div className="opacity-70">{l.authorName ? `par ${l.authorName} · ` : ""}{sold ? "ÉPUISÉE (on peut en trouver en butin)" : `${l.stock_left}/${l.stock_total} en stock`}</div>
           {!fits && !l.mine && <div className="font-bold text-[#7a3a0e]">⚠ Pas portable par ta spécialisation (elle resterait dans ton inventaire).</div>}
           <div className="mt-1 flex flex-wrap items-center gap-2">
-            <b>{l.price} 🪙</b>
+            <b>{l.price} <Coin /></b>
             {!l.mine && (
               <button type="button" disabled={busy || sold || gold < l.price} className={BTN} onClick={() => void act(async () => { await shopBuy(l.weapon_id); onBought(); }, `✔ « ${w.name} » est dans ton inventaire.`)}>
                 Acheter
@@ -99,11 +100,11 @@ export function ShopPanel({ gold, family, onGoldChange, onBought }: { gold: numb
       <div className="space-y-1 text-sm leading-snug">
         <div>⚔ <b>Les armes dessinées par les joueurs</b> sont en vente ici.</div>
         <div>✍ L'auteur fixe le prix <i>(dans une fourchette selon la rareté)</i> et reçoit <b>{pct} %</b> de chaque vente.</div>
-        <div>🪙 Tu as <b>{gold}</b></div>
+        <div><Coin /> Tu as <b>{gold}</b></div>
       </div>
       {pending > 0 && (
         <div className="mt-2 flex items-center gap-2 rounded border border-[#7a4a22] bg-[#fde7c8] p-2 text-sm font-bold">
-          📬 Tes ventes t'ont rapporté {pending} 🪙
+          📬 Tes ventes t'ont rapporté {pending} <Coin />
           <button type="button" disabled={busy} className={BTN} onClick={() => void act(async () => { await shopCollect(); }, "✔ Or récupéré.")}>Récupérer</button>
         </div>
       )}

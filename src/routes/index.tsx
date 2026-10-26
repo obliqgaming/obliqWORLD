@@ -108,7 +108,7 @@ import { WornSprite } from "../components/WornSprite";
 import { CURSOR_DEFAULT, CURSOR_INTERACT, arrowCursor, useArrowCursorReady } from "../lib/cursors";
 import { InventoryPanel } from "../components/InventoryPanel";
 import { fetchWornWeapons, type WornWeapon } from "../lib/weapons";
-import { fetchSceneHotspots, type SceneHotspot } from "../lib/hotspots";
+import { fetchSceneHotspots, useClaimedGoldToday, type SceneHotspot } from "../lib/hotspots";
 import { PartyInvitePopup } from "../components/PartyInvitePopup";
 import { PartyPanel } from "../components/PartyPanel";
 import { PeerContextMenu } from "../components/PeerContextMenu";
@@ -291,7 +291,8 @@ function Index() {
   const inviteChannelRef = useRef<PresenceChannel | null>(null);
 
   // ---------- Portail d'expédition (§5, revu le 2026-10-14) ----------
-  useArrowCursorReady(); // recharge l'affichage quand la flèche-curseur des portails est prête
+  useArrowCursorReady();
+  const claimedGold = useClaimedGoldToday(); // recharge l'affichage quand la flèche-curseur des portails est prête
   const [scenePortals, setScenePortals] = useState<ExpeditionPortal[]>([]);
   const [longMinLevel, setLongMinLevel] = useState(5); // réglage long_expedition_min_level (SQL 040), pour l'étiquette du portail
   // Lieux interactifs de la scène (forgeron, éditeur d'étapes…), posés depuis /admin.
@@ -372,6 +373,9 @@ function Index() {
 
   // ---- Chat ----
   const [chatLog, setChatLog] = useState<ChatMessage[]>([]);
+  const chatLogRef = useRef<HTMLDivElement | null>(null);
+  const chatInputRef = useRef<HTMLInputElement | null>(null);
+  const [emojiOpen, setEmojiOpen] = useState(false);
   const [chatInput, setChatInput] = useState("");
   const [bubbles, setBubbles] = useState<Record<string, { text: string; expiresAt: number }>>({});
   const bubbleTimers = useRef<Record<string, number>>({});
@@ -705,6 +709,28 @@ function Index() {
     return () => window.removeEventListener("obliq-companion-changed", h);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [character?.id, scene.id, activeExpedition?.status]);
+
+  // Le t'chat redescend tout seul à chaque nouveau message, et quand on revient sur l'onglet.
+  const scrollChatDown = () => {
+    const el = chatLogRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  };
+  useEffect(() => {
+    scrollChatDown();
+    const t = window.setTimeout(scrollChatDown, 60);
+    return () => window.clearTimeout(t);
+  }, [chatLog, character?.id]);
+  useEffect(() => {
+    const h = () => {
+      if (document.visibilityState === "visible") window.setTimeout(scrollChatDown, 30);
+    };
+    document.addEventListener("visibilitychange", h);
+    window.addEventListener("focus", h);
+    return () => {
+      document.removeEventListener("visibilitychange", h);
+      window.removeEventListener("focus", h);
+    };
+  }, []);
 
   // Message d'accueil : une seule fois par navigateur, dès qu'on a un personnage.
   useEffect(() => {
@@ -2178,7 +2204,7 @@ function Index() {
           />
         )}
 
-        {character && !inExpeditionScene && hotspots.map((h) => (
+        {character && !inExpeditionScene && hotspots.filter((h) => !claimedGold.has(h.id)).map((h) => (
           <HotspotMarker key={h.id} hotspot={h} onClick={() => walkThen(h.position, () => setOpenHotspot(h))} />
         ))}
         {openHotspot && (
@@ -2336,7 +2362,7 @@ function Index() {
             className={`absolute bottom-2 left-1/2 z-30 -translate-x-1/2 px-2 leading-none transition-transform hover:scale-110 ${inExpeditionScene ? "text-3xl" : "text-6xl"}`}
             style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.7))", fontFamily: "'Baloo 2', cursive", cursor: CURSOR_INTERACT }}
           >
-            🎒
+            <img src="/icons/bag.svg" alt="Inventaire" draggable={false} style={{ height: inExpeditionScene ? "1.9rem" : "3.8rem", width: "auto" }} />
           </button>
         )}
         {character && !activeCombatId && (
@@ -2428,6 +2454,7 @@ function Index() {
           }}
         >
           <div
+            ref={chatLogRef}
             className="no-scrollbar pointer-events-auto flex max-h-36 flex-col gap-0.5 overflow-y-auto pr-1 text-sm"
             style={{
               fontFamily: "'Baloo 2', cursive",
@@ -2442,8 +2469,27 @@ function Index() {
               </p>
             ))}
           </div>
-          <form onSubmit={handleSendChat} className="pointer-events-auto mt-1 flex gap-2">
+          <form onSubmit={handleSendChat} className="pointer-events-auto relative mt-1 flex gap-2">
+            {emojiOpen && (
+              <div className="absolute bottom-full right-0 mb-1 grid w-60 grid-cols-8 gap-0.5 rounded-lg bg-black/80 p-2 text-xl">
+                {CHAT_EMOJIS.map((em) => (
+                  <button
+                    key={em}
+                    type="button"
+                    className="rounded p-0.5 hover:bg-white/20"
+                    onClick={() => {
+                      setChatInput((v) => (v + em).slice(0, 200));
+                      setEmojiOpen(false);
+                      chatInputRef.current?.focus();
+                    }}
+                  >
+                    {em}
+                  </button>
+                ))}
+              </div>
+            )}
             <input
+              ref={chatInputRef}
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
               maxLength={200}
@@ -2455,6 +2501,14 @@ function Index() {
                 textShadow: "0 1px 4px rgba(0, 0, 0, 0.7)",
               }}
             />
+            <button
+              type="button"
+              title="Emojis"
+              onClick={() => setEmojiOpen((o) => !o)}
+              className="rounded-md bg-black/35 px-2 text-lg hover:bg-black/50"
+            >
+              😊
+            </button>
             <button
               type="submit"
               className="rounded-md bg-black/35 px-3 text-sm font-bold text-[#fff3d6] hover:bg-black/50"
@@ -2468,6 +2522,8 @@ function Index() {
     </div>
   );
 }
+
+const CHAT_EMOJIS = ["😀", "😂", "😍", "😎", "😢", "😡", "😮", "🤔", "😴", "😅", "😉", "😇", "👍", "👏", "🙏", "👋", "❤️", "🔥", "✨", "🎉", "💀", "⚔️", "🍺", "🐾"];
 
 function SpeechBubble({ text }: { text: string }) {
   return (

@@ -31,6 +31,7 @@ import { AdminCharacters } from "../components/AdminCharacters";
 import { AdminEncounters } from "../components/AdminEncounters";
 import { AdminRequests } from "../components/AdminRequests";
 import { AdminCreatures } from "../components/AdminCreatures";
+import { HotspotGlyph } from "../components/GameIcons";
 import { AdminPets } from "../components/AdminPets";
 import { AdminBackup } from "../components/AdminBackup";
 import { AdminSettings } from "../components/AdminSettings";
@@ -968,7 +969,7 @@ function AdminPage() {
                     onClick={() => setPlacingHotspot((cur) => (cur === k.kind ? null : k.kind))}
                     className={`rounded px-3 py-1 text-xs font-semibold ${placingHotspot === k.kind ? "bg-amber-600" : "bg-neutral-700"}`}
                   >
-                    {placingHotspot === k.kind ? `Clique sur l'image pour poser : ${k.label}…` : `${k.icon} Ajouter : ${k.label} (${all.length})`}
+                    {placingHotspot === k.kind ? `Clique sur l'image pour poser : ${k.label}…` : <><HotspotGlyph icon={k.icon} /> Ajouter : {k.label} ({all.length})</>}
                   </button>
                   {all.map((h) => (
                     <button key={h.id} type="button" onClick={() => void handleDeleteHotspot(h)} className="rounded bg-neutral-700 px-2 py-1 text-xs text-red-400" title="Retirer ce tas">
@@ -988,7 +989,7 @@ function AdminPage() {
                 >
                   {placingHotspot === k.kind
                     ? `Clique sur l'image pour poser : ${k.label}…`
-                    : `${k.icon} ${placed ? "Déplacer" : "Poser"} : ${k.label}`}
+                    : <><HotspotGlyph icon={k.icon} /> {placed ? "Déplacer" : "Poser"} : {k.label}</>}
                 </button>
                 {placed && (
                   <button type="button" onClick={() => void handleDeleteHotspot(placed)} className="rounded bg-neutral-700 px-2 py-1 text-xs text-red-400" title="Retirer">
@@ -1117,7 +1118,7 @@ function AdminPage() {
                 style={{ left: `${h.position.x}%`, top: `${h.position.y}%` }}
               >
                 <span className="flex h-8 w-8 items-center justify-center rounded-full border-2 text-sm" style={{ background: "rgba(59,130,246,0.55)", borderColor: "rgba(191,219,254,0.95)" }}>
-                  {hotspotInfo(h.kind).icon}
+                  <HotspotGlyph icon={hotspotInfo(h.kind).icon} />
                 </span>
                 <span className="rounded bg-black/70 px-1 text-[10px] text-white">{hotspotInfo(h.kind).label}</span>
               </div>

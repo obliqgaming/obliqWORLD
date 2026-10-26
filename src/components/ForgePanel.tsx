@@ -1,5 +1,6 @@
 // Forge v1 : dessiner une arme (canvas 170 × 150), voir en direct comment elle
 // se tient dans la main de son personnage, la forger, l'équiper ou la ranger.
+import { Coin, Bag } from "./GameIcons";
 import { useEffect, useRef, useState } from "react";
 import { DrawingCanvas } from "./DrawingCanvas";
 import { WornSprite } from "./WornSprite";
@@ -93,7 +94,7 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
     <div className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/55 p-2" onClick={(e) => e.stopPropagation()} style={{ fontFamily: "'Baloo 2', cursive" }}>
       <div className="max-h-full w-[min(56rem,98%)] overflow-y-auto rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-4 text-[#3a2410] shadow-xl">
         <div className="flex items-center justify-between">
-          <div className="text-xl font-extrabold">⚒ Forgeron{cost > 0 && <span className="ml-2 text-sm text-[#92400e]">Forger coûte {cost} or · tu as {gold} 🪙</span>}</div>
+          <div className="text-xl font-extrabold">⚒ Forgeron{cost > 0 && <span className="ml-2 text-sm text-[#92400e]">Forger coûte {cost} or · tu as {gold} <Coin /></span>}</div>
           <button type="button" onClick={onClose} className="rounded border border-[#7a4a22] px-3 py-0.5 text-xs font-bold hover:bg-[#7a4a22]/15">Fermer</button>
         </div>
         {character && (
@@ -161,7 +162,7 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
                               })
                             }
                           >
-                            Réparer · {price} 🪙
+                            Réparer · {price} <Coin />
                           </button>
                         </div>
                       );
@@ -179,7 +180,7 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
                   weapon={preview ? worn({ imageUrl: preview.url, grip: preview.anchor, width: WEAPON_W, height: WEAPON_H }) : null}
                 />
               </div>
-              <div className="mt-3 space-y-1 text-xs"><div>⚔ Ton <b>prototype</b> est équipé tout de suite <i>(toujours commun)</i>.</div><div>🎒 Tes armes sont dans ton <b>Inventaire</b>.</div><div>🎲 La <b>rareté du modèle</b> est tirée au hasard à la validation : <i>les exemplaires puissants se gagnent en butin.</i></div></div>
+              <div className="mt-3 space-y-1 text-xs"><div>⚔ Ton <b>prototype</b> est équipé tout de suite <i>(toujours commun)</i>.</div><div><Bag /> Tes armes sont dans ton <b>Inventaire</b>.</div><div>🎲 La <b>rareté du modèle</b> est tirée au hasard à la validation : <i>les exemplaires puissants se gagnent en butin.</i></div></div>
             </div>
           </div>
         )}

@@ -6,6 +6,7 @@
 // Le serveur résout un tour d'un coup, mais l'écran le REJOUE action par action
 // à partir du journal structuré : chaque coup est animé, accompagné d'un
 // bruitage, et les PV affichés ne bougent qu'au moment où le coup touche.
+import { Bag } from "./GameIcons";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ALLY_SLOTS, ENEMY_SLOTS, HpBar, PlaceholderEnemy, hpColor, type CombatAlly } from "./ExpeditionCombatView";
 import {
@@ -671,7 +672,7 @@ export function ExpeditionBattle({
                 }}
                 className="min-w-28 rounded-lg border border-[#7a4a22]/70 bg-black/25 px-3 py-2 text-sm font-bold text-[#fff3d6] hover:bg-[#7a4a22]/60 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                <div>🎒 Objets</div>
+                <div><Bag /> Objets</div>
                 <div className="text-[10px] font-normal">{stacks.length === 0 ? "aucun objet" : "prend ton tour"}</div>
               </button>
             </div>

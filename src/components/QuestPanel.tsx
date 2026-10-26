@@ -1,5 +1,6 @@
 // Lieu « Quêtes » : une quête par jour parmi 5. Une fois acceptée elle reste jusqu'à être accomplie ; la récompense
 // est un booster (or, potion, parchemin, arme, compagnon). Progression automatique (SQL 041).
+import { Coin, QuestIcon } from "./GameIcons";
 import { useEffect, useState } from "react";
 import { acceptQuest, claimQuest, fetchQuests, type BoosterResult, type MyQuest, type Quest } from "../lib/quests";
 import { CONSUMABLE_INFO, type ConsumableKind } from "../lib/consumables";
@@ -9,7 +10,7 @@ import { TIER_INFO } from "../lib/companions";
 const BTN = "rounded-lg border-2 border-[#7a4a22] bg-[#7a4a22] px-3 py-1 text-sm font-bold text-[#fff3d6] hover:bg-[#5e3818] disabled:opacity-50";
 
 function BoosterView({ r }: { r: BoosterResult }) {
-  if (r.type === "gold") return <div className="text-lg font-extrabold">🪙 {r.amount} pièces d'or !</div>;
+  if (r.type === "gold") return <div className="text-lg font-extrabold"><Coin /> {r.amount} pièces d'or !</div>;
   if (r.type === "potion" || r.type === "parchemin") {
     const info = CONSUMABLE_INFO[r.kind as ConsumableKind];
     return <div className="text-lg font-extrabold">{info?.icon} {info?.name ?? r.kind}</div>;
@@ -73,11 +74,11 @@ export function QuestPanel({ onClose }: { onClose: () => void }) {
     <div className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/55 p-2" onClick={(e) => e.stopPropagation()} style={{ fontFamily: "'Baloo 2', cursive" }}>
       <div className="max-h-full w-[min(34rem,98%)] overflow-y-auto rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-4 text-[#3a2410] shadow-xl">
         <div className="flex items-center justify-between">
-          <div className="text-xl font-extrabold">❗ Quête du jour</div>
+          <div className="text-xl font-extrabold"><QuestIcon /> Quête du jour</div>
           <button type="button" onClick={onClose} className={BTN}>Fermer</button>
         </div>
         <div className="mt-2 space-y-1 text-sm leading-snug">
-          <div>❗ <b>Une seule quête par jour</b>, à choisir parmi celles-ci.</div>
+          <div><QuestIcon /> <b>Une seule quête par jour</b>, à choisir parmi celles-ci.</div>
           <div>📌 Une fois acceptée, <b>elle reste</b> jusqu'à être accomplie.</div>
           <div>🎁 La récompense est un <b>booster</b> <i>(or, potion, parchemin, arme, compagnon…)</i>.</div>
         </div>

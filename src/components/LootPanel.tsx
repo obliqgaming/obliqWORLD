@@ -1,5 +1,6 @@
 // Butin d'un combat : or partagé + objets joués aux dés (« pour moi / pas pour moi », 20 s).
 // Realtime uniquement (pas de polling) ; seul un minuteur local décompte la fenêtre.
+import { Coin } from "./GameIcons";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchLoot, lootRespond, lootResolve, subscribeToLoot, type LootItem, type LootRoll, type LootWeapon } from "../lib/loot";
 import { EFFECT_INFO, RARITY_INFO, bonusText } from "../lib/weapons";
@@ -84,7 +85,7 @@ export function LootPanel({
   return (
     <div className="mt-3 rounded-lg border-2 border-[#7a4a22] bg-[#e8d2a0] p-3 text-left text-sm">
       <div className="text-xs font-extrabold uppercase tracking-wide">Butin</div>
-      {gold > 0 && <div className="mt-1 font-bold text-[#92400e]">🪙 {gold} or partagé entre les survivants</div>}
+      {gold > 0 && <div className="mt-1 font-bold text-[#92400e]"><Coin /> {gold} or partagé entre les survivants</div>}
       {items.map((it) => {
         const w = weapons.find((x) => x.id === it.weapon_id);
         const rs = rolls.filter((r) => r.loot_id === it.id);
