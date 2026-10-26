@@ -112,6 +112,7 @@ export type PeerState = {
   duration: number;
   walking: boolean;
   pet?: string | null; // image du compagnon qui l'accompagne (SQL 031)
+  gear?: number; // change quand le joueur change d'arme ou son réglage : les autres rechargent son équipement
   t?: number; // horloge de l'émetteur (ms) : le récepteur ignore tout état plus ancien que le dernier reçu
   away?: boolean; // true = absent (aucune action depuis 2 min) → "(ABS)" affiché
 };

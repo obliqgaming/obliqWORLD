@@ -255,6 +255,7 @@ function Index() {
   // Compagnon choisi à la ferme (image) : visible de tous, il marche devant son maître.
   const [myPet, setMyPet] = useState<string | null>(null);
   const myPetRef = useRef<string | null>(null);
+  const myGearRef = useRef(0);
   const [helpOpen, setHelpOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [welcomeOpen, setWelcomeOpen] = useState(false);
@@ -306,10 +307,12 @@ function Index() {
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [wornWeapons, setWornWeapons] = useState<Record<string, WornWeapon>>({});
   const peerIdsKey = Object.values(peers).map((x) => x.characterId).sort().join(",");
+  // Change dès qu'un joueur présent change d'arme (ou son réglage) : on recharge alors l'équipement affiché.
+  const peerGearKey = Object.values(peers).map((x) => `${x.characterId}:${x.gear ?? 0}`).sort().join(",");
   const refreshWornWeapons = useCallback(() => {
     const ids = [character?.id, ...peerIdsKey.split(",")].filter((x): x is string => !!x);
     void fetchWornWeapons(ids).then(setWornWeapons);
-  }, [character?.id, peerIdsKey]);
+  }, [character?.id, peerIdsKey, peerGearKey]);
   useEffect(() => {
     refreshWornWeapons();
   }, [refreshWornWeapons]);
@@ -1816,6 +1819,13 @@ function Index() {
     };
   }, []);
 
+  // J'ai changé d'arme (ou son réglage) : je recharge la mienne et je préviens les autres joueurs de la scène.
+  const handleMyWeaponChanged = () => {
+    myGearRef.current = Date.now();
+    refreshWornWeapons();
+    trackPresence(lastLogicalPosRef.current, 0, false);
+  };
+
   const buildPeerState = (nextPos: Point, ms: number, isWalking: boolean): PeerState => ({
     characterId: characterRef.current!.id,
     name: characterRef.current!.name,
@@ -1825,6 +1835,7 @@ function Index() {
     walking: isWalking,
     away: awayRef.current,
     pet: myPetRef.current,
+    gear: myGearRef.current,
     t: Date.now(),
   });
 
@@ -2316,7 +2327,7 @@ function Index() {
             hotspot={openHotspot}
             onClose={() => setOpenHotspot(null)}
             character={character ? { id: character.id, name: character.name, imageUrl: character.image_url, visualAssetId: character.visual_asset_id } : null}
-            onWeaponChanged={refreshWornWeapons}
+            onWeaponChanged={handleMyWeaponChanged}
           />
         )}
 
@@ -2516,7 +2527,7 @@ function Index() {
           <InventoryPanel
             character={{ id: character.id, name: character.name, imageUrl: character.image_url, visualAssetId: character.visual_asset_id }}
             onClose={() => setInventoryOpen(false)}
-            onWeaponChanged={refreshWornWeapons}
+            onWeaponChanged={handleMyWeaponChanged}
           />
         )}
         <AccountBadge
