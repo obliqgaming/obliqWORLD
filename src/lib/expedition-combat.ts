@@ -340,3 +340,11 @@ export async function fetchGameSettings(): Promise<Record<string, number>> {
   settingsCache = o;
   return o;
 }
+
+// Ordre d'attaque du tour (SQL 045) : joueurs par vitesse, puis monstres.
+export type TurnOrderEntry = { k: "p" | "e"; id: string };
+export async function fetchTurnOrder(combatId: string): Promise<TurnOrderEntry[]> {
+  const { data, error } = await scenesClient.rpc("combat_turn_order", { p_combat_id: combatId });
+  if (error) return [];
+  return (data ?? []) as TurnOrderEntry[];
+}

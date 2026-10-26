@@ -1,5 +1,6 @@
 // Écran d'accueil de l'alpha : connexion Twitch ou Discord (ou retour après déconnexion).
-import { useState } from "react";
+import { useState, type ChangeEvent, type MouseEvent } from "react";
+import { SoundControl } from "./SoundControl";
 import { PrivacyDialog } from "./PrivacyDialog";
 
 const FONT = { fontFamily: "'Baloo 2', cursive" };
@@ -7,7 +8,15 @@ const FONT = { fontFamily: "'Baloo 2', cursive" };
 export function LoginScreen({
   onConnect,
   farewellName = null,
+  muted,
+  onToggleMute,
+  volume,
+  onVolumeChange,
 }: {
+  muted: boolean;
+  onToggleMute: (e: MouseEvent) => void;
+  volume: number;
+  onVolumeChange: (e: ChangeEvent<HTMLInputElement>) => void;
   onConnect: (provider: "twitch" | "discord") => Promise<void> | void;
   /** null = première visite ; texte (même vide) = le joueur vient de se déconnecter. */
   farewellName?: string | null;
@@ -28,9 +37,10 @@ export function LoginScreen({
   const farewell = farewellName !== null;
   return (
     <div
-      className="flex h-screen w-screen items-center justify-center p-4 text-[#fff3d6]"
+      className="relative flex h-screen w-screen items-center justify-center p-4 text-[#fff3d6]"
       style={{ ...FONT, background: "radial-gradient(ellipse at 50% 35%, #4a2a10 0%, #1b0e05 60%, #0c0602 100%)" }}
     >
+      <SoundControl muted={muted} onToggleMute={onToggleMute} volume={volume} onVolumeChange={onVolumeChange} className="absolute right-5 top-5 z-10" />
       <style>{`@keyframes ow-fade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}`}</style>
       <div
         className="w-[min(30rem,100%)] rounded-xl border-2 border-[#a8742f] bg-[#2b1406]/90 p-8 text-center shadow-2xl"
@@ -49,7 +59,6 @@ export function LoginScreen({
             <>
               <p className="font-extrabold">Un petit monde à créer ensemble.</p>
               <p className="text-sm">Pour entrer, <b>connecte-toi avec Twitch ou Discord</b>.</p>
-              <p className="text-xs"><i>Ton personnage, ton or et tes armes te suivent sur n'importe quel appareil.</i></p>
             </>
           )}
         </div>
@@ -63,7 +72,7 @@ export function LoginScreen({
         </div>
         {error && <div className="mt-3 rounded bg-[#5e1b1b] p-2 text-sm font-bold">{error}</div>}
         <p className="mt-6 text-[11px] opacity-70">
-          Nous gardons ton identifiant de compte, ton pseudo et ton avatar Twitch/Discord, tes dessins et tes parties. Rien d'autre. <button type="button" onClick={() => setPrivacy(true)} className="underline">En savoir plus</button>
+          Confidentialité de tes informations. <button type="button" onClick={() => setPrivacy(true)} className="underline">En savoir plus</button>
         </p>
       </div>
       {privacy && <PrivacyDialog onClose={() => setPrivacy(false)} />}

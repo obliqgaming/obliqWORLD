@@ -2014,6 +2014,10 @@ function Index() {
       <LoginScreen
         onConnect={handleConnectProvider}
         farewellName={loggedOutInfo().loggedOut ? loggedOutInfo().name ?? "" : null}
+        muted={muted}
+        onToggleMute={toggleMute}
+        volume={volume}
+        onVolumeChange={handleVolumeChange}
       />
     );
   }

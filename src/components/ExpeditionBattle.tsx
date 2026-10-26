@@ -16,6 +16,8 @@ import {
   fetchGamePowers,
   fetchGameSettings,
   fetchMyBuild,
+  fetchTurnOrder,
+  type TurnOrderEntry,
   pickEnemyEntry,
   fetchMonsterAssets,
   type EnemyImage,
@@ -108,6 +110,7 @@ export function ExpeditionBattle({
   const [sentTurn, setSentTurn] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const [order, setOrder] = useState<TurnOrderEntry[]>([]);
   const [showLog, setShowLog] = useState(true);
   const [playedId, setPlayedId] = useState<number | null>(null); // dernier événement rejoué
   const [landedId, setLandedId] = useState<number | null>(null); // événement dont le coup a touché
@@ -124,6 +127,17 @@ export function ExpeditionBattle({
       console.error("combat reload failed", e);
     }
   }, [combatId]);
+  const orderTurn = snap?.combat.turn ?? 0;
+  const orderActive = snap?.combat.status === "active";
+  const orderEnemyCount = (snap?.enemies ?? []).filter((e) => e.pv_current > 0).length;
+  useEffect(() => {
+    if (!orderActive) return;
+    let alive = true;
+    void fetchTurnOrder(combatId).then((o) => alive && setOrder(o));
+    return () => {
+      alive = false;
+    };
+  }, [combatId, orderTurn, orderActive, orderEnemyCount]);
   // Plusieurs lignes changent en rafale à chaque tour : on regroupe les lectures.
   const reload = useCallback(() => {
     window.clearTimeout(reloadTimer.current);
@@ -453,6 +467,29 @@ export function ExpeditionBattle({
         {combat?.is_boss ? "Combat de boss" : "Combat"} · tour {turn}
         {active && !replaying && secondsLeft !== null ? ` · ${secondsLeft} s` : ""}
       </div>
+
+      {active && order.length > 0 && (
+        <div className="pointer-events-none absolute left-3 top-3 z-20 flex items-center gap-1 rounded-full bg-black/45 px-2 py-1" title="Ordre d'attaque">
+          {order.map((o, i) => {
+            const ally = o.k === "p" ? allies.find((a) => a.characterId === o.id) : null;
+            const en = o.k === "e" ? snap?.enemies.find((e) => e.id === o.id) : null;
+            const entry = en ? (en.visual_asset_id ? monsterAssets[en.visual_asset_id] : null) ?? pickEnemyEntry(pool, en.id) : null;
+            const src = ally?.imageUrl ?? entry?.imageUrl ?? null;
+            const sep = i > 0 && order[i - 1]!.k !== o.k;
+            return (
+              <span key={`${o.k}-${o.id}`} className="flex items-center gap-1">
+                {sep && <span className="mx-0.5 h-5 w-px bg-white/40" />}
+                <span
+                  className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border-2 bg-black/40"
+                  style={{ borderColor: ally?.isSelf ? "#fde68a" : o.k === "e" ? "#f87171" : "rgba(255,255,255,0.45)", opacity: 0.92 }}
+                >
+                  {src ? <img src={src} alt="" className="h-full w-full object-contain" draggable={false} /> : <span className="text-[10px] text-white">?</span>}
+                </span>
+              </span>
+            );
+          })}
+        </div>
+      )}
 
       {active && combat?.aoe_warning && !replaying && (
         <div className="absolute left-1/2 top-14 z-30 -translate-x-1/2 rounded-lg border-2 border-[#f87171] bg-[#4a0d0d]/95 px-4 py-1.5 text-sm font-bold text-[#fff3d6]">

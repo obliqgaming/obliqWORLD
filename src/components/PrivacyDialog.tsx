@@ -10,22 +10,18 @@ export function PrivacyDialog({ onClose }: { onClose: () => void }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
-          <div className="text-lg font-extrabold">Confidentialité (alpha privée)</div>
+          <div className="text-lg font-extrabold">Confidentialité</div>
           <button type="button" onClick={onClose} className="rounded border border-[#7a4a22] px-2 text-sm font-bold">Fermer</button>
         </div>
-        <p className="mt-2">ObliqWorld est un jeu en cours de création, testé par un petit groupe de personnes invitées.</p>
+        <p className="mt-2">ObliqWorld est un jeu en cours de création.</p>
         <div className="mt-3 font-extrabold">Ce que nous gardons</div>
         <ul className="list-disc space-y-1 pl-5">
-          <li>Ton identifiant de compte et, avec Twitch ou Discord, ton pseudo et ton avatar.</li>
-          <li>Ton personnage, son or, ses armes et objets, tes groupes, expéditions et votes.</li>
-          <li>Tes dessins et textes (personnage, armes, rencontres, signalements). <b>Les autres joueurs peuvent les voir dans le jeu.</b></li>
-          <li>Tes signalements de bugs (texte, et l'expédition ou l'étape en cours).</li>
+          <li>Ton identifiant Twitch ou Discord, ton pseudo et ton avatar.</li>
+          <li>Tes dessins et textes (personnage, armes, rencontres, signalements).</li>
         </ul>
         <p className="mt-1">Nous ne gardons ni e-mail ni mot de passe : la connexion passe par Twitch ou Discord.</p>
         <div className="mt-3 font-extrabold">Pourquoi</div>
         <p>Uniquement pour faire fonctionner le jeu et corriger ses erreurs. Rien n'est vendu ni utilisé pour de la publicité.</p>
-        <div className="mt-3 font-extrabold">Où sont les données</div>
-        <p>Chez les services qui font tourner le jeu : Supabase (base et fichiers), Lovable (site), Twitch / Discord (connexion). Certains peuvent stocker des données hors de l'Union européenne.</p>
         <div className="mt-3 font-extrabold">Tes droits</div>
         <p>Tu peux demander à voir, corriger ou supprimer tes données. Le bouton 🐞 permet de demander la suppression de ton compte : ton compte, ton personnage, tes dessins et tes objets sont alors effacés.</p>
         {CONTACT_EMAIL && <p>Contact : {CONTACT_EMAIL}</p>}
