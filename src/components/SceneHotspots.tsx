@@ -89,7 +89,7 @@ function GoldPanel({ hotspotId, onClose }: { hotspotId: string; onClose: () => v
   useEffect(() => {
     let alive = true;
     claimDailyGold(hotspotId)
-      .then((n) => alive && setRes({ ok: true, text: `+${n} 💰 ramassé !` }))
+      .then((n) => alive && setRes({ ok: true, text: `+${n} 🪙 ramassé !` }))
       .catch((e: any) => alive && setRes({ ok: false, text: e?.message?.includes("daily_gold_claim") ? "Cet endroit n'est pas encore activé (SQL 032)." : (e?.message ?? "Impossible de ramasser.") }));
     return () => {
       alive = false;
@@ -98,7 +98,7 @@ function GoldPanel({ hotspotId, onClose }: { hotspotId: string; onClose: () => v
   return (
     <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/40" onClick={onClose} style={{ fontFamily: "'Baloo 2', cursive" }}>
       <div className="w-[min(20rem,92%)] rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-5 text-center text-[#3a2410] shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <div className="text-3xl">💰</div>
+        <div className="text-3xl">🪙</div>
         <div className="mt-2 text-base font-extrabold">{res ? res.text : "…"}</div>
         <button type="button" onClick={onClose} className="mt-4 rounded-lg border-2 border-[#7a4a22] bg-[#7a4a22] px-5 py-1.5 text-sm font-bold text-[#fff3d6] hover:bg-[#5e3818]">OK</button>
       </div>

@@ -46,7 +46,7 @@ export function AdminCreatures() {
   }
 
   return (
-    <div className="p-2 text-sm">
+    <div className="p-2 text-sm text-white">
       <p className="mb-2 opacity-80">
         Renomme les créatures de la forêt et les personnages morts devenus monstres. Le nouveau nom s'affiche en combat et sur les compagnons déjà obtenus.
       </p>
@@ -70,7 +70,7 @@ export function AdminCreatures() {
                     maxLength={40}
                     onChange={(e) => setEdits((s) => ({ ...s, [c.id]: e.target.value }))}
                     onKeyDown={(e) => e.key === "Enter" && void save(c)}
-                    className="w-64 rounded border border-neutral-700 bg-neutral-900 px-2 py-1"
+                    className="w-64 rounded border border-neutral-700 bg-neutral-900 px-2 py-1 text-white"
                   />
                 </td>
                 <td className="p-1 opacity-70">{c.monster_origin === "wild" ? "Forêt (Wild)" : "Personnage mort"}</td>

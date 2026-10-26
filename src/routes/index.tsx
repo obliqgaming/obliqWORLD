@@ -604,6 +604,7 @@ function Index() {
   // ---------- Personnage : on vérifie s'il existe déjà, sinon on demande à en choisir un ----------
   useEffect(() => {
     let cancelled = false;
+    let wantsLogin = false;
     (async () => {
       // Alpha : connexion Twitch / Discord obligatoire (un invité existant doit d'abord relier son compte).
       if (REQUIRE_PROVIDER_LOGIN || loggedOutInfo().loggedOut) {
@@ -616,13 +617,23 @@ function Index() {
           return null;
         }
       }
-      return fetchMyCharacter();
+      const mine = await fetchMyCharacter();
+      if (mine === null) {
+        // Pas de personnage et pas de compte Twitch/Discord : page « Se connecter », sans dessin (plus de mode invité).
+        const id = await getAuthIdentity();
+        if (!id.userId || id.isAnonymous) {
+          wantsLogin = true;
+          if (!cancelled) setLoginRequired(true);
+        }
+      }
+      return mine;
     })()
       .then((c) => {
-        if (c === null && (REQUIRE_PROVIDER_LOGIN || loggedOutInfo().loggedOut)) return;
+        if (c === null && (REQUIRE_PROVIDER_LOGIN || loggedOutInfo().loggedOut || wantsLogin)) return;
         if (cancelled) return;
         if (c) {
-          fetchMyDeath(c.id)
+          // On attend la vérification de mort avant de lever l'écran de chargement (sinon flash de l'écran de dessin).
+          return fetchMyDeath(c.id)
             .then((d) => {
               if (cancelled) return;
               if (d.dead && !d.inExpedition) {
@@ -643,7 +654,7 @@ function Index() {
               lastLogicalPosRef.current = c.position;
             });
         } else {
-          fetchCharacterAssets().then((assets) => {
+          return fetchCharacterAssets().then((assets) => {
             if (!cancelled) setCharacterAssets(assets);
           });
         }

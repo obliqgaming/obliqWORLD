@@ -84,7 +84,7 @@ export function LootPanel({
   return (
     <div className="mt-3 rounded-lg border-2 border-[#7a4a22] bg-[#e8d2a0] p-3 text-left text-sm">
       <div className="text-xs font-extrabold uppercase tracking-wide">Butin</div>
-      {gold > 0 && <div className="mt-1 font-bold text-[#92400e]">💰 {gold} or partagé entre les survivants</div>}
+      {gold > 0 && <div className="mt-1 font-bold text-[#92400e]">🪙 {gold} or partagé entre les survivants</div>}
       {items.map((it) => {
         const w = weapons.find((x) => x.id === it.weapon_id);
         const rs = rolls.filter((r) => r.loot_id === it.id);

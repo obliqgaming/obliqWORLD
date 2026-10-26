@@ -9,7 +9,7 @@ import { TIER_INFO } from "../lib/companions";
 const BTN = "rounded-lg border-2 border-[#7a4a22] bg-[#7a4a22] px-3 py-1 text-sm font-bold text-[#fff3d6] hover:bg-[#5e3818] disabled:opacity-50";
 
 function BoosterView({ r }: { r: BoosterResult }) {
-  if (r.type === "gold") return <div className="text-lg font-extrabold">💰 {r.amount} pièces d'or !</div>;
+  if (r.type === "gold") return <div className="text-lg font-extrabold">🪙 {r.amount} pièces d'or !</div>;
   if (r.type === "potion" || r.type === "parchemin") {
     const info = CONSUMABLE_INFO[r.kind as ConsumableKind];
     return <div className="text-lg font-extrabold">{info?.icon} {info?.name ?? r.kind}</div>;

@@ -5,7 +5,7 @@ import { scenesClient, type Point } from "./scenes-supabase";
 export type HotspotKind = "forge" | "step_editor" | "merchant" | "farm" | "gold" | "quests";
 
 export const HOTSPOT_KINDS: { kind: HotspotKind; label: string; icon: string; hint: string; multi?: boolean; bare?: boolean }[] = [
-  { kind: "gold", label: "Tas d'or (quotidien)", icon: "💰", hint: "Ramasser de l'or une fois par jour", multi: true, bare: true },
+  { kind: "gold", label: "Tas d'or (quotidien)", icon: "🪙", hint: "Ramasser de l'or une fois par jour", multi: true, bare: true },
   { kind: "forge", label: "Forgeron", icon: "⚒", hint: "Dessiner et acheter des armes" },
   { kind: "merchant", label: "Marchand", icon: "🛍", hint: "Acheter des potions, revendre des objets" },
   { kind: "farm", label: "Ferme", icon: "🐾", hint: "Tes compagnons" },
