@@ -1,8 +1,8 @@
 // Fenêtre du marchand : acheter potions et parchemin, revendre ses objets et ses armes (au quart).
 import { uiSound } from "../lib/ui-sounds";
 import { Coin } from "./GameIcons";
-import { useEffect, useState } from "react";
-import { CONSUMABLE_INFO, CONSUMABLE_ORDER, fetchMyConsumables, type ConsumableStack } from "../lib/consumables";
+import { useEffect, useRef, useState } from "react";
+import { CONSUMABLE_INFO, MERCHANT_KINDS, fetchMyConsumables, type ConsumableStack } from "../lib/consumables";
 import { fetchMerchantSettings, merchantBuy, merchantSellConsumable, merchantSellWeapon, type MerchantSettings } from "../lib/merchant";
 import { RARITY_INFO, fetchMyItems, itemDisplayName, type WeaponItem } from "../lib/weapons";
 import { fetchMyGold } from "../lib/loot";
@@ -33,7 +33,10 @@ export function MerchantPanel({ onClose, onWeaponChanged }: { onClose: () => voi
     void reload();
   }, []);
 
+  const lock = useRef(false);
   async function act(fn: () => Promise<void>, ok?: string) {
+    if (lock.current) return;   // anti double-clic
+    lock.current = true;
     setBusy(true);
     setMsg(null);
     try {
@@ -46,6 +49,7 @@ export function MerchantPanel({ onClose, onWeaponChanged }: { onClose: () => voi
       uiSound("error");
       setMsg(e?.message?.includes("merchant_") && e?.message?.includes("function") ? "Le marchand n'est pas encore activé (SQL 030)." : (e?.message ?? "Erreur"));
     } finally {
+      lock.current = false;
       setBusy(false);
     }
   }
@@ -70,7 +74,7 @@ export function MerchantPanel({ onClose, onWeaponChanged }: { onClose: () => voi
         {tab === "buy" ? (
           <div className="mt-3 space-y-2">
             <div className="text-sm leading-snug">♾ <b>Stock illimité</b>, mais pas plus de <b>9</b> objets de la même sorte <i>(sur toi)</i>.</div>
-            {CONSUMABLE_ORDER.map((k) => {
+            {MERCHANT_KINDS.map((k) => {
               const price = st?.prices[k];
               return (
                 <div key={k} className="flex items-center gap-2 rounded border border-[#7a4a22]/60 bg-white/40 p-2 text-sm">
@@ -89,7 +93,7 @@ export function MerchantPanel({ onClose, onWeaponChanged }: { onClose: () => voi
         ) : (
           <div className="mt-3 space-y-2">
             <div className="space-y-1 text-sm leading-snug"><div>💱 Le marchand rachète <b>tout au quart</b> du prix.</div><div>⚔ Les armes valent selon leur <b>rareté</b> et leur <b>durabilité restante</b>.</div><div><i>Un prototype ne se revend pas.</i></div></div>
-            {CONSUMABLE_ORDER.filter((k) => count(k) > 0).map((k) => (
+            {MERCHANT_KINDS.filter((k) => count(k) > 0).map((k) => (
               <div key={k} className="flex items-center gap-2 rounded border border-[#7a4a22]/60 bg-white/40 p-2 text-sm">
                 <span className="text-xl">{CONSUMABLE_INFO[k].icon}</span>
                 <div className="min-w-0 flex-1"><b>{CONSUMABLE_INFO[k].name}</b> <span className="text-xs opacity-70">× {count(k)}</span></div>

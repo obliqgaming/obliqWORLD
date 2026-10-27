@@ -35,7 +35,7 @@ import { WornSprite } from "./WornSprite";
 import { DEFAULT_HAND, fetchWeaponsById, fetchWornWeapons, type WornWeapon } from "../lib/weapons";
 import { CURSOR_INTERACT } from "../lib/cursors";
 import { LootPanel } from "./LootPanel";
-import { CONSUMABLE_INFO, fetchMyConsumables, submitCombatItem, type ConsumableStack } from "../lib/consumables";
+import { COMBAT_USABLE, CONSUMABLE_INFO, fetchMyConsumables, submitCombatItem, type ConsumableStack } from "../lib/consumables";
 import { playCombatSound, type CombatSound } from "../lib/combat-sounds";
 import { leaveScenePresence, type PresenceChannel } from "../lib/scenes-supabase";
 
@@ -358,7 +358,7 @@ export function ExpeditionBattle({
   };
 
   useEffect(() => {
-    void fetchMyConsumables().then(setStacks);
+    void fetchMyConsumables().then((l) => setStacks(l.filter((s) => COMBAT_USABLE.includes(s.kind))));
   }, [turn, combat?.status]);
 
   const useItem = async (st: ConsumableStack, ally: string | null) => {

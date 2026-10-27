@@ -85,6 +85,7 @@ import { ADMIN_USER_ID, REQUIRE_PROVIDER_LOGIN } from "../lib/alpha-config";
 import { ExpeditionPortalMarker } from "../components/ExpeditionPortal";
 import { ExpeditionCombatView, type CombatAlly, type ExpeditionEvent } from "../components/ExpeditionCombatView";
 import { ExpeditionBattle } from "../components/ExpeditionBattle";
+import { CampPanel } from "../components/CampPanel";
 import { AxisChoiceModal, EndBanner, OutcomePanel, type OutcomeInfo } from "../components/ExpeditionExtras";
 import {
   chooseAxis,
@@ -2374,6 +2375,17 @@ function Index() {
             allies={combatAllies}
             enemies={[]}
             turn={1}
+          />
+        )}
+
+        {inExpeditionScene && character && activeExpedition && !activeCombatId && currentEvent.id === "camp" && runStep && !outcomeInfo && (
+          <CampPanel
+            expeditionId={activeExpedition.id}
+            characterId={character.id}
+            members={combatAllies.map((a) => {
+              const st = statOf(a.characterId);
+              return { characterId: a.characterId, name: a.name, pv: st?.pv_current ?? 0, pvMax: st?.pv_max ?? 0, pm: st?.pm_current ?? 0, pmMax: st?.pm_max ?? 0, gone: !!st?.left_expedition_at };
+            })}
           />
         )}
 

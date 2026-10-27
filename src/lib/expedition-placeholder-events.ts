@@ -194,14 +194,8 @@ export const CAMP_EVENT: PlaceholderEvent = {
   typeLabel: "Feu de camp",
   risk: "faible",
   situation: "Un feu de camp brûle encore au creux d'une clairière, abandonné depuis peu. Le moment de souffler.",
-  choices: [
-    { key: "repartir", label: "Repartir sans attendre", outcome: { text: "Vous laissez le feu derrière vous et reprenez la route.", pvLoss: 0 } },
-    {
-      key: "se_reposer",
-      label: "Se reposer près du feu",
-      outcome: { text: "La chaleur vous fait du bien… mais la fumée attire quelque chose.", pvLoss: -4, triggersCombat: true },
-    },
-  ],
+  // Camp sûr (SQL 049) : un seul choix ; en attendant le vote, chacun utilise ses objets (voir CampPanel).
+  choices: [{ key: "repartir", label: "Reprendre la route", outcome: { text: "Vous laissez le feu derrière vous et reprenez la route.", pvLoss: 0 } }],
 };
 
 export const MINI_BOSS_EVENT: PlaceholderEvent = {
