@@ -1,5 +1,7 @@
 // Ferme et compagnons (SQL 031).
 import { scenesClient, ensureUserId } from "./scenes-supabase";
+import { fetchAuthorNames } from "./authors";
+import type { Rarity } from "./weapons";
 
 export type Tier = "small" | "medium" | "large";
 export const TIER_INFO: Record<Tier, { label: string; color: string }> = {
@@ -20,6 +22,9 @@ export type Companion = {
   active: boolean;
   loot_expedition_id: string | null;
   created_at: string;
+  rarity?: Rarity | null;
+  is_prototype?: boolean;
+  design_id?: string | null;
 };
 
 export async function fetchMyCompanions(): Promise<Companion[]> {
@@ -52,5 +57,81 @@ export async function fetchStarterChoices(): Promise<StarterCompanion[]> {
 
 export async function claimStarterCompanion(id: string): Promise<void> {
   const { error } = await scenesClient.rpc("claim_starter_companion", { p_id: id });
+  if (error) throw error;
+}
+
+// Dessiner un compagnon (SQL 048).
+export const COMPANION_W = 256;
+export const COMPANION_H = 256;
+
+export type CompanionDesign = { id: string; author_user_id: string; name: string; image_url: string; rarity: Rarity; hidden: boolean; created_at: string };
+
+export type CompanionRules = { cost: number; perDay: number; hp: Record<Rarity, number>; ranges: Record<Rarity, { min: number; max: number }>; authorPct: number };
+
+const RARS: Rarity[] = ["common", "uncommon", "rare", "epic", "legendary"];
+
+export async function fetchCompanionRules(): Promise<CompanionRules> {
+  const { data } = await scenesClient.from("game_settings").select("key, value").or("key.like.companion_%,key.eq.shop_author_pct");
+  const s: Record<string, number> = {};
+  for (const r of (data ?? []) as { key: string; value: number }[]) s[r.key] = Number(r.value);
+  const hp = {} as CompanionRules["hp"];
+  const ranges = {} as CompanionRules["ranges"];
+  RARS.forEach((k, i) => {
+    hp[k] = s[`companion_hp_${k}`] ?? [8, 12, 16, 24, 30][i]!;
+    ranges[k] = { min: s[`companion_price_min_${k}`] ?? 6, max: s[`companion_price_max_${k}`] ?? 15 };
+  });
+  return { cost: s["companion_draw_cost"] ?? 6, perDay: s["companion_draw_per_day"] ?? 1, hp, ranges, authorPct: s["shop_author_pct"] ?? 20 };
+}
+
+export async function createCompanionDesign(blob: Blob, name: string): Promise<{ design: CompanionDesign; companionId: string }> {
+  const userId = await ensureUserId();
+  const fileName = `companion_${userId}_${Date.now()}.png`;
+  const { error: upErr } = await scenesClient.storage.from("drawings").upload(fileName, blob, { contentType: "image/png", upsert: false });
+  if (upErr) throw upErr;
+  const { data: pub } = scenesClient.storage.from("drawings").getPublicUrl(fileName);
+  const { data, error } = await scenesClient.rpc("companion_design_create", { p_name: name, p_image_url: pub.publicUrl });
+  if (error) {
+    // Le dessin n'a pas été validé : on retire l'image envoyée pour ne pas laisser de fichier orphelin.
+    void scenesClient.storage.from("drawings").remove([fileName]);
+    throw error;
+  }
+  const d = data as { design: CompanionDesign; companion_id: string };
+  return { design: d.design, companionId: d.companion_id };
+}
+
+export type CompanionListing = {
+  design_id: string;
+  author_user_id: string;
+  price: number;
+  stock_total: number;
+  stock_left: number;
+  author_gold_pending: number;
+  design: CompanionDesign;
+  authorName: string | null;
+  mine: boolean;
+};
+
+export async function fetchCompanionShop(): Promise<CompanionListing[]> {
+  const uid = await ensureUserId();
+  const { data, error } = await scenesClient
+    .from("companion_listings")
+    .select("design_id, author_user_id, price, stock_total, stock_left, author_gold_pending, design:companion_designs(*)")
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (error) throw error;
+  const rows = ((data ?? []) as any[]).filter((r) => r.design && !r.design.hidden);
+  const names = await fetchAuthorNames(rows.map((r) => r.author_user_id as string));
+  const list: CompanionListing[] = rows.map((r) => ({ ...r, authorName: names[r.author_user_id] ?? null, mine: r.author_user_id === uid }));
+  list.sort((a, b) => Number(b.stock_left > 0) - Number(a.stock_left > 0));
+  return list;
+}
+
+export async function companionShopBuy(designId: string): Promise<void> {
+  const { error } = await scenesClient.rpc("companion_shop_buy", { p_design_id: designId });
+  if (error) throw error;
+}
+
+export async function companionSetPrice(designId: string, price: number): Promise<void> {
+  const { error } = await scenesClient.rpc("companion_set_price", { p_design_id: designId, p_price: price });
   if (error) throw error;
 }

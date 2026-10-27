@@ -81,7 +81,7 @@ import { PetSprite } from "../components/PetSprite";
 import { fetchMyCompanions } from "../lib/companions";
 import { AboutDialog } from "../components/AboutDialog";
 import { WelcomeModal } from "../components/WelcomeModal";
-import { REQUIRE_PROVIDER_LOGIN } from "../lib/alpha-config";
+import { ADMIN_USER_ID, REQUIRE_PROVIDER_LOGIN } from "../lib/alpha-config";
 import { ExpeditionPortalMarker } from "../components/ExpeditionPortal";
 import { ExpeditionCombatView, type CombatAlly, type ExpeditionEvent } from "../components/ExpeditionCombatView";
 import { ExpeditionBattle } from "../components/ExpeditionBattle";
@@ -703,7 +703,7 @@ function Index() {
       // Alpha : connexion Twitch / Discord obligatoire (un invité existant doit d'abord relier son compte).
       if (REQUIRE_PROVIDER_LOGIN || loggedOutInfo().loggedOut) {
         const id = await getAuthIdentity();
-        if (!id.userId || id.isAnonymous) {
+        if (!id.userId || (id.isAnonymous && id.userId !== ADMIN_USER_ID)) {
           if (!cancelled) {
             setLoginRequired(true);
             setCheckingCharacter(false);

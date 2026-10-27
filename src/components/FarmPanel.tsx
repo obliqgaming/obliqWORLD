@@ -2,6 +2,8 @@
 // il prend la moitié des dégâts que tu reçois. À 0 PV il s'enfuit et se repose quelques expéditions.
 import { uiSound } from "../lib/ui-sounds";
 import { useEffect, useState } from "react";
+import { FarmDraw, FarmShop } from "./FarmDraw";
+import { RARITY_INFO } from "../lib/weapons";
 import { TIER_INFO, claimStarterCompanion, fetchMyCompanions, fetchStarterChoices, releaseCompanion, setActiveCompanion, type Companion, type StarterCompanion } from "../lib/companions";
 
 const BTN = "rounded-lg border-2 border-[#7a4a22] bg-[#7a4a22] px-3 py-1 text-xs font-bold text-[#fff3d6] hover:bg-[#5e3818] disabled:opacity-50";
@@ -11,7 +13,7 @@ export function FarmPanel({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
-  const [tab, setTab] = useState<"mine" | "buy">("mine");
+  const [tab, setTab] = useState<"mine" | "draw" | "buy">("mine");
   const [starters, setStarters] = useState<StarterCompanion[]>([]);
 
   const reload = async () => {
@@ -54,17 +56,15 @@ export function FarmPanel({ onClose }: { onClose: () => void }) {
         <div className="mt-2 space-y-1.5 text-sm leading-snug">
           <div><b>Un seul compagnon</b> t'accompagne en expédition : il prend <b>la moitié des dégâts</b> que tu reçois.</div>
           <div>💤 À 0 PV, il s'enfuit <i>(il n'est jamais perdu)</i> et se repose : <b>3</b> expéditions (petit), <b>6</b> (moyen) ou <b>9</b> (grand).</div>
-          <div>🎁 Les compagnons se gagnent <b>en butin</b> sur les créatures de la forêt, <i>très rarement</i>.</div>
+          <div>🎁 Les compagnons se gagnent <b>en butin</b> sur les créatures de la forêt, <i>très rarement</i>, ou s'<b>achètent</b> / se <b>dessinent</b> ici.</div>
         </div>
         <div className="mt-3 flex gap-2">
           <button type="button" onClick={() => setTab("mine")} className={`rounded px-3 py-1 text-sm font-bold ${tab === "mine" ? "bg-[#7a4a22] text-[#fff3d6]" : "border border-[#7a4a22]"}`}>🐾 Mes compagnons</button>
+          <button type="button" onClick={() => setTab("draw")} className={`rounded px-3 py-1 text-sm font-bold ${tab === "draw" ? "bg-[#7a4a22] text-[#fff3d6]" : "border border-[#7a4a22]"}`}>🎨 Dessiner</button>
           <button type="button" onClick={() => setTab("buy")} className={`rounded px-3 py-1 text-sm font-bold ${tab === "buy" ? "bg-[#7a4a22] text-[#fff3d6]" : "border border-[#7a4a22]"}`}>🛒 Acheter</button>
         </div>
-        {tab === "buy" && (
-          <div className="mt-3 rounded border border-[#7a4a22]/60 bg-white/40 p-3 text-sm">
-            <b>Bientôt !</b> Les compagnons dessinés par les joueurs seront en vente ici.
-          </div>
-        )}
+        {tab === "draw" && <FarmDraw onChanged={() => void reload()} />}
+        {tab === "buy" && <FarmShop onChanged={() => { void reload(); window.dispatchEvent(new Event("obliq-companion-changed")); }} />}
         {tab === "mine" && starters.length > 0 && (
           <div className="mt-3 rounded border-2 border-[#16a34a] bg-white/50 p-2">
             <div className="text-sm font-extrabold">🎁 Choisis ton premier compagnon <i>(gratuit, une seule fois)</i></div>
@@ -88,7 +88,7 @@ export function FarmPanel({ onClose }: { onClose: () => void }) {
                 <img src={c.image_url} alt="" className="h-16 w-16 shrink-0 object-contain" style={resting ? { filter: "grayscale(1)", opacity: 0.6 } : undefined} />
                 <div className="min-w-0 flex-1 text-xs">
                   <div className="truncate text-sm font-extrabold">{c.name}</div>
-                  <div><b style={{ color: "#2b1406", background: TIER_INFO[c.tier].color, padding: "0 4px", borderRadius: 4 }}>{TIER_INFO[c.tier].label}</b> · {c.hp}/{c.hp_max} PV</div>
+                  <div><b style={{ color: "#2b1406", background: c.rarity ? RARITY_INFO[c.rarity].color : TIER_INFO[c.tier].color, padding: "0 4px", borderRadius: 4 }}>{c.is_prototype ? "Prototype" : c.rarity ? RARITY_INFO[c.rarity].label : TIER_INFO[c.tier].label}</b> · {c.hp}/{c.hp_max} PV</div>
                   {resting && <div className="font-bold text-[#7a3a0e]">💤 Se repose encore {c.rest_left} expédition{c.rest_left > 1 ? "s" : ""}</div>}
                   {provisional && <div className="font-bold text-[#7a3a0e]">À toi à la fin de l'expédition</div>}
                   {c.active && !resting && <div className="font-bold text-[#166534]">✔ T'accompagne</div>}

@@ -113,6 +113,7 @@ export function DrawingCanvas({
   exportLabel = "Valider le dessin",
   onPreview,
   initialAnchor,
+  noAnchor = false,
 }: {
   onExport: (blob: Blob, handAnchor: Point | null) => void;
   exporting?: boolean;
@@ -127,6 +128,8 @@ export function DrawingCanvas({
   /** Appelé après chaque trait / changement de repère, pour un aperçu en direct. */
   onPreview?: (dataUrl: string, anchor: Point | null) => void;
   initialAnchor?: Point;
+  /** true = aucun repère de main (ex. un compagnon) : onExport reçoit null. */
+  noAnchor?: boolean;
 }) {
   const W = width ?? DEFAULT_CANVAS;
   const H = height ?? DEFAULT_CANVAS;
@@ -139,7 +142,7 @@ export function DrawingCanvas({
   const [color, setColor] = useState("#1a1a1a");
 
   // ---------- Ancrage main (pour une future arme/objet tenu) ----------
-  const [handAnchorEnabled, setHandAnchorEnabled] = useState(true);
+  const [handAnchorEnabled, setHandAnchorEnabled] = useState(!noAnchor);
   const [handAnchor, setHandAnchor] = useState<Point>(initialAnchor ?? DEFAULT_HAND_ANCHOR);
   const [draggingAnchor, setDraggingAnchor] = useState(false);
   const previewTimer = useRef<number | undefined>(undefined);
@@ -560,7 +563,7 @@ export function DrawingCanvas({
           </label>
         </div>
 
-        {anchorOptional ? (
+        {noAnchor ? null : anchorOptional ? (
           <label className="flex items-center gap-2 text-xs text-[#3a2210]">
             <input
               type="checkbox"
