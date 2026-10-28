@@ -48,6 +48,11 @@ export async function adminResurrect(characterId: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function adminDeleteCharacter(characterId: string): Promise<void> {
+  const { error } = await scenesClient.rpc("admin_delete_character", { p_character_id: characterId });
+  if (error) throw error;
+}
+
 export async function adminSetHandAnchor(visualAssetId: string, p: Point | null): Promise<void> {
   const { error } = await scenesClient.rpc("admin_set_hand_anchor", {
     p_visual_asset_id: visualAssetId,

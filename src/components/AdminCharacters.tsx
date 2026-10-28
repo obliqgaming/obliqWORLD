@@ -2,6 +2,7 @@
 // quelques outils (ressusciter, ancrage de la main, niveau / axe).
 import { useEffect, useRef, useState } from "react";
 import {
+  adminDeleteCharacter,
   adminResurrect,
   adminSetHandAnchor,
   adminSetLevel,
@@ -88,6 +89,16 @@ export function AdminCharacters() {
                         Ressusciter
                       </button>
                     )}
+                    <button
+                      type="button"
+                      className="rounded bg-red-800 px-2 py-0.5 text-xs"
+                      title="Supprime vraiment le personnage (il ne devient pas un monstre)"
+                      onClick={() => {
+                        if (window.confirm(`Supprimer DÉFINITIVEMENT « ${c.name} » ? (il ne deviendra pas un monstre)`)) void run(`${c.name} supprimé`, () => adminDeleteCharacter(c.id));
+                      }}
+                    >
+                      Supprimer
+                    </button>
                     <button type="button" className="rounded bg-neutral-700 px-2 py-0.5 text-xs" onClick={() => setAnchorFor(c)}>
                       Ancrage main
                     </button>

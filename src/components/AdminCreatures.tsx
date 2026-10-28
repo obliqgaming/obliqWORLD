@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { scenesClient } from "../lib/scenes-supabase";
 
-type Creature = { id: string; name: string; image_url: string; monster_origin: "wild" | "dead_character" };
+type Creature = { id: string; name: string; image_url: string; monster_origin: "wild" | "dead_character" | "drawn_companion" };
 
 export function AdminCreatures() {
   const [list, setList] = useState<Creature[] | null>(null);
@@ -24,6 +24,35 @@ export function AdminCreatures() {
   useEffect(() => {
     void load();
   }, []);
+
+  // Ajouter une créature de Wild : on envoie l'image (PNG, 1 Mo max) dans le dossier drawings, puis on la marque « Wild ».
+  const [newName, setNewName] = useState("");
+  const [uploading, setUploading] = useState(false);
+  async function addCreature(file: File) {
+    setMsg(null);
+    if (file.type !== "image/png") return setMsg("L'image doit être un PNG.");
+    if (file.size > 1024 * 1024) return setMsg("Image trop lourde (1 Mo maximum).");
+    setUploading(true);
+    try {
+      const fileName = `creature_${Date.now()}_${Math.floor(Math.random() * 1e6)}.png`;
+      const { error: upErr } = await scenesClient.storage.from("drawings").upload(fileName, file, { contentType: "image/png", upsert: false });
+      if (upErr) throw upErr;
+      const url = scenesClient.storage.from("drawings").getPublicUrl(fileName).data.publicUrl;
+      const name = newName.trim() || file.name.replace(/\.png$/i, "").slice(0, 40);
+      const { error } = await scenesClient.rpc("admin_creature_add", { p_name: name, p_image_url: url });
+      if (error) {
+        void scenesClient.storage.from("drawings").remove([fileName]);
+        throw error;
+      }
+      setMsg(`✔ « ${name} » ajoutée aux créatures de la forêt.`);
+      setNewName("");
+      await load();
+    } catch (e: any) {
+      setMsg(e?.message?.includes("admin_creature_add") ? "Fonction absente : lance le SQL 051." : (e?.message ?? "Erreur"));
+    } finally {
+      setUploading(false);
+    }
+  }
 
   async function save(c: Creature) {
     const name = (edits[c.id] ?? c.name).trim();
@@ -50,6 +79,14 @@ export function AdminCreatures() {
       <p className="mb-2 opacity-80">
         Renomme les créatures de la forêt et les personnages morts devenus monstres. Le nouveau nom s'affiche en combat et sur les compagnons déjà obtenus.
       </p>
+      <div className="mb-3 flex flex-wrap items-center gap-2 rounded bg-neutral-800 p-2">
+        <b>➕ Ajouter une créature de Wild</b>
+        <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Nom (sinon : nom du fichier)" maxLength={40} className="w-56 rounded border border-neutral-600 bg-neutral-900 px-2 py-1 text-white" />
+        <label className="cursor-pointer rounded bg-emerald-700 px-3 py-1 font-semibold">
+          {uploading ? "Envoi…" : "Choisir une image PNG"}
+          <input type="file" accept="image/png" disabled={uploading} className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void addCreature(f); }} />
+        </label>
+      </div>
       {msg && <div className="mb-2 rounded bg-neutral-800 p-2">{msg}</div>}
       {list === null ? (
         "Chargement…"
@@ -73,7 +110,7 @@ export function AdminCreatures() {
                     className="w-64 rounded border border-neutral-700 bg-neutral-900 px-2 py-1 text-white"
                   />
                 </td>
-                <td className="p-1 opacity-70">{c.monster_origin === "wild" ? "Forêt (Wild)" : "Personnage mort"}</td>
+                <td className="p-1 opacity-70">{c.monster_origin === "wild" ? "Forêt (Wild)" : c.monster_origin === "drawn_companion" ? "Compagnon dessiné" : "Personnage mort"}</td>
                 <td className="p-1">
                   <button type="button" disabled={busy === c.id || (edits[c.id] ?? c.name).trim() === c.name} onClick={() => void save(c)} className="rounded bg-emerald-700 px-3 py-1 font-semibold disabled:opacity-40">
                     Renommer

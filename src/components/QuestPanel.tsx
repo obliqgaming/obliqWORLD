@@ -2,7 +2,7 @@
 // est un booster (or, potion, parchemin, arme, compagnon). Progression automatique (SQL 041).
 import { uiSound } from "../lib/ui-sounds";
 import { Coin, QuestIcon } from "./GameIcons";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { acceptQuest, claimQuest, fetchQuests, type BoosterResult, type MyQuest, type Quest } from "../lib/quests";
 import { CONSUMABLE_INFO, type ConsumableKind } from "../lib/consumables";
 import { RARITY_INFO, type Rarity } from "../lib/weapons";
@@ -61,7 +61,10 @@ export function QuestPanel({ onClose }: { onClose: () => void }) {
     void reload();
   }, []);
 
+  const lock = useRef(false);
   async function act(fn: () => Promise<void>) {
+    if (lock.current) return;   // anti double-clic
+    lock.current = true;
     setBusy(true);
     setMsg(null);
     try {
@@ -72,13 +75,16 @@ export function QuestPanel({ onClose }: { onClose: () => void }) {
       uiSound("error");
       setMsg(e?.message ?? "Erreur");
     } finally {
+      lock.current = false;
       setBusy(false);
     }
   }
 
   const mine = data?.mine && !data.mine.claimed ? data.mine : null;
   const current = mine ? data?.quests.find((q) => q.quest_key === mine.quest_key) : null;
-  const doneToday = !!data?.mine?.claimed;
+  // « Terminée aujourd'hui » seulement si la récompense a été prise AUJOURD'HUI (heure de Paris, comme le serveur) ; sinon on peut en accepter une nouvelle.
+  const todayParis = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
+  const doneToday = !!data?.mine?.claimed && (data.mine.claimed_day ?? "") >= todayParis;
   const ready = !!(mine && current && mine.progress >= current.goal);
 
   return (
