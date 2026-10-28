@@ -432,6 +432,8 @@ function Index() {
   const lastTrackRef = useRef<string | null>(null);
   const jingleRef = useRef<HTMLAudioElement | null>(null);
   const pendingMusicRef = useRef<string | null>(null);
+  // Musique actuellement choisie pour la scène d'expédition (par type d'étape) : on ne relance rien si elle ne change pas.
+  const stepMusicRef = useRef<string | null>(null);
 
   const playMusic = (musicSpec: string, fade: boolean) => {
     if (jingleRef.current) {
@@ -545,6 +547,7 @@ function Index() {
   }, []);
 
   useEffect(() => {
+    stepMusicRef.current = initialScene.music_url;
     playMusic(initialScene.music_url, false);
     return () => {
       audioRef.current?.pause();
@@ -1195,6 +1198,22 @@ function Index() {
 
   // ---------- Scène « expédition » : téléportation du groupe au lancement ----------
   const inExpeditionScene = isExpeditionSceneName(scene.name);
+
+  // Musique par type d'étape (SQL 050) : narratif / combat / danger / boss ; vide = musique de la scène.
+  // Si deux étapes de même type s'enchaînent, le choix ne change pas : la musique continue sans redémarrer.
+  useEffect(() => {
+    if (!inExpeditionScene) return;
+    const ev = eventForStep(activeExpedition?.route, activeExpedition?.current_step_index ?? 0);
+    const isBoss = ev.id === "boss-final" || ev.id === "mini-boss";
+    const inCombat = !!activeCombatId || ev.kind === "combat";
+    const danger = (runStep as any)?.step_type === "danger_imminent" || (runStep as any)?.step_type === "epreuve";
+    const kind = !activeExpedition ? null : inCombat ? (isBoss ? "boss" : "combat") : danger ? "danger" : "narrative";
+    const spec = (kind ? (scene as any)[`music_${kind}`] : "") || scene.music_url;
+    if (spec === stepMusicRef.current) return;
+    stepMusicRef.current = spec;
+    playMusic(spec, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inExpeditionScene, scene.id, activeExpedition?.id, activeExpedition?.current_step_index, activeCombatId, (runStep as any)?.step_type, scene.music_url, (scene as any).music_narrative, (scene as any).music_combat, (scene as any).music_danger, (scene as any).music_boss]);
 
   // Lancement détecté (statut 'active') : on mémorise l'expédition.
   useEffect(() => {
@@ -1988,7 +2007,8 @@ function Index() {
       const reverse = newExits.find((x) => x.to_scene_id === scene.id);
       const arrival = reverse ? reverse.position : { x: 50, y: 70 };
 
-      playMusic(newScene.music_url, true);
+      stepMusicRef.current = null;
+      if (!isExpeditionSceneName(newScene.name)) playMusic(newScene.music_url, true);   // expédition : la musique dépend du type d'étape
 
       setScene(newScene);
       setExits(newExits);
@@ -2011,7 +2031,8 @@ function Index() {
   const teleportToScene = async (newScene: Scene, arrival: Point) => {
     if (!character) return;
     const newExits = await fetchSceneExits(newScene.id);
-    playMusic(newScene.music_url, true);
+    stepMusicRef.current = null;
+    if (!isExpeditionSceneName(newScene.name)) playMusic(newScene.music_url, true);
     setScene(newScene);
     setExits(newExits);
     setPos(arrival);

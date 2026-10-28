@@ -52,6 +52,11 @@ export type Scene = {
   name: string;
   image_url: string;
   music_url: string;
+  // Musiques par type d'étape (scène « expedition », SQL 050) ; vide = music_url.
+  music_narrative?: string;
+  music_combat?: string;
+  music_danger?: string;
+  music_boss?: string;
   depth_scale: DepthScale | null;
   // La zone marchable est une LISTE de pièces : chaque pièce est son propre
   // polygone. Ça évite d'avoir à dessiner un unique polygone géant qui longe

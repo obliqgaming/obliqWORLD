@@ -18,6 +18,7 @@ import {
   updateSceneExitDestination,
   updateSceneExitPosition,
   updateSceneMusic,
+  isExpeditionSceneName,
   updateSceneZones,
   type AuthIdentity,
   type DepthScale,
@@ -35,6 +36,7 @@ import { joinMusicList, parseMusicList } from "../lib/jingle";
 import { HotspotGlyph } from "../components/GameIcons";
 import { AdminPets } from "../components/AdminPets";
 import { AdminCompanions } from "../components/AdminCompanions";
+import { AdminStepMusic } from "../components/AdminStepMusic";
 import { AdminBackup } from "../components/AdminBackup";
 import { AdminSettings } from "../components/AdminSettings";
 import { AdminWeapons } from "../components/AdminWeapons";
@@ -859,6 +861,7 @@ function AdminPage() {
           {musicError && <span className="text-xs text-red-400">{musicError}</span>}
         </div>
       )}
+      {scene && isExpeditionSceneName(scene.name) && <AdminStepMusic key={scene.id} scene={scene} files={musicFiles} />}
 
       {showNewScene && (
         <div className="mb-4 flex flex-wrap items-end gap-3 rounded bg-neutral-800 px-3 py-3 text-sm">
