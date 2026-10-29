@@ -92,8 +92,8 @@ export function EncounterEditor({ onClose }: { onClose: () => void }) {
   }
 
   const ex = draft ? EXAMPLES[draft.step_type] : null;
-  const field = (label: string, v: string, set: (s: string) => void, placeholder: string) => (
-    <label className="mt-2 block text-xs font-bold">
+  const field = (label: string, v: string, set: (s: string) => void, placeholder: string, tone?: "ok" | "ko") => (
+    <label className="mt-2 block text-xs font-bold" style={tone ? { color: tone === "ok" ? "#047857" : "#b91c1c" } : undefined}>
       {label} <span className={v.trim().length < MIN ? "text-[#b91c1c]" : "text-[#5e3818]"}>({v.length}/{MAX})</span>
       <textarea
         value={v}
@@ -101,7 +101,7 @@ export function EncounterEditor({ onClose }: { onClose: () => void }) {
         rows={3}
         placeholder={placeholder}
         onChange={(e) => set(e.target.value)}
-        className="mt-0.5 w-full rounded border-2 border-[#7a4a22] bg-[#fff8e6] p-1.5 text-sm font-normal"
+        className="mt-0.5 w-full rounded border-2 border-[#7a4a22] bg-[#fff8e6] p-1.5 text-sm font-normal text-[#3a2410]"
       />
     </label>
   );
@@ -165,8 +165,8 @@ export function EncounterEditor({ onClose }: { onClose: () => void }) {
               Une écriture trop fainéante ou incongrue sera rejetée.
             </div>
             {field("La situation", sit, setSit, ex.situation)}
-            {field("Si le groupe réussit", ok, setOk, ex.success)}
-            {field("Si le groupe échoue", ko, setKo, ex.failure)}
+            {field("✅ SI LE GROUPE RÉUSSIT (aucune perte de PV)", ok, setOk, ex.success, "ok")}
+            {field("❌ SI LE GROUPE ÉCHOUE (le groupe perd des PV)", ko, setKo, ex.failure, "ko")}
             {draft.step_type !== "epreuve" ? (
               <label className="mt-2 block text-xs font-bold">
                 En cas d'échec, les dégâts sont…
