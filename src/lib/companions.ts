@@ -61,8 +61,8 @@ export async function claimStarterCompanion(id: string): Promise<void> {
 }
 
 // Dessiner un compagnon (SQL 048).
-export const COMPANION_W = 256;
-export const COMPANION_H = 256;
+export const COMPANION_W = 512;
+export const COMPANION_H = 512;
 
 export type CompanionDesign = { id: string; author_user_id: string; name: string; image_url: string; rarity: Rarity; hidden: boolean; created_at: string };
 
@@ -134,4 +134,24 @@ export async function companionShopBuy(designId: string): Promise<void> {
 export async function companionSetPrice(designId: string, price: number): Promise<void> {
   const { error } = await scenesClient.rpc("companion_set_price", { p_design_id: designId, p_price: price });
   if (error) throw error;
+}
+
+// Compagnons actifs des membres du groupe (pour l'expédition) : personnage -> compagnon prêt à combattre.
+export type PartyCompanion = { name: string; image_url: string; hp: number; hp_max: number };
+export async function fetchPartyCompanions(characterIds: string[]): Promise<Record<string, PartyCompanion>> {
+  if (characterIds.length === 0) return {};
+  const { data: chars } = await scenesClient.from("characters").select("id, user_id").in("id", characterIds);
+  const owners = (chars ?? []).map((c: any) => c.user_id).filter(Boolean);
+  if (owners.length === 0) return {};
+  const { data: comps } = await scenesClient
+    .from("companions")
+    .select("owner_user_id, name, image_url, hp, hp_max, rest_left")
+    .in("owner_user_id", owners)
+    .eq("active", true);
+  const out: Record<string, PartyCompanion> = {};
+  for (const c of (chars ?? []) as any[]) {
+    const k = (comps ?? []).find((x: any) => x.owner_user_id === c.user_id && x.hp > 0 && (x.rest_left ?? 0) === 0);
+    if (k) out[c.id] = { name: k.name, image_url: k.image_url, hp: k.hp, hp_max: k.hp_max };
+  }
+  return out;
 }

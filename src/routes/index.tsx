@@ -78,7 +78,7 @@ import { DeadScreen } from "../components/DeadScreen";
 import { HelpDialog } from "../components/HelpDialog";
 import { ensureSessionCleanup, publishDisplayName, markLoggedOut, loggedOutInfo, clearLoggedOut } from "../lib/session";
 import { PetSprite } from "../components/PetSprite";
-import { fetchMyCompanions } from "../lib/companions";
+import { fetchMyCompanions, fetchPartyCompanions, type PartyCompanion } from "../lib/companions";
 import { AboutDialog } from "../components/AboutDialog";
 import { WelcomeModal } from "../components/WelcomeModal";
 import { ADMIN_USER_ID, REQUIRE_PROVIDER_LOGIN } from "../lib/alpha-config";
@@ -86,7 +86,7 @@ import { ExpeditionPortalMarker } from "../components/ExpeditionPortal";
 import { ExpeditionCombatView, type CombatAlly, type ExpeditionEvent } from "../components/ExpeditionCombatView";
 import { ExpeditionBattle } from "../components/ExpeditionBattle";
 import { CampPanel } from "../components/CampPanel";
-import { AxisChoiceModal, EndBanner, OutcomePanel, type OutcomeInfo } from "../components/ExpeditionExtras";
+import { AxisChoiceModal, EndBanner, LevelUpModal, OutcomePanel, type OutcomeInfo } from "../components/ExpeditionExtras";
 import {
   chooseAxis,
   fetchGameAxes,
@@ -112,7 +112,7 @@ import { InventoryPanel } from "../components/InventoryPanel";
 import { fetchWornWeapons, type WornWeapon } from "../lib/weapons";
 import { setUiAudio, uiSound } from "../lib/ui-sounds";
 import { JINGLE_FAIL, JINGLE_SUCCESS, parseMusicList, startJingle } from "../lib/jingle";
-import { fetchSceneHotspots, useClaimedGoldToday, type SceneHotspot } from "../lib/hotspots";
+import { claimDailyGold, fetchSceneHotspots, useClaimedGoldToday, type SceneHotspot } from "../lib/hotspots";
 import { PartyInvitePopup } from "../components/PartyInvitePopup";
 import { PartyPanel } from "../components/PartyPanel";
 import { PeerContextMenu } from "../components/PeerContextMenu";
@@ -305,6 +305,18 @@ function Index() {
   // Lieux interactifs de la scène (forgeron, éditeur d'étapes…), posés depuis /admin.
   const [hotspots, setHotspots] = useState<SceneHotspot[]>([]);
   const [openHotspot, setOpenHotspot] = useState<SceneHotspot | null>(null);
+  // Texte « +1 or » qui monte et s'efface au-dessus du tas ramassé (plus de fenêtre OK).
+  const [goldFloats, setGoldFloats] = useState<{ key: number; x: number; y: number; text: string; ok: boolean }[]>([]);
+  const collectGold = (h: SceneHotspot) => {
+    const key = Date.now() + Math.random();
+    const push = (text: string, ok: boolean) => {
+      setGoldFloats((f) => [...f, { key, x: h.position.x, y: h.position.y, text, ok }]);
+      window.setTimeout(() => setGoldFloats((f) => f.filter((g) => g.key !== key)), 1800);
+    };
+    claimDailyGold(h.id)
+      .then((n) => { uiSound("coin"); push(`+${n} or`, true); })
+      .catch((e: any) => push(e?.message?.includes("daily_gold_claim") ? "Pas encore activé" : "Déjà ramassé", false));
+  };
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [wornWeapons, setWornWeapons] = useState<Record<string, WornWeapon>>({});
   const peerIdsKey = Object.values(peers).map((x) => x.characterId).sort().join(",");
@@ -332,12 +344,14 @@ function Index() {
   const [narrativeEvent, setNarrativeEvent] = useState<NarrativeEvent | null>(null);
   // Système de jeu (SQL 006 à 009) : PV/PM réels, combat, résultat d'événement, axe.
   const [runStats, setRunStats] = useState<RunStat[]>([]);
+  const [partyCompanions, setPartyCompanions] = useState<Record<string, PartyCompanion>>({});
   const [activeCombatId, setActiveCombatId] = useState<string | null>(null);
   const [combatError, setCombatError] = useState<string | null>(null);
   const [outcomeInfo, setOutcomeInfo] = useState<OutcomeInfo | null>(null);
   const [endBanner, setEndBanner] = useState<{ title: string; text: string } | null>(null);
   const [axisChoice, setAxisChoice] = useState<{ axes: GameAxis[]; powers: GamePower[] } | null>(null);
   const [axisBusy, setAxisBusy] = useState(false);
+  const [levelUp, setLevelUp] = useState<number | null>(null);
   const [axisError, setAxisError] = useState<string | null>(null);
 
   // ---- Ratio réel de l'image de scène (fix du bug "objet-cover recadre l'image,
@@ -742,6 +756,7 @@ function Index() {
               characterRef.current = c;
               setPos(c.position);
               lastLogicalPosRef.current = c.position;
+              void restoreLastScene(c);
             })
             .catch((e) => {
               console.error("Death check failed", e);
@@ -750,6 +765,7 @@ function Index() {
               characterRef.current = c;
               setPos(c.position);
               lastLogicalPosRef.current = c.position;
+              void restoreLastScene(c);
             });
         } else {
           return fetchCharacterAssets().then((assets) => {
@@ -769,6 +785,20 @@ function Index() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Reconnexion : on réapparaît là où on s'était déconnecté (scène + position), sauf scène d'expédition (gérée à part).
+  const restoreLastScene = async (c: { scene_id: string }) => {
+    if (!c.scene_id || c.scene_id === initialScene.id) return;
+    try {
+      const target = await fetchScene(c.scene_id);
+      if (isExpeditionSceneName(target.name)) return;
+      stepMusicRef.current = null;
+      playMusic(target.music_url, true);
+      setScene(target);
+    } catch (e) {
+      console.error("restore scene failed", e);
+    }
+  };
 
   // Après une expédition : si le personnage est tombé, écran de mort puis nouveau dessin.
   const checkDeathNow = async () => {
@@ -1409,6 +1439,18 @@ function Index() {
     }
   };
 
+  // Compagnons actifs du groupe : rechargés à chaque nouvelle étape / fin de combat (pas de polling).
+  const groupKey = groupIds.join(",");
+  useEffect(() => {
+    if (!inExpeditionScene || !groupKey) {
+      setPartyCompanions({});
+      return;
+    }
+    let cancelled = false;
+    void fetchPartyCompanions(groupKey.split(",")).then((m) => { if (!cancelled) setPartyCompanions(m); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [inExpeditionScene, groupKey, stepIndex, activeCombatId, outcomeInfo]);
+
   const statOf = (id: string) => runStats.find((r) => r.character_id === id);
   const combatAllies: CombatAlly[] = character
     ? (party ? partyMembers.filter((m) => m.status === "joined") : []).length > 0
@@ -1425,6 +1467,7 @@ function Index() {
               pmCurrent: st?.pm_current ?? null,
               pmMax: st?.pm_max ?? null,
               isSelf: m.character_id === character.id,
+              companion: partyCompanions[m.character_id] ?? null,
             };
           })
       : [
@@ -1437,6 +1480,7 @@ function Index() {
             pmCurrent: statOf(character.id)?.pm_current ?? null,
             pmMax: statOf(character.id)?.pm_max ?? null,
             isSelf: true,
+            companion: partyCompanions[character.id] ?? null,
           },
         ]
     : [];
@@ -1566,6 +1610,27 @@ function Index() {
     } catch (err) {
       console.error("after combat refresh failed", err);
     }
+  };
+
+  // Félicitations de niveau : on compare au dernier niveau « vu » (mémorisé dans ce navigateur), au retour au village.
+  useEffect(() => {
+    if (!character || inExpeditionScene || activeExpedition) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const b = await fetchMyBuild(character.id);
+        if (cancelled || !b) return;
+        const k = `obw-level-seen-${character.id}`;
+        let seen = 1;
+        try { seen = Number(localStorage.getItem(k) ?? "1") || 1; } catch { /* stockage indisponible */ }
+        if (b.level > seen) setLevelUp(b.level);
+      } catch { /* ignoré */ }
+    })();
+    return () => { cancelled = true; };
+  }, [character?.id, inExpeditionScene, activeExpedition?.id, endBanner]);
+  const closeLevelUp = () => {
+    if (character && levelUp) { try { localStorage.setItem(`obw-level-seen-${character.id}`, String(levelUp)); } catch { /* ignoré */ } }
+    setLevelUp(null);
   };
 
   // Choix de l'axe : proposé dès qu'on est de retour hors expédition avec le niveau 3.
@@ -2342,7 +2407,12 @@ function Index() {
         )}
 
         {character && !inExpeditionScene && hotspots.filter((h) => !claimedGold.has(h.id)).map((h) => (
-          <HotspotMarker key={h.id} hotspot={h} onClick={() => walkThen(h.position, () => setOpenHotspot(h))} />
+          <HotspotMarker key={h.id} hotspot={h} onClick={() => walkThen(h.position, () => (h.kind.startsWith("gold") ? collectGold(h) : setOpenHotspot(h)))} />
+        ))}
+        {goldFloats.map((g) => (
+          <div key={g.key} className="obw-gold-float pointer-events-none absolute z-40 -translate-x-1/2 text-xl font-extrabold" style={{ left: `${g.x}%`, top: `${g.y}%`, color: g.ok ? "#fde68a" : "#fca5a5", textShadow: "0 2px 4px #000, 0 0 8px rgba(0,0,0,0.6)" }}>
+            {g.text}
+          </div>
         ))}
         {openHotspot && (
           <HotspotPanel
@@ -2369,7 +2439,7 @@ function Index() {
             );
           })}
 
-        {inExpeditionScene && character && activeCombatId && (
+        {inExpeditionScene && character && activeCombatId && !outcomeInfo && (
           <ExpeditionBattle
             key={activeCombatId}
             sceneImageUrl={scene.image_url}
@@ -2459,6 +2529,10 @@ function Index() {
               void checkDeathNow();
             }}
           />}
+
+        {levelUp && character && !axisChoice && !endBanner && !inExpeditionScene && (
+          <LevelUpModal name={character.name} level={levelUp} onClose={closeLevelUp} />
+        )}
 
         {axisChoice && !endBanner && !inExpeditionScene && (
           <AxisChoiceModal axes={axisChoice.axes} powers={axisChoice.powers} busy={axisBusy} error={axisError} onChoose={(k) => void handleChooseAxis(k)} />

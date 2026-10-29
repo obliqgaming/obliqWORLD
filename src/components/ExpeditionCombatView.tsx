@@ -23,6 +23,8 @@ export type CombatAlly = {
   /** PM (absents tant que l'expédition n'a pas initialisé les stats). */
   pmCurrent?: number | null;
   pmMax?: number | null;
+  /** Compagnon actif prêt à combattre (absorbe une partie des dégâts). */
+  companion?: { name: string; image_url: string; hp: number; hp_max: number } | null;
   isSelf: boolean;
 };
 
@@ -85,14 +87,19 @@ export function hpColor(current: number, max: number): string {
   return "#10b981";
 }
 
-export function HpBar({ current, max, className = "" }: { current: number; max: number; className?: string }) {
+export function HpBar({ current, max, className = "", label }: { current: number; max: number; className?: string; label?: string }) {
   const pct = max > 0 ? Math.max(0, Math.min(100, (current / max) * 100)) : 0;
   return (
-    <div className={`h-2 w-full overflow-hidden rounded-full bg-black/50 ${className}`}>
+    <div className={`relative ${label ? "h-3.5" : "h-2"} w-full overflow-hidden rounded-full bg-black/50 ${className}`}>
       <div
         className="h-full rounded-full transition-[width] duration-500"
         style={{ width: `${pct}%`, background: hpColor(current, max) }}
       />
+      {label && (
+        <span className="absolute inset-0 flex items-center justify-center text-[9px] font-extrabold leading-none text-white" style={{ textShadow: "0 1px 2px #000, 0 0 3px #000" }}>
+          {label}
+        </span>
+      )}
     </div>
   );
 }
@@ -229,8 +236,8 @@ export function ExpeditionCombatView({
         );
       })}
 
-      {/* Membres du groupe + PV : bas gauche */}
-      <div className="absolute bottom-[7.5rem] left-4 z-30 flex w-60 flex-col gap-1.5 rounded-lg border border-[#7a4a22]/60 bg-[#2b1406]/90 p-2.5 text-[#fff3d6]">
+      {/* Membres du groupe + PV/PM : haut gauche, sous le badge « Connecté » */}
+      <div className="absolute left-5 top-[4.25rem] z-30 flex w-60 flex-col gap-1.5 rounded-lg border border-[#7a4a22]/60 bg-[#2b1406]/90 p-2.5 text-[#fff3d6]">
         <div className="text-[10px] font-bold uppercase tracking-widest opacity-60">Groupe</div>
         {allies.map((a) => (
           <div key={a.characterId} className="flex items-center gap-2 text-xs">
@@ -246,7 +253,7 @@ export function ExpeditionCombatView({
                 </span>
               </div>
               <HpBar current={a.hpCurrent} max={a.hpMax} />
-              {a.isSelf && a.pmMax ? (
+              {a.pmMax ? (
                 <div className="mt-0.5 text-[10px] font-bold text-[#93c5fd]">
                   PM {a.pmCurrent ?? 0}/{a.pmMax}
                 </div>

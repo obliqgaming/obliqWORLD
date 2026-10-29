@@ -468,29 +468,6 @@ export function ExpeditionBattle({
         {active && !replaying && secondsLeft !== null ? ` · ${secondsLeft} s` : ""}
       </div>
 
-      {active && order.length > 0 && (
-        <div className="pointer-events-none absolute left-3 top-3 z-20 flex items-center gap-1 rounded-full bg-black/45 px-2 py-1" title="Ordre d'attaque">
-          {order.map((o, i) => {
-            const ally = o.k === "p" ? allies.find((a) => a.characterId === o.id) : null;
-            const en = o.k === "e" ? snap?.enemies.find((e) => e.id === o.id) : null;
-            const entry = en ? (en.visual_asset_id ? monsterAssets[en.visual_asset_id] : null) ?? pickEnemyEntry(pool, en.id) : null;
-            const src = ally?.imageUrl ?? entry?.imageUrl ?? null;
-            const sep = i > 0 && order[i - 1]!.k !== o.k;
-            return (
-              <span key={`${o.k}-${o.id}`} className="flex items-center gap-1">
-                {sep && <span className="mx-0.5 h-5 w-px bg-white/40" />}
-                <span
-                  className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border-2 bg-black/40"
-                  style={{ borderColor: ally?.isSelf ? "#fde68a" : o.k === "e" ? "#f87171" : "rgba(255,255,255,0.45)", opacity: 0.92 }}
-                >
-                  {src ? <img src={src} alt="" className="h-full w-full object-contain" draggable={false} /> : <span className="text-[10px] text-white">?</span>}
-                </span>
-              </span>
-            );
-          })}
-        </div>
-      )}
-
       {active && combat?.aoe_warning && !replaying && (
         <div className="absolute left-1/2 top-14 z-30 -translate-x-1/2 rounded-lg border-2 border-[#f87171] bg-[#4a0d0d]/95 px-4 py-1.5 text-sm font-bold text-[#fff3d6]">
           ⚠ Le boss prépare une attaque de zone : elle touchera tout le groupe à la fin de ce tour !
@@ -544,6 +521,9 @@ export function ExpeditionBattle({
                 />
               </div>
             </div>
+            {a.companion && !dead && (
+              <img src={a.companion.image_url} alt="" draggable={false} className="pointer-events-none absolute bottom-0 -right-[38%] block h-1/2 w-auto object-contain drop-shadow-[0_3px_4px_rgba(0,0,0,0.5)]" style={{ transform: "scaleX(-1)" }} />
+            )}
             <div className="absolute left-1/2 top-full mt-0.5 -translate-x-1/2 whitespace-nowrap text-[11px] font-bold text-[#fff3d6]" style={{ textShadow: "0 1px 3px #000" }}>
               {a.name}
             </div>
@@ -578,14 +558,13 @@ export function ExpeditionBattle({
               }
             }}
           >
-            <div className="absolute -top-14 left-1/2 w-32 -translate-x-1/2 text-center text-[11px] font-bold text-[#fff3d6]" style={{ textShadow: "0 1px 3px #000" }}>
-              {ROLE_LABEL[en.role] ? <div className="text-[9px] uppercase tracking-widest text-[#fbbf24]">{ROLE_LABEL[en.role]}</div> : null}
-              {en.visual_asset_id && entry?.name ? entry.name : en.name}
-              <HpBar current={hp} max={en.pv_max} className="mt-0.5" />
-              <div className="text-[10px]" style={{ color: hpColor(hp, en.pv_max) }}>
-                {hp}/{en.pv_max}
+            <div className="absolute -top-16 left-1/2 w-44 -translate-x-1/2 text-center text-[11px] font-bold text-[#fff3d6]" style={{ textShadow: "0 1px 3px #000" }}>
+              <div className="whitespace-nowrap leading-tight">
+                {ROLE_LABEL[en.role] ? <span className="mr-1 text-[9px] uppercase tracking-widest text-[#fbbf24]">{ROLE_LABEL[en.role]} ·</span> : null}
+                {en.visual_asset_id && entry?.name ? entry.name : en.name}
               </div>
-              {!dead && !replaying && target ? <div className="text-[10px] text-[#fca5a5]">vise {target.name}</div> : null}
+              <HpBar current={hp} max={en.pv_max} className="mt-0.5" label={`${hp}/${en.pv_max}`} />
+              {!dead && !replaying && target ? <div className="mt-0.5 whitespace-nowrap text-[10px] leading-none text-[#fca5a5]">vise {target.name}</div> : null}
             </div>
             {fl && (
               <div key={current!.id} className="obw-float pointer-events-none absolute left-1/2 top-0 z-50 text-2xl font-extrabold" style={{ color: fl.color, textShadow: "0 2px 4px #000" }}>
@@ -601,8 +580,8 @@ export function ExpeditionBattle({
         );
       })}
 
-      {/* Groupe + PV/PM : bas gauche */}
-      <div className="absolute bottom-[7.5rem] left-4 z-30 flex w-60 flex-col gap-1.5 rounded-lg border border-[#7a4a22]/60 bg-[#2b1406]/90 p-2.5 text-[#fff3d6]">
+      {/* Groupe + PV/PM + ordre d'attaque : haut gauche, sous le badge « Connecté » */}
+      <div className="absolute left-5 top-[4.25rem] z-30 flex w-60 flex-col gap-1.5 rounded-lg border border-[#7a4a22]/60 bg-[#2b1406]/90 p-2.5 text-[#fff3d6]">
         <div className="text-[10px] font-bold uppercase tracking-widest opacity-60">Groupe</div>
         {allies.map((a) => {
           const ready = snap?.players.find((p) => p.character_id === a.characterId)?.last_submitted_turn ?? 0;
@@ -621,11 +600,37 @@ export function ExpeditionBattle({
                   </span>
                 </div>
                 <HpBar current={hp} max={a.hpMax} />
-                {a.isSelf && a.pmMax ? <div className="mt-0.5 text-[10px] font-bold text-[#93c5fd]">PM {a.pmCurrent ?? 0}/{a.pmMax}</div> : null}
+                {a.pmMax ? <div className="mt-0.5 text-[10px] font-bold text-[#93c5fd]">PM {a.pmCurrent ?? 0}/{a.pmMax}</div> : null}
+                {a.companion ? <div className="text-[10px] font-bold text-[#fcd34d]">🐾 {a.companion.name} {a.companion.hp}/{a.companion.hp_max}</div> : null}
               </div>
             </div>
           );
         })}
+        {active && order.length > 0 && (
+          <div className="mt-0.5 border-t border-white/15 pt-1.5" title="Ordre d'attaque">
+            <div className="mb-1 text-[10px] font-bold uppercase tracking-widest opacity-60">Ordre d'attaque</div>
+            <div className="flex flex-wrap items-center gap-1">
+              {order.map((o, i) => {
+                const ally = o.k === "p" ? allies.find((a) => a.characterId === o.id) : null;
+                const en = o.k === "e" ? snap?.enemies.find((e) => e.id === o.id) : null;
+                const entry = en ? (en.visual_asset_id ? monsterAssets[en.visual_asset_id] : null) ?? pickEnemyEntry(pool, en.id) : null;
+                const src = ally?.imageUrl ?? entry?.imageUrl ?? null;
+                const sep = i > 0 && order[i - 1]!.k !== o.k;
+                return (
+                  <span key={`${o.k}-${o.id}`} className="flex items-center gap-1">
+                    {sep && <span className="mx-0.5 h-5 w-px bg-white/40" />}
+                    <span
+                      className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full border-2 bg-black/40"
+                      style={{ borderColor: ally?.isSelf ? "#fde68a" : o.k === "e" ? "#f87171" : "rgba(255,255,255,0.45)", opacity: 0.92 }}
+                    >
+                      {src ? <img src={src} alt="" className="h-full w-full object-contain" draggable={false} /> : <span className="text-[10px] text-white">?</span>}
+                    </span>
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Journal de combat : bas droite */}
@@ -634,7 +639,7 @@ export function ExpeditionBattle({
           Journal de combat <span>{showLog ? "−" : "+"}</span>
         </button>
         {showLog && (
-          <div className="max-h-48 overflow-y-auto px-2.5 pb-2 text-[11px] leading-snug">
+          <div className="parchment-scroll max-h-48 overflow-y-auto px-2.5 pb-2 text-[11px] leading-snug">
             {logLines.length === 0 ? <div className="opacity-60">Le combat commence…</div> : null}
             {logLines.map((l, i) => (
               <div key={l.id} ref={i === logLines.length - 1 ? lastLog : undefined} className="border-t border-white/10 py-0.5 first:border-0">

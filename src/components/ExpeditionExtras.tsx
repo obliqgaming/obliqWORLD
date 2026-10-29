@@ -145,3 +145,16 @@ export function AxisChoiceModal({
     </div>
   );
 }
+
+export function LevelUpModal({ name, level, onClose }: { name: string; level: number; onClose: () => void }) {
+  return (
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 p-3" style={PANEL_FONT} onClick={onClose}>
+      <div className="w-[min(22rem,92%)] rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-6 text-center text-[#3a2410] shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="text-4xl">✨</div>
+        <div className="mt-1 text-2xl font-extrabold">Niveau {level} !</div>
+        <div className="mt-1 text-sm">Bravo, {name} gagne en puissance.</div>
+        <button type="button" onClick={onClose} className="mt-4 rounded-lg border-2 border-[#7a4a22] bg-[#7a4a22] px-6 py-1.5 text-sm font-bold text-[#fff3d6] hover:bg-[#5e3818]">OK</button>
+      </div>
+    </div>
+  );
+}

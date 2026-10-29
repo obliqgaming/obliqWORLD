@@ -59,12 +59,18 @@ export function NarrativeStepPanel({
   );
   const voteForPick = `p:${pick}`;
   return (
-    <div className="absolute left-1/2 top-[8%] z-30 w-[min(34rem,94%)] -translate-x-1/2 rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6]/97 p-4 text-[#3a2410] shadow-xl" style={FONT}>
-      <div className="mb-1 flex items-center justify-between text-[10px] font-bold uppercase tracking-widest">
-        <span className="text-[#7a4a22]">{TYPE_LABEL[t]}</span>
-        <span style={{ color: RISK_COLOR[event.risk_level] }}>{RISK_LABEL[event.risk_level]}</span>
+    // À droite, là où se tiennent les ennemis en combat : le bloc remplit le « vide » en face du groupe.
+    <div className="absolute right-[3%] top-[22%] z-30 w-[min(30rem,94%)] rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6]/97 p-4 text-[#3a2410] shadow-xl md:w-[min(30rem,46%)]" style={FONT}>
+      <div className="text-center text-[11px] font-bold uppercase tracking-widest text-[#7a4a22]">{TYPE_LABEL[t]}</div>
+      <div className="mt-1 flex justify-center">
+        <span
+          className="rounded-full px-4 py-1 text-base font-extrabold uppercase tracking-wider text-white shadow"
+          style={{ background: RISK_COLOR[event.risk_level] }}
+        >
+          {RISK_LABEL[event.risk_level]}
+        </span>
       </div>
-      <div className="whitespace-pre-line text-sm font-semibold leading-snug">{event.situation_text}</div>
+      <div className="mt-3 whitespace-pre-line text-sm font-semibold leading-snug">{event.situation_text}</div>
       <AuthorLine userId={event.author_user_id} label="Rencontre écrite par" className="mt-1 text-[10px] italic opacity-60" />
 
       {t === "danger_imminent" && (
@@ -72,7 +78,7 @@ export function NarrativeStepPanel({
       )}
       {t === "epreuve" && <div className="mt-2 text-xs italic">Qui doit relever l'épreuve ? Si la retraite l'emporte, le groupe rentre.</div>}
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
+      <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
         {t === "classique" && (
           <>
             {btn("en_avant", "En avant !", "#16a34a")}
@@ -99,13 +105,12 @@ export function NarrativeStepPanel({
           </>
         )}
       </div>
-      <div className="mt-2 flex items-center justify-between text-[11px] font-bold text-[#5e3818]">
-        <span>{myVote ? `Ton vote : ${nameOf(myVote)}` : "Tu n'as pas encore voté"}</span>
-        <span>
-          {votedCount}/{voterCount} votes{left !== null ? ` · ${left} s` : ""}
-        </span>
+      {/* Votes et compte à rebours : bien visibles, au centre */}
+      <div className="mt-3 flex items-center justify-center gap-4 rounded-lg bg-[#7a4a22]/15 py-1.5 text-lg font-extrabold text-[#3a2410]">
+        <span>🗳 {votedCount}/{voterCount} votes</span>
+        {left !== null && <span style={{ color: left <= 30 ? "#b91c1c" : undefined }}>⏱ {left} s</span>}
       </div>
-      {t === "classique" && <div className="mt-1 text-[10px] italic text-[#7a4a22]">Un absent à la fin du délai compte comme « Retraite ! ».</div>}
+      {myVote && t !== "classique" && <div className="mt-1 text-center text-[11px] font-bold text-[#5e3818]">Ton vote : {nameOf(myVote)}</div>}
     </div>
   );
 }
