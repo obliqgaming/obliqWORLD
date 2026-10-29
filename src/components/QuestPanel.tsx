@@ -1,5 +1,5 @@
 // Lieu « Quêtes » : une quête par jour parmi 5. Une fois acceptée elle reste jusqu'à être accomplie ; la récompense
-// est un booster (or, potion, parchemin, arme, compagnon). Progression automatique (SQL 041).
+// est une surprise (or, potion, parchemin, arme, compagnon). Progression automatique (SQL 041).
 import { uiSound } from "../lib/ui-sounds";
 import { Coin, QuestIcon } from "./GameIcons";
 import { useEffect, useRef, useState } from "react";
@@ -18,6 +18,15 @@ function boosterTier(r: BoosterResult): number {
 const BTN = "rounded-lg border-2 border-[#7a4a22] bg-[#7a4a22] px-3 py-1 text-sm font-bold text-[#fff3d6] hover:bg-[#5e3818] disabled:opacity-50";
 
 function BoosterView({ r }: { r: BoosterResult }) {
+  return (
+    <>
+      <BoosterInner r={r} />
+      {r.xp ? <div className="mt-1 text-sm font-bold text-[#1d4ed8]">+{r.xp} XP</div> : null}
+    </>
+  );
+}
+
+function BoosterInner({ r }: { r: BoosterResult }) {
   if (r.type === "gold") return <div className="text-lg font-extrabold"><Coin /> {r.amount} pièces d'or !</div>;
   if (r.type === "potion" || r.type === "parchemin") {
     const info = CONSUMABLE_INFO[r.kind as ConsumableKind];
@@ -97,19 +106,19 @@ export function QuestPanel({ onClose }: { onClose: () => void }) {
         <div className="mt-2 space-y-1 text-sm leading-snug">
           <div><QuestIcon /> <b>Une seule quête par jour</b>, à choisir parmi celles-ci.</div>
           <div>📌 Une fois acceptée, <b>elle reste</b> jusqu'à être accomplie.</div>
-          <div>🎁 La récompense est un <b>booster</b> <i>(or, potion, parchemin, arme, compagnon…)</i>.</div>
+          <div>🎁 La récompense est une <b>surprise</b> <i>(or, potion, parchemin, arme, compagnon…)</i>.</div>
         </div>
         {msg && <div className="mt-2 text-xs font-bold text-[#92400e]">{msg}</div>}
         {data === null && <div className="mt-3 text-sm">Chargement…</div>}
 
         {reward && revealing && (
-          <RevealModal tier={boosterTier(reward)} title="Ton booster contenait…" onClose={() => setRevealing(false)}>
+          <RevealModal tier={boosterTier(reward)} title="Ta surprise contenait…" onClose={() => setRevealing(false)}>
             <BoosterView r={reward} />
           </RevealModal>
         )}
         {reward && !revealing && (
           <div className="mt-3 rounded-lg border-2 border-[#b45309] bg-[#fde7c8] p-3 text-center">
-            <div className="text-xs font-bold uppercase tracking-widest">Ton booster contenait</div>
+            <div className="text-xs font-bold uppercase tracking-widest">Ta surprise contenait</div>
             <div className="mt-1"><BoosterView r={reward} /></div>
           </div>
         )}
@@ -126,7 +135,7 @@ export function QuestPanel({ onClose }: { onClose: () => void }) {
                 className={`${BTN} mt-2`}
                 onClick={() => void act(async () => { const r = await claimQuest(); setReward(r); setRevealing(true); })}
               >
-                🎁 Ouvrir mon booster
+                🎁 Ouvrir ma surprise
               </button>
             )}
           </div>

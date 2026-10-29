@@ -3,12 +3,12 @@ import { scenesClient, ensureUserId } from "./scenes-supabase";
 
 export type Quest = { quest_key: string; title: string; description: string; goal: number; sort: number };
 export type MyQuest = { quest_key: string; progress: number; claimed: boolean; claimed_day: string | null };
-export type BoosterResult =
+export type BoosterResult = { xp?: number } & (
   | { type: "gold"; amount: number }
   | { type: "potion"; kind: string }
   | { type: "parchemin"; kind: string }
   | { type: "arme"; name: string; rarity: string; image_url: string }
-  | { type: "compagnon"; name: string; tier: string; image_url: string };
+  | { type: "compagnon"; name: string; tier: string; image_url: string });
 
 export async function fetchQuests(): Promise<{ quests: Quest[]; mine: MyQuest | null }> {
   const uid = await ensureUserId();
