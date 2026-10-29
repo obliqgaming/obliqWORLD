@@ -133,6 +133,8 @@ export function ExpeditionCombatView({
   voteDeadlineMs,
   votedCount,
   hideEvent = false,
+  mirrorBg = false,
+  walkOutIds = [],
 }: {
   sceneImageUrl: string;
   /** Position dans l'expédition (1, 2, 3…). */
@@ -152,6 +154,10 @@ export function ExpeditionCombatView({
   votedCount: number;
   /** Masque la situation et les choix (pendant l'affichage du résultat précédent). */
   hideEvent?: boolean;
+  /** Décor en miroir horizontal (alterné à chaque étape pour donner l'impression de changer de lieu). */
+  mirrorBg?: boolean;
+  /** Personnages qui traversent l'écran vers la droite (après le « OK » du résultat). */
+  walkOutIds?: string[];
 }) {
   // Compte à rebours purement local (aucun appel serveur).
   const [now, setNow] = useState(() => Date.now());
@@ -171,7 +177,7 @@ export function ExpeditionCombatView({
       style={{ fontFamily: "'Baloo 2', cursive" }}
       onClick={(e) => e.stopPropagation()}
     >
-      <img src={sceneImageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" draggable={false} />
+      <img src={sceneImageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" style={{ transform: mirrorBg ? "scaleX(-1)" : undefined }} draggable={false} />
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-black/20" />
 
       {/* Tour */}
@@ -183,21 +189,26 @@ export function ExpeditionCombatView({
       {allies.slice(0, ALLY_SLOTS.length).map((a, i) => {
         const slot = ALLY_SLOTS[i]!;
         const dead = a.hpCurrent <= 0;
+        const leaving = walkOutIds.includes(a.characterId);
         return (
           <div
             key={a.characterId}
             className="absolute"
-            style={{ left: `${slot.x}%`, top: `${slot.y}%`, height: "26%", transform: "translate(-50%, -100%)", zIndex: Math.round(slot.y) }}
+            style={{ left: leaving ? "118%" : `${slot.x}%`, top: `${slot.y}%`, height: "26%", transform: "translate(-50%, -100%)", zIndex: Math.round(slot.y), transition: leaving ? "left 1600ms linear" : undefined }}
           >
+            <style>{`@keyframes obw-walk{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(6deg)}}`}</style>
             <div style={{ transform: "scaleX(-1)", height: "100%" }}>
               <img
                 src={a.imageUrl}
                 alt={a.name}
                 draggable={false}
                 className="h-full w-auto object-contain drop-shadow-[0_4px_6px_rgba(0,0,0,0.5)]"
-                style={{ filter: dead ? "grayscale(1) brightness(0.5)" : undefined }}
+                style={{ filter: dead ? "grayscale(1) brightness(0.5)" : undefined, transformOrigin: "50% 100%", animation: leaving ? "obw-walk 250ms linear infinite" : undefined }}
               />
             </div>
+            {a.companion && !dead && (
+              <img src={a.companion.image_url} alt="" draggable={false} className="pointer-events-none absolute bottom-0 -right-[38%] block h-1/2 w-auto object-contain drop-shadow-[0_3px_4px_rgba(0,0,0,0.5)]" style={{ transform: "scaleX(-1)", transformOrigin: "50% 100%", animation: leaving ? "obw-walk 250ms linear infinite" : undefined }} />
+            )}
             <div
               className="absolute left-1/2 top-full mt-0.5 -translate-x-1/2 whitespace-nowrap text-[11px] font-bold text-[#fff3d6]"
               style={{ textShadow: "0 1px 3px #000" }}

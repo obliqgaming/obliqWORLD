@@ -1585,12 +1585,25 @@ function Index() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeExpedition?.id, activeExpedition?.current_step_index, activeExpedition?.status, inExpeditionScene, character?.id]);
 
-  // Le résultat s'efface tout seul après 15 s.
+  // Le résultat reste affiché jusqu'au « OK » (ou 120 s) ; ensuite le personnage traverse l'écran vers la droite, puis l'étape suivante apparaît.
+  const [leavingIds, setLeavingIds] = useState<string[]>([]);
+  const closeOutcome = () => {
+    if (!outcomeInfo) return;
+    if (!character || leavingIds.length > 0) return;
+    setLeavingIds([character.id]);
+    window.setTimeout(() => {
+      setOutcomeInfo(null);
+      setLeavingIds([]);
+    }, 1700);
+  };
+  const closeOutcomeRef = useRef(closeOutcome);
+  closeOutcomeRef.current = closeOutcome;
   useEffect(() => {
     if (!outcomeInfo) return;
-    const t = window.setTimeout(() => setOutcomeInfo(null), outcomeInfo.narrative?.potion ? 45000 : 25000);
+    const t = window.setTimeout(() => closeOutcomeRef.current(), 120000);
     return () => window.clearTimeout(t);
   }, [outcomeInfo]);
+  const bgMirrored = (outcomeInfo ? stepIndex - 1 : stepIndex) % 2 === 1;
 
   // Fin d'un combat gagné : on relit l'expédition et l'étape (le serveur a pu
   // faire avancer l'étape ou redonner 180 s au prochain vote).
@@ -2444,6 +2457,7 @@ function Index() {
             key={activeCombatId}
             sceneImageUrl={scene.image_url}
             combatId={activeCombatId}
+            mirrorBg={bgMirrored}
             characterId={character.id}
             allies={combatAllies}
             volume={volume}
@@ -2452,9 +2466,11 @@ function Index() {
           />
         )}
 
-        {inExpeditionScene && character && !activeCombatId && expeditionPhase === "event" && (
+        {inExpeditionScene && character && (!activeCombatId || !!outcomeInfo) && expeditionPhase === "event" && (
           <ExpeditionCombatView
             sceneImageUrl={scene.image_url}
+            mirrorBg={bgMirrored}
+            walkOutIds={leavingIds}
             eventNumber={stepIndex + 1}
             phase="event"
             event={demoEvent}
@@ -2508,7 +2524,7 @@ function Index() {
           <OutcomePanel
             outcome={outcomeInfo}
             myPvMax={character ? (runStats.find((r) => r.character_id === character.id)?.pv_max ?? null) : null}
-            onClose={() => setOutcomeInfo(null)}
+            onClose={closeOutcome}
             loot={
               character && activeExpedition
                 ? {

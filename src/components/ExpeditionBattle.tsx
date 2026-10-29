@@ -73,8 +73,53 @@ function soundFor(ev: NonNullable<CombatLogRow["ev"]>): CombatSound {
   return "info";
 }
 
+
+// Effets visuels de combat (codés, sans image) : mêlée = slash + impact, magie = éclat bleu/violet, soin = lumière verte/jaune.
+type FxLook = { kind: "slash" | "magic" | "heal"; color: string };
+function fxLook(ev: { t: string; pw?: string }, family: string | null | undefined): FxLook | null {
+  const pw = (ev.pw ?? "").toLowerCase();
+  if (ev.t === "heal") return { kind: "heal", color: pw.includes("souffle") && !pw.includes("dernier") ? "#4ade80" : "#fde047" };
+  if (ev.t !== "dmg") return null;
+  if (family === "magie") return { kind: "magic", color: pw.includes("glace") || pw.includes("barri") ? "#60a5fa" : "#a855f7" };
+  return { kind: "slash", color: pw.includes("poison") ? "#84cc16" : "#fff3d6" };
+}
+function FxOverlay({ look }: { look: FxLook }) {
+  const c = look.color;
+  const dots = [0, 1, 2, 3, 4, 5];
+  return (
+    <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center overflow-visible">
+      {look.kind === "slash" && (
+        <>
+          <div className="obw-slash absolute h-1.5 w-[130%] rounded-full" style={{ background: `linear-gradient(90deg, transparent, ${c}, transparent)`, boxShadow: `0 0 10px ${c}` }} />
+          <div className="obw-slash obw-slash2 absolute h-1 w-[100%] rounded-full" style={{ background: `linear-gradient(90deg, transparent, ${c}, transparent)` }} />
+          <div className="obw-impact absolute h-16 w-16 rounded-full" style={{ background: `radial-gradient(circle, #fff 0%, ${c} 30%, transparent 70%)` }} />
+        </>
+      )}
+      {look.kind === "magic" && (
+        <>
+          <div className="obw-ring absolute h-20 w-20 rounded-full" style={{ border: `3px solid ${c}`, boxShadow: `0 0 18px ${c}, inset 0 0 14px ${c}` }} />
+          <div className="obw-impact absolute h-20 w-20 rounded-full" style={{ background: `radial-gradient(circle, #fff 0%, ${c} 35%, transparent 70%)` }} />
+          {dots.map((i) => (
+            <span key={i} className="obw-spark absolute h-2 w-2 rounded-full" style={{ background: c, boxShadow: `0 0 8px ${c}`, ["--a" as any]: `${i * 60}deg` }} />
+          ))}
+        </>
+      )}
+      {look.kind === "heal" && (
+        <>
+          <div className="obw-impact absolute h-24 w-24 rounded-full" style={{ background: `radial-gradient(circle, ${c}aa 0%, transparent 70%)` }} />
+          <div className="obw-cross absolute text-4xl font-black" style={{ color: c, textShadow: `0 0 12px ${c}` }}>✚</div>
+          {dots.map((i) => (
+            <span key={i} className="obw-rise absolute h-2 w-2 rounded-full" style={{ background: c, boxShadow: `0 0 8px ${c}`, left: `${22 + i * 11}%`, animationDelay: `${i * 90}ms` }} />
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+
 export function ExpeditionBattle({
   sceneImageUrl,
+  mirrorBg = false,
   combatId,
   characterId,
   allies,
@@ -83,6 +128,7 @@ export function ExpeditionBattle({
   onFinished,
 }: {
   sceneImageUrl: string;
+  mirrorBg?: boolean;
   combatId: string;
   characterId: string;
   allies: CombatAlly[];
@@ -433,6 +479,12 @@ export function ExpeditionBattle({
     if (ev.sk === kind && ev.s === id && landedId !== current!.id) return "act";
     return null;
   };
+  const lookFor = (kind: "p" | "e", id: string): FxLook | null => {
+    const ev = current?.ev;
+    if (!ev || landedId !== current!.id || ev.dk !== kind || ev.d !== id) return null;
+    const pw = powers.find((p) => p.power_key === ev.pw);
+    return fxLook(ev, pw?.family ?? (ev.sk === "e" ? null : null));
+  };
   const floatFor = (kind: "p" | "e", id: string) => {
     const ev = current?.ev;
     if (!ev || landedId !== current!.id || ev.dk !== kind || ev.d !== id || ev.n === undefined) return null;
@@ -459,8 +511,21 @@ export function ExpeditionBattle({
         .obw-hit{animation:obw-shake 450ms ease-in-out, obw-flash 600ms ease-out}
         .obw-heal{animation:obw-heal 800ms ease-out}
         .obw-float{animation:obw-float 900ms ease-out forwards}
+        @keyframes obw-slash-a { 0%{opacity:0;transform:rotate(-38deg) scaleX(0)} 25%{opacity:1;transform:rotate(-38deg) scaleX(1)} 100%{opacity:0;transform:rotate(-38deg) scaleX(1.1)} }
+        @keyframes obw-impact-a { 0%{opacity:.9;transform:scale(.2)} 100%{opacity:0;transform:scale(1.5)} }
+        @keyframes obw-ring-a { 0%{opacity:1;transform:scale(.2)} 100%{opacity:0;transform:scale(1.8)} }
+        @keyframes obw-spark-a { 0%{opacity:1;transform:rotate(var(--a)) translateX(0) scale(1)} 100%{opacity:0;transform:rotate(var(--a)) translateX(46px) scale(.3)} }
+        @keyframes obw-cross-a { 0%{opacity:0;transform:scale(.4)} 30%{opacity:1;transform:scale(1.2)} 100%{opacity:0;transform:translateY(-22px) scale(1)} }
+        @keyframes obw-rise-a { 0%{opacity:0;transform:translateY(20px)} 30%{opacity:1} 100%{opacity:0;transform:translateY(-44px)} }
+        .obw-slash{animation:obw-slash-a 450ms ease-out forwards}
+        .obw-slash2{animation-delay:90ms;opacity:0;transform:rotate(-38deg)}
+        .obw-impact{animation:obw-impact-a 500ms ease-out forwards}
+        .obw-ring{animation:obw-ring-a 650ms ease-out forwards}
+        .obw-spark{animation:obw-spark-a 650ms ease-out forwards}
+        .obw-cross{animation:obw-cross-a 850ms ease-out forwards}
+        .obw-rise{animation:obw-rise-a 850ms ease-out both}
       `}</style>
-      <img src={sceneImageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" draggable={false} />
+      <img src={sceneImageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" style={{ transform: mirrorBg ? "scaleX(-1)" : undefined }} draggable={false} />
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-black/20" />
 
       <div className="absolute left-1/2 top-4 -translate-x-1/2 rounded-full bg-black/60 px-4 py-1 text-xs font-bold uppercase tracking-widest text-[#fff3d6]">
@@ -504,6 +569,7 @@ export function ExpeditionBattle({
               }
             }}
           >
+            {lookFor("p", a.characterId) && <FxOverlay key={"fx" + current!.id} look={lookFor("p", a.characterId)!} />}
             {fl && (
               <div key={current!.id} className="obw-float pointer-events-none absolute left-1/2 top-0 z-50 text-2xl font-extrabold" style={{ color: fl.color, textShadow: "0 2px 4px #000" }}>
                 {fl.text}
@@ -566,6 +632,7 @@ export function ExpeditionBattle({
               <HpBar current={hp} max={en.pv_max} className="mt-0.5" label={`${hp}/${en.pv_max}`} />
               {!dead && !replaying && target ? <div className="mt-0.5 whitespace-nowrap text-[10px] leading-none text-[#fca5a5]">vise {target.name}</div> : null}
             </div>
+            {lookFor("e", en.id) && <FxOverlay key={"fx" + current!.id} look={lookFor("e", en.id)!} />}
             {fl && (
               <div key={current!.id} className="obw-float pointer-events-none absolute left-1/2 top-0 z-50 text-2xl font-extrabold" style={{ color: fl.color, textShadow: "0 2px 4px #000" }}>
                 {fl.text}
