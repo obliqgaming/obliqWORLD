@@ -37,7 +37,7 @@ import { CURSOR_INTERACT } from "../lib/cursors";
 import { LootPanel } from "./LootPanel";
 import { COMBAT_USABLE, CONSUMABLE_INFO, fetchMyConsumables, submitCombatItem, type ConsumableStack } from "../lib/consumables";
 import { playCombatSound, type CombatSound } from "../lib/combat-sounds";
-import { leaveScenePresence, type PresenceChannel } from "../lib/scenes-supabase";
+import { leaveScenePresence, scenesClient, type PresenceChannel } from "../lib/scenes-supabase";
 
 const ROLE_LABEL: Record<string, string> = { chef: "Chef de meute", boss: "Boss", add: "Invoqué", normal: "" };
 
@@ -150,6 +150,16 @@ export function ExpeditionBattle({
   const [itemsOpen, setItemsOpen] = useState(false);
   const [itemKind, setItemKind] = useState<ConsumableStack | null>(null);
   const [pool, setPool] = useState<EnemyImage[]>([]);
+  const [familyOf, setFamilyOf] = useState<Record<string, string>>({}); // personnage -> melee | magie (pour l'apparence des attaques de base)
+  const allyKey = allies.map((x) => x.characterId).sort().join(",");
+  useEffect(() => {
+    if (!allyKey) return;
+    let cancelled = false;
+    void scenesClient.from("character_build").select("character_id, family").in("character_id", allyKey.split(",")).then(({ data }) => {
+      if (!cancelled && data) setFamilyOf(Object.fromEntries(data.map((r: any) => [r.character_id, r.family])));
+    });
+    return () => { cancelled = true; };
+  }, [allyKey]);
   const [selectedPower, setSelectedPower] = useState<string | null>(null); // null = attaque de base
   const [targetEnemy, setTargetEnemy] = useState<string | null>(null);
   const [targetAlly, setTargetAlly] = useState<string | null>(null);
@@ -483,7 +493,7 @@ export function ExpeditionBattle({
     const ev = current?.ev;
     if (!ev || landedId !== current!.id || ev.dk !== kind || ev.d !== id) return null;
     const pw = powers.find((p) => p.power_key === ev.pw);
-    return fxLook(ev, pw?.family ?? (ev.sk === "e" ? null : null));
+    return fxLook(ev, pw?.family ?? (ev.sk === "p" && ev.s ? familyOf[ev.s] : null));
   };
   const floatFor = (kind: "p" | "e", id: string) => {
     const ev = current?.ev;
