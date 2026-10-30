@@ -109,6 +109,7 @@ import { InspectPanel } from "../components/InspectPanel";
 import { WornSprite } from "../components/WornSprite";
 import { CURSOR_DEFAULT, CURSOR_INTERACT, arrowCursor, useArrowCursorReady } from "../lib/cursors";
 import { InventoryPanel } from "../components/InventoryPanel";
+import { ClassNameModal, TalentPanel } from "../components/TalentPanel";
 import { fetchWornWeapons, type WornWeapon } from "../lib/weapons";
 import { setUiAudio, uiSound } from "../lib/ui-sounds";
 import { JINGLE_FAIL, JINGLE_SUCCESS, parseMusicList, startJingle } from "../lib/jingle";
@@ -318,6 +319,8 @@ function Index() {
       .catch((e: any) => push(e?.message?.includes("daily_gold_claim") ? "Pas encore activé" : "Déjà ramassé", false));
   };
   const [inventoryOpen, setInventoryOpen] = useState(false);
+  const [talentsOpen, setTalentsOpen] = useState(false);
+  const [renameAxis, setRenameAxis] = useState<string | null>(null);
   const [wornWeapons, setWornWeapons] = useState<Record<string, WornWeapon>>({});
   const peerIdsKey = Object.values(peers).map((x) => x.characterId).sort().join(",");
   // Change dès qu'un joueur présent change d'arme (ou son réglage) : on recharge alors l'équipement affiché.
@@ -1656,7 +1659,7 @@ function Index() {
         if (cancelled || !b || !b.axis_choice_pending) return;
         const [axes, powers] = await Promise.all([fetchGameAxes(), fetchGamePowers()]);
         if (cancelled) return;
-        setAxisChoice({ axes: axes.filter((a) => a.family === b.family && !a.axis_key.startsWith("apprenti")), powers });
+        setAxisChoice({ axes: axes.filter((a) => a.family === b.family && a.playable !== false && !a.axis_key.startsWith("apprenti")), powers });
       } catch (e) {
         console.error("axis check failed", e);
       }
@@ -1673,6 +1676,7 @@ function Index() {
     try {
       await chooseAxis(character.id, axisKey);
       setAxisChoice(null);
+      setRenameAxis(axisKey);
     } catch (e) {
       setAxisError(e instanceof Error ? e.message : String((e as { message?: string })?.message ?? e));
     } finally {
@@ -2603,6 +2607,20 @@ function Index() {
             <img src="/icons/bag.svg" alt="Inventaire" draggable={false} style={{ height: inExpeditionScene ? "1.9rem" : "3.8rem", width: "auto" }} />
           </button>
         )}
+        {character && !activeCombatId && !inExpeditionScene && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setTalentsOpen(true);
+            }}
+            title="Talents"
+            className="absolute bottom-3 left-1/2 z-30 ml-16 px-1 text-4xl leading-none transition-transform hover:scale-110"
+            style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.7))", cursor: CURSOR_INTERACT }}
+          >
+            🌟
+          </button>
+        )}
         {character && !activeCombatId && (
           <button
             type="button"
@@ -2645,6 +2663,12 @@ function Index() {
               }
             }}
           />
+        )}
+        {talentsOpen && character && !activeCombatId && !inExpeditionScene && (
+          <TalentPanel characterId={character.id} onClose={() => setTalentsOpen(false)} />
+        )}
+        {renameAxis && character && !axisChoice && !inExpeditionScene && (
+          <ClassNameModal characterId={character.id} axisKey={renameAxis} onDone={() => setRenameAxis(null)} />
         )}
         {inventoryOpen && character && !activeCombatId && (
           <InventoryPanel

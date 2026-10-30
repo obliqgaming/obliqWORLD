@@ -35,6 +35,7 @@ import { WornSprite } from "./WornSprite";
 import { DEFAULT_HAND, fetchWeaponsById, fetchWornWeapons, type WornWeapon } from "../lib/weapons";
 import { CURSOR_INTERACT } from "../lib/cursors";
 import { LootPanel } from "./LootPanel";
+import { fetchMyTalentKeys, fetchTalents, type GameTalent } from "../lib/talents";
 import { COMBAT_USABLE, CONSUMABLE_INFO, fetchMyConsumables, submitCombatItem, type ConsumableStack } from "../lib/consumables";
 import { playCombatSound, type CombatSound } from "../lib/combat-sounds";
 import { leaveScenePresence, scenesClient, type PresenceChannel } from "../lib/scenes-supabase";
@@ -51,14 +52,17 @@ function pnum(p: GamePower, k: string): number | undefined {
 function isSelfOnly(p: GamePower): boolean {
   return p.params?.["self_only"] === true;
 }
+const ALLY_TARGET_KEYS = new Set(["interposition", "benediction", "purification"]);   // se lancent sur un allié choisi
+const NO_TARGET_KEYS = new Set(["cri_de_guerre", "bouclier_sacre", "soin_groupe"]);      // touchent tout le groupe
 function isAllyPower(p: GamePower): boolean {
   const prm = p.params;
+  if (ALLY_TARGET_KEYS.has(p.power_key)) return true;
   if (!prm || isSelfOnly(p)) return false;
   return prm["heal"] !== undefined || prm["survive_at"] !== undefined;
 }
 function needsNoEnemy(p: GamePower): boolean {
   const prm = p.params;
-  return !!prm && (prm["redirect_single_target"] !== undefined || prm["pm_gain"] !== undefined || isSelfOnly(p) || isAllyPower(p));
+  return NO_TARGET_KEYS.has(p.power_key) || !!prm && (prm["redirect_single_target"] !== undefined || prm["pm_gain"] !== undefined || isSelfOnly(p) || isAllyPower(p));
 }
 
 function soundFor(ev: NonNullable<CombatLogRow["ev"]>): CombatSound {
@@ -150,6 +154,8 @@ export function ExpeditionBattle({
   const [itemsOpen, setItemsOpen] = useState(false);
   const [itemKind, setItemKind] = useState<ConsumableStack | null>(null);
   const [pool, setPool] = useState<EnemyImage[]>([]);
+  const [talentDefs, setTalentDefs] = useState<GameTalent[]>([]);
+  const [myTalentKeys, setMyTalentKeys] = useState<string[]>([]);
   const [familyOf, setFamilyOf] = useState<Record<string, string>>({}); // personnage -> melee | magie (pour l'apparence des attaques de base)
   const allyKey = allies.map((x) => x.characterId).sort().join(",");
   useEffect(() => {
@@ -205,14 +211,18 @@ export function ExpeditionBattle({
     let channel: PresenceChannel | null = null;
     (async () => {
       try {
-        const [b, p, a, st, imgs] = await Promise.all([
+        const [b, p, a, st, imgs, td, mk] = await Promise.all([
           fetchMyBuild(characterId),
           fetchGamePowers(),
           fetchGameAxes(),
           fetchGameSettings(),
           fetchEnemyImagePool(allies.map((x) => x.characterId)),
+          fetchTalents().catch(() => [] as GameTalent[]),
+          fetchMyTalentKeys(characterId).catch(() => [] as string[]),
         ]);
         if (cancelled) return;
+        setTalentDefs(td);
+        setMyTalentKeys(mk);
         setBuild(b);
         setPowers(p);
         setAxes(a);
@@ -345,7 +355,7 @@ export function ExpeditionBattle({
   }, [active, turn, deadlineMs]);
 
   // ---------- Mes pouvoirs et les dégâts prévus ----------
-  const myPowers = useMemo(() => (build ? powersForBuild(build, powers) : []), [build, powers]);
+  const myPowers = useMemo(() => (build ? powersForBuild(build, powers, talentDefs, myTalentKeys) : []), [build, powers, talentDefs, myTalentKeys]);
   const myAxisKey = build ? (build.axis_key ?? (build.family === "melee" ? "apprenti_melee" : "apprenti_magie")) : null;
   const myAxis = axes.find((a) => a.axis_key === myAxisKey) ?? null;
   const baseAttackName = myAxis?.base_attack_name ?? "Attaque";

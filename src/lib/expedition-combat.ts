@@ -14,6 +14,7 @@ export type GameAxis = {
   force: number;
   defense: number;
   speed: number;
+  playable?: boolean;
 };
 
 export type GamePower = {
@@ -77,11 +78,18 @@ export async function chooseAxis(characterId: string, axisKey: string): Promise<
 }
 
 // Pouvoirs disponibles pour un personnage (communs à sa famille + ceux de son axe).
-export function powersForBuild(build: MyBuild, powers: GamePower[]): GamePower[] {
+// Pouvoirs communs de la famille + pouvoirs des talents possédés (le talent 1 de sa classe est offert). SQL 055.
+export function powersForBuild(
+  build: MyBuild,
+  powers: GamePower[],
+  talents: { talent_key: string; axis_key: string; rank: number; power_key: string | null }[] = [],
+  ownedKeys: string[] = [],
+): GamePower[] {
+  const owned = new Set(ownedKeys);
+  for (const t of talents) if (build.axis_key && !build.axis_choice_pending && t.axis_key === build.axis_key && t.rank === 1) owned.add(t.talent_key);
+  const fromTalents = new Set(talents.filter((t) => owned.has(t.talent_key) && t.power_key).map((t) => t.power_key as string));
   return powers.filter(
-    (p) =>
-      p.unlock_level <= build.level &&
-      ((p.kind === "common" && p.family === build.family) || (p.kind === "axis" && p.axis_key === build.axis_key)),
+    (p) => (p.kind === "common" && p.family === build.family && p.unlock_level <= build.level) || fromTalents.has(p.power_key),
   );
 }
 
