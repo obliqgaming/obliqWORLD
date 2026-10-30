@@ -2615,10 +2615,10 @@ function Index() {
               setTalentsOpen(true);
             }}
             title="Talents"
-            className="absolute bottom-3 left-1/2 z-30 ml-16 px-1 text-4xl leading-none transition-transform hover:scale-110"
-            style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.7))", cursor: CURSOR_INTERACT }}
+            className="absolute bottom-2 left-1/2 z-30 px-2 leading-none transition-transform hover:scale-110"
+            style={{ marginLeft: "2.8rem", filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.7))", cursor: CURSOR_INTERACT }}
           >
-            🌟
+            <img src="/icons/target.png" alt="Talents" draggable={false} style={{ height: "3.8rem", width: "auto" }} />
           </button>
         )}
         {character && !activeCombatId && (

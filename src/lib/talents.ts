@@ -92,7 +92,7 @@ export function talentStatus(
   owned: Set<string>,
   talents: GameTalent[],
   pointsLeft: number,
-): { state: "owned" | "available" | "locked"; reason?: string } {
+): { state: "owned" | "available" | "next" | "locked"; reason?: string } {
   if (owned.has(t.talent_key)) return { state: "owned" };
   if (!t.implemented) return { state: "locked", reason: "Bientôt" };
   if (t.slot && talents.some((o) => o.axis_key === t.axis_key && o.rank === t.rank && o.talent_key !== t.talent_key && owned.has(o.talent_key))) {
@@ -104,6 +104,6 @@ export function talentStatus(
   if (t.rank > 1 && !talents.some((o) => o.axis_key === t.axis_key && o.rank === t.rank - 1 && owned.has(o.talent_key))) {
     return { state: "locked", reason: "Il te faut le talent précédent" };
   }
-  if (pointsLeft <= 0) return { state: "locked", reason: "Plus de point disponible" };
+  if (pointsLeft <= 0) return { state: "next", reason: "Plus de point disponible" };
   return { state: "available" };
 }

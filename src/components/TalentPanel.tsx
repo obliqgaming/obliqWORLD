@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { uiSound } from "../lib/ui-sounds";
 import { fetchGamePowers, fetchGameSettings, type GamePower } from "../lib/expedition-combat";
 import {
-  AXIS_LABEL, RENAME_SUGGESTIONS, TREE_ORDER, fetchMyTalentKeys, fetchTalentBuild, fetchTalents, ownedWithFree, pointsTotal, resetTalents,
+  AXIS_LABEL, RENAME_SUGGESTIONS, TALENT_LEVELS, CROSS_MIN_LEVEL, TREE_ORDER, fetchMyTalentKeys, fetchTalentBuild, fetchTalents, ownedWithFree, pointsTotal, resetTalents,
   setClassName, takeTalent, talentStatus, type GameTalent, type TalentBuild,
 } from "../lib/talents";
 
@@ -52,6 +52,8 @@ export function ClassNameModal({ characterId, axisKey, onDone }: { characterId: 
   );
 }
 
+const OWN_LEVELS = [3, 5, 8, 12, 16, 20]; // niveau d'obtention du rang 1…6 dans sa propre classe
+
 export function TalentPanel({ characterId, onClose }: { characterId: string; onClose: () => void }) {
   const [build, setBuild] = useState<TalentBuild | null>(null);
   const [talents, setTalents] = useState<GameTalent[]>([]);
@@ -61,7 +63,9 @@ export function TalentPanel({ characterId, onClose }: { characterId: string; onC
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [confirmKey, setConfirmKey] = useState<string | null>(null);
   const [renaming, setRenaming] = useState(false);
+  const [tab, setTab] = useState(0);
 
   const load = useCallback(async () => {
     try {
@@ -81,6 +85,7 @@ export function TalentPanel({ characterId, onClose }: { characterId: string; onC
 
   const owned = useMemo(() => (build ? ownedWithFree(build, keys, talents) : new Set<string>()), [build, keys, talents]);
   const pointsLeft = build ? pointsTotal(build.level) - keys.length : 0;
+  const nextPointLevel = build ? TALENT_LEVELS.find((l) => l > build.level) ?? null : null;
 
   const take = async (k: string) => {
     if (busy) return;
@@ -89,6 +94,7 @@ export function TalentPanel({ characterId, onClose }: { characterId: string; onC
     try {
       await takeTalent(characterId, k);
       uiSound("success");
+      setConfirmKey(null);
       await load();
     } catch (e: any) {
       uiSound("fail");
@@ -112,47 +118,77 @@ export function TalentPanel({ characterId, onClose }: { characterId: string; onC
     }
   };
 
-  const powerInfo = (t: GameTalent) => {
+  const card = (t: GameTalent, mine: boolean, label: string | null) => {
+    if (!build) return null;
+    const stt = talentStatus(t, build, owned, talents, pointsLeft);
     const p = t.power_key ? powers.find((x) => x.power_key === t.power_key) : null;
-    if (!p) return null;
-    return `${p.cost_pm ? `${p.cost_pm} PM` : "0 PM"}${p.recharge ? ` · recharge ${p.recharge}` : ""}`;
+    const st = stt.state;
+    const style =
+      st === "owned" ? { background: "#d1fae5", border: "2px solid #047857" }
+      : st === "available" ? { background: "#fff1b8", border: "2px solid #c98a00", boxShadow: "0 0 0 2px rgba(201,138,0,0.25)" }
+      : st === "next" ? { background: "#fdf3d8", border: "2px dashed #c98a00" }
+      : { background: "rgba(255,255,255,0.28)", border: "1px solid #b98a54", opacity: 0.72 };
+    return (
+      <div key={t.talent_key} className="min-w-0 flex-1 rounded-lg p-2 text-[11px] leading-tight" style={style}>
+        <div className="flex items-center justify-between gap-1">
+          <span className="rounded bg-[#7a4a22] px-1.5 py-px text-[10px] font-extrabold text-[#fff3d6]">{label}</span>
+          <span className="text-[10px] font-bold">
+            {st === "owned" ? <span className="text-[#047857]">✔ Acquis</span> : st === "next" ? <span className="text-[#92400e]">Prochain</span> : st === "locked" ? "🔒" : null}
+          </span>
+        </div>
+        <div className="mt-1 text-[13px] font-extrabold">{t.name}</div>
+        <div className="mt-0.5 opacity-85">{t.description}</div>
+        {p && (
+          <div className="mt-1 flex flex-wrap gap-1 text-[10px] font-bold">
+            <span className="rounded bg-[#dbeafe] px-1.5 py-px text-[#1d4ed8]">{p.cost_pm ? `${p.cost_pm} PM` : "0 PM"}</span>
+            {p.recharge ? <span className="rounded bg-[#e5e7eb] px-1.5 py-px text-[#374151]">Recharge {p.recharge} t.</span> : null}
+          </div>
+        )}
+        {st === "available" && confirmKey !== t.talent_key && (
+          <button type="button" disabled={busy} className={`${BTN} mt-1.5 w-full`} onClick={() => (t.slot ? setConfirmKey(t.talent_key) : void take(t.talent_key))}>Apprendre</button>
+        )}
+        {st === "available" && confirmKey === t.talent_key && (
+          <div className="mt-1.5 rounded bg-white/60 p-1 text-center">
+            <div className="text-[10px] font-bold">Ce choix exclut l'autre voie.</div>
+            <div className="mt-1 flex justify-center gap-1">
+              <button type="button" disabled={busy} className={BTN} onClick={() => void take(t.talent_key)}>Confirmer</button>
+              <button type="button" className="text-[10px] underline" onClick={() => setConfirmKey(null)}>Annuler</button>
+            </div>
+          </div>
+        )}
+        {st === "locked" && stt.reason && (stt.reason === "Bientôt" || stt.reason.startsWith("Tu as choisi")) && (
+          <div className="mt-1 text-[10px] italic opacity-80">{stt.reason === "Bientôt" ? "Bientôt" : "Autre voie choisie"}</div>
+        )}
+        {!mine && null}
+      </div>
+    );
   };
 
-  const tree = (axis: string, mine: boolean) => {
+  const tree = (axis: string, mine: boolean, idx: number) => {
     if (!build) return null;
     const list = talents.filter((t) => t.axis_key === axis);
     const ranks = [1, 2, 3, 4, 5, 6];
     return (
-      <div key={axis} className="min-w-0 flex-1 rounded-lg border border-[#7a4a22]/60 bg-white/35 p-2">
-        <div className="mb-1 text-center text-sm font-extrabold">
-          {AXIS_LABEL[axis] ?? axis} {mine ? <span className="text-[10px] font-bold text-[#047857]">(ta classe)</span> : <span className="text-[10px] font-bold text-[#92400e]">(autre arbre · niv. 9)</span>}
+      <div key={axis} className={`${tab === idx ? "block" : "hidden"} min-w-0 flex-1 rounded-lg border border-[#7a4a22]/60 bg-white/30 p-2 sm:block`} style={mine ? undefined : { background: "rgba(255,255,255,0.18)" }}>
+        <div className="mb-2 text-center">
+          <div className="text-base font-extrabold">{AXIS_LABEL[axis] ?? axis}</div>
+          {mine ? (
+            <div className="text-[10px] font-bold text-[#047857]">Ta classe</div>
+          ) : (
+            <div className="text-[10px] font-bold text-[#92400e]">Autre branche · dès le niveau {CROSS_MIN_LEVEL} · 3 premiers talents</div>
+          )}
         </div>
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           {ranks.map((r) => {
             const row = list.filter((t) => t.rank === r);
             if (row.length === 0) return null;
+            const lvl = mine ? OWN_LEVELS[r - 1] : null;
+            const head = mine ? `Niv. ${lvl}` : `Étape ${r}`;
+            if (row.length === 1) return <div key={r} className="flex">{card(row[0]!, mine, head)}</div>;
             return (
-              <div key={r} className="flex gap-1.5">
-                <div className="flex w-4 shrink-0 items-center justify-center text-[10px] font-bold opacity-60">{r}</div>
-                {row.map((t) => {
-                  const stt = talentStatus(t, build, owned, talents, pointsLeft);
-                  const bg = stt.state === "owned" ? "#d1fae5" : stt.state === "available" ? "#fef3c7" : "rgba(255,255,255,0.35)";
-                  const info = powerInfo(t);
-                  return (
-                    <div key={t.talent_key} className="min-w-0 flex-1 rounded border p-1.5 text-[11px] leading-tight" style={{ background: bg, borderColor: stt.state === "owned" ? "#047857" : "#b98a54", opacity: stt.state === "locked" ? 0.7 : 1 }} title={t.description}>
-                      <div className="flex items-baseline justify-between gap-1">
-                        <span className="font-extrabold">{t.slot ? `${t.slot} · ` : ""}{t.name}</span>
-                        {stt.state === "owned" && <span className="text-[#047857]">✔</span>}
-                      </div>
-                      <div className="opacity-80">{t.description}</div>
-                      {info && <div className="mt-0.5 text-[10px] font-bold text-[#1d4ed8]">{info}</div>}
-                      {stt.state === "available" && (
-                        <button type="button" disabled={busy} className={`${BTN} mt-1`} onClick={() => void take(t.talent_key)}>Prendre</button>
-                      )}
-                      {stt.state === "locked" && stt.reason && <div className="mt-0.5 text-[10px] italic opacity-70">{stt.reason}</div>}
-                    </div>
-                  );
-                })}
+              <div key={r} className="rounded-lg border border-dashed border-[#7a4a22]/70 p-1.5">
+                <div className="mb-1 text-center text-[10px] font-extrabold text-[#5e3818]">{head} · Choisis une voie</div>
+                <div className="flex gap-1.5">{row.map((t, i) => card(t, mine, `Voie ${i === 0 ? "A" : "B"}`))}</div>
               </div>
             );
           })}
@@ -167,24 +203,45 @@ export function TalentPanel({ characterId, onClose }: { characterId: string; onC
 
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 p-3" style={FONT} onClick={onClose}>
-      <div className="max-h-full w-[min(48rem,98%)] overflow-y-auto parchment-scroll rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-4 text-[#3a2410] shadow-xl" onClick={(e) => e.stopPropagation()}>
+      <div className="flex max-h-full w-[min(48rem,98%)] flex-col rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] text-[#3a2410] shadow-xl" onClick={(e) => e.stopPropagation()}>
         {!build ? (
-          <div className="text-center text-sm">{err ?? "Chargement…"}</div>
+          <div className="p-4 text-center text-sm">{err ?? "Chargement…"}</div>
         ) : !own || build.axis_choice_pending ? (
-          <div className="text-center text-sm">Choisis d'abord ta classe (niveau 3) pour accéder aux talents.</div>
+          <div className="p-4 text-center text-sm">Choisis d'abord ta classe (niveau 3) pour accéder aux talents.</div>
         ) : (
           <>
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <div className="text-xl font-extrabold">
-                🌟 Talents — {build.class_name ?? AXIS_LABEL[own] ?? own}
-                <button type="button" className="ml-2 text-xs font-bold underline" onClick={() => setRenaming(true)}>renommer</button>
+            <div className="shrink-0 p-3 pb-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="text-xl font-extrabold">{build.class_name ?? AXIS_LABEL[own] ?? own}</div>
+                <button type="button" className="rounded border-2 border-[#7a4a22] px-2 py-0.5 text-xs font-bold text-[#5e3818] hover:bg-[#7a4a22]/15" onClick={() => setRenaming(true)}>✎ Renommer</button>
               </div>
-              <div className="text-sm font-bold">Niveau {build.level} · <span className={pointsLeft > 0 ? "text-[#047857]" : ""}>{pointsLeft} point{pointsLeft > 1 ? "s" : ""} de talent</span></div>
+              <div className="mt-2 grid grid-cols-3 gap-2 text-center">
+                <div className="rounded-lg bg-white/40 p-1.5">
+                  <div className="text-[10px] font-bold uppercase opacity-70">Niveau</div>
+                  <div className="text-2xl font-extrabold leading-none">{build.level}</div>
+                </div>
+                <div className="rounded-lg p-1.5" style={pointsLeft > 0 ? { background: "#fde68a", border: "2px solid #c98a00" } : { background: "rgba(255,255,255,0.4)" }}>
+                  <div className="text-[10px] font-bold uppercase opacity-70">Points à dépenser</div>
+                  <div className="text-3xl font-extrabold leading-none" style={{ color: pointsLeft > 0 ? "#92400e" : undefined }}>{pointsLeft}</div>
+                </div>
+                <div className="rounded-lg bg-white/40 p-1.5">
+                  <div className="text-[10px] font-bold uppercase opacity-70">Prochain point</div>
+                  <div className="text-2xl font-extrabold leading-none">{nextPointLevel ? `Niv. ${nextPointLevel}` : "—"}</div>
+                </div>
+              </div>
+              <div className="mt-2 flex gap-1 sm:hidden">
+                {order.map((a, i) => (
+                  <button key={a} type="button" onClick={() => setTab(i)} className="flex-1 rounded border-2 border-[#7a4a22] py-0.5 text-xs font-bold" style={{ background: tab === i ? "#7a4a22" : "transparent", color: tab === i ? "#fff3d6" : "#5e3818" }}>
+                    {i === 0 ? "Mon arbre" : "Autre arbre"}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="mt-1 text-[11px]">Un point de talent aux niveaux 5, 8, 12, 16 et 20. Les talents se choisissent au village. Dans l'autre arbre de ta famille (dès le niveau 9), tu repars du premier talent.</div>
-            <div className="mt-3 flex flex-col gap-2 sm:flex-row">{order.map((a) => tree(a, a === own))}</div>
-            {err && <div className="mt-2 text-xs font-bold text-[#b91c1c]">{err}</div>}
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="min-h-0 flex-1 overflow-y-auto parchment-scroll px-3 pb-2">
+              <div className="flex flex-col gap-2 sm:flex-row">{order.map((a, i) => tree(a, a === own, i))}</div>
+              {err && <div className="mt-2 text-xs font-bold text-[#b91c1c]">{err}</div>}
+            </div>
+            <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-[#7a4a22]/40 p-2.5">
               <div className="text-[11px]">
                 {confirmReset ? (
                   <span>
