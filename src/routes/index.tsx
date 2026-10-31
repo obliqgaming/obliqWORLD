@@ -72,6 +72,8 @@ import {
   type VisualAsset,
 } from "../lib/scenes-supabase";
 import { AccountBadge } from "../components/AccountBadge";
+import { ReferralReveal } from "../components/QuestPanel";
+import { capturePendingReferral, claimPendingReferral } from "../lib/referral";
 import { CharacterSelect } from "../components/CharacterSelect";
 import { LoginScreen } from "../components/LoginScreen";
 import { DeadScreen } from "../components/DeadScreen";
@@ -253,6 +255,13 @@ function Index() {
   const [characterError, setCharacterError] = useState<string | null>(null);
   const [creatingCharacter, setCreatingCharacter] = useState(false);
   const [authIdentity, setAuthIdentity] = useState<AuthIdentity | null>(null);
+  useEffect(() => {
+    capturePendingReferral();
+  }, []);
+  useEffect(() => {
+    if (!authIdentity || authIdentity.isAnonymous) return;
+    void claimPendingReferral().finally(() => setReferralReveal(true));
+  }, [authIdentity?.userId]);
   const [loginRequired, setLoginRequired] = useState(false);
   const loggingOutRef = useRef(false); // déconnexion en cours : plus aucune reconnexion de canal
   // Compagnon choisi à la ferme (image) : visible de tous, il marche devant son maître.
@@ -321,6 +330,7 @@ function Index() {
   };
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [talentsOpen, setTalentsOpen] = useState(false);
+  const [referralReveal, setReferralReveal] = useState(false);
   const [renameAxis, setRenameAxis] = useState<string | null>(null);
   const [wornWeapons, setWornWeapons] = useState<Record<string, WornWeapon>>({});
   const peerIdsKey = Object.values(peers).map((x) => x.characterId).sort().join(",");
@@ -2688,6 +2698,7 @@ function Index() {
           </button>
         )}
         {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
+        {referralReveal && character && !inExpeditionScene && <ReferralReveal onDone={() => setReferralReveal(false)} />}
         {helpOpen && character && <HelpDialog expeditionId={activeExpedition?.id ?? null} stepId={runStep?.id ?? null} onClose={() => setHelpOpen(false)} />}
         {welcomeOpen && character && (
           <WelcomeModal

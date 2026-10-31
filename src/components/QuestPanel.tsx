@@ -8,6 +8,8 @@ import { CONSUMABLE_INFO, type ConsumableKind } from "../lib/consumables";
 import { RARITY_INFO, type Rarity } from "../lib/weapons";
 import { TIER_INFO } from "../lib/companions";
 import { RARITY_TIER, RevealModal } from "./RevealModal";
+import { InvitePanel } from "./InvitePanel";
+import { fetchReferralPending, markReferralSeen } from "../lib/referral";
 
 function boosterTier(r: BoosterResult): number {
   if (r.type === "arme") return RARITY_TIER[r.rarity as string] ?? 1;
@@ -15,9 +17,10 @@ function boosterTier(r: BoosterResult): number {
   return r.type === "gold" ? 0 : 1;
 }
 
+const FONT = { fontFamily: "'Baloo 2', cursive" };
 const BTN = "rounded-lg border-2 border-[#7a4a22] bg-[#7a4a22] px-3 py-1 text-sm font-bold text-[#fff3d6] hover:bg-[#5e3818] disabled:opacity-50";
 
-function BoosterView({ r }: { r: BoosterResult }) {
+export function BoosterView({ r }: { r: BoosterResult }) {
   return (
     <>
       <BoosterInner r={r} />
@@ -57,6 +60,7 @@ export function QuestPanel({ onClose }: { onClose: () => void }) {
   const [msg, setMsg] = useState<string | null>(null);
   const [reward, setReward] = useState<BoosterResult | null>(null);
   const [revealing, setRevealing] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   const reload = async () => {
     try {
@@ -157,9 +161,55 @@ export function QuestPanel({ onClose }: { onClose: () => void }) {
                   </button>
                 </div>
               ))}
+                <div className="flex items-center justify-between gap-2 rounded-lg border border-[#b98a54] bg-[#f6e8c4] p-2">
+                  <div className="text-sm leading-tight">
+                    <div className="font-extrabold">🎁 Inviter un joueur</div>
+                    <div className="text-xs"><i>Il termine le dessin de son premier personnage : tu reçois une surprise (5 au maximum).</i></div>
+                  </div>
+                  <button type="button" className={BTN} onClick={() => setInviteOpen(true)}>Inviter</button>
+                </div>
             </div>
           </div>
         )}
+        {(mine || !data) && data && (
+          <div className="mt-3">
+                <div className="flex items-center justify-between gap-2 rounded-lg border border-[#b98a54] bg-[#f6e8c4] p-2">
+                  <div className="text-sm leading-tight">
+                    <div className="font-extrabold">🎁 Inviter un joueur</div>
+                    <div className="text-xs"><i>Il termine le dessin de son premier personnage : tu reçois une surprise (5 au maximum).</i></div>
+                  </div>
+                  <button type="button" className={BTN} onClick={() => setInviteOpen(true)}>Inviter</button>
+                </div>
+          </div>
+        )}
+        {inviteOpen && <InvitePanel onClose={() => setInviteOpen(false)} />}
+      </div>
+    </div>
+  );
+}
+
+/** Surprise(s) de parrainage reçues pendant ton absence. */
+export function ReferralReveal({ onDone }: { onDone: () => void }) {
+  const [items, setItems] = useState<BoosterResult[]>([]);
+  useEffect(() => {
+    fetchReferralPending().then(setItems).catch(() => setItems([]));
+  }, []);
+  if (items.length === 0) return null;
+  const close = () => {
+    void markReferralSeen();
+    onDone();
+  };
+  return (
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 p-3" style={FONT}>
+      <div className="w-[min(24rem,96%)] rounded-xl border-2 border-[#c98a00] bg-[#f1dfb6] p-5 text-center text-[#3a2410] shadow-xl">
+        <div className="text-xl font-extrabold">🎁 Surprise de parrainage !</div>
+        <div className="mt-1 text-sm">{items.length > 1 ? `${items.length} joueurs que tu as invités ont fini leur premier dessin.` : "Un joueur que tu as invité a fini le dessin de son premier personnage."}</div>
+        <div className="mt-3 space-y-3">
+          {items.map((r, i) => (
+            <div key={i} className="rounded-lg bg-white/50 p-2"><BoosterView r={r} /></div>
+          ))}
+        </div>
+        <button type="button" className={`${BTN} mt-4`} onClick={close}>Merci !</button>
       </div>
     </div>
   );
