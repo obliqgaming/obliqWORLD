@@ -162,6 +162,7 @@ const MIN_WALK_MS = 300;
 const CHARACTER_WIDTH_RATIO = 120 / 1333;
 const CHAT_BUBBLE_MS = 4500;
 const CHAT_LOG_SIZE = 30;
+const chatCache = new Map<string, ChatMessage[]>(); // log du tchat par scène (survit aux allers-retours entre scènes)
 const CHAT_IDLE_MS = 15000; // délai avant que le tchat devienne quasi transparent
 const CHAT_IDLE_OPACITY = 0.1;
 // ---------- État "absent" ----------
@@ -1182,8 +1183,31 @@ function Index() {
   // ---------- Tchat propre à chaque scène : on vide le log affiché quand on
   // change de scène (le canal réseau était déjà séparé par scène, mais le
   // log local gardait les anciens messages affichés par-dessus) ----------
+  // Le log de chaque scène est gardé en mémoire (et dans sessionStorage) : en quittant puis en revenant dans une scène
+  // (l'auberge par exemple), on retrouve les messages déjà reçus. Les messages envoyés PENDANT qu'on était parti ne sont pas rattrapés.
+  const chatSceneRef = useRef<string | null>(null);
   useEffect(() => {
-    setChatLog([]);
+    // (déclaré AVANT l'effet de changement de scène : au changement, la référence n'a pas encore bougé, donc on n'écrase rien)
+    if (chatSceneRef.current !== scene.id) return;
+    chatCache.set(scene.id, chatLog);
+    try {
+      sessionStorage.setItem(`obliqworld-chat-${scene.id}`, JSON.stringify(chatLog.slice(-CHAT_LOG_SIZE)));
+    } catch {
+      /* ignoré */
+    }
+  }, [chatLog, scene.id]);
+  useEffect(() => {
+    let restored: ChatMessage[] = chatCache.get(scene.id) ?? [];
+    if (restored.length === 0) {
+      try {
+        const raw = sessionStorage.getItem(`obliqworld-chat-${scene.id}`);
+        if (raw) restored = JSON.parse(raw) as ChatMessage[];
+      } catch {
+        /* ignoré */
+      }
+    }
+    chatSceneRef.current = scene.id;
+    setChatLog(restored);
     setChatInput("");
   }, [scene.id]);
 
@@ -2264,12 +2288,12 @@ function Index() {
           // haut-gauche de la flèche dessinée. La classe .cursor-creature
           // (voir plus bas) est prête pour plus tard, quand on pourra
           // inspecter une créature ou un objet — pas encore utilisée.
-          cursor: "url('/cursors/cursor-default.png') 2 2, pointer",
+          cursor: "url('/cursors/cursor-default.png') 1 1, default",
         }}
       >
         <style>{`
           @keyframes auberge-walk{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg)}}
-          .cursor-creature{cursor:url('/cursors/cursor-creature.png') 24 24, pointer;}
+          .cursor-creature{cursor:url('/cursors/cursor-creature.png') 12 12, pointer;}
         `}</style>
         <img
           src={scene.image_url}
@@ -2605,6 +2629,20 @@ function Index() {
             style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.7))", fontFamily: "'Baloo 2', cursive", cursor: CURSOR_INTERACT }}
           >
             <img src="/icons/bag.svg" alt="Inventaire" draggable={false} style={{ height: inExpeditionScene ? "1.9rem" : "3.8rem", width: "auto" }} />
+          </button>
+        )}
+        {character && !activeCombatId && !inExpeditionScene && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setInspectId(character.id);
+            }}
+            title="Ma fiche de personnage"
+            className="absolute bottom-2 left-1/2 z-30 px-2 leading-none transition-transform hover:scale-110"
+            style={{ marginLeft: "-2.8rem", transform: "translateX(-100%)", filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.7))", cursor: CURSOR_INTERACT }}
+          >
+            <img src="/icons/sheet.svg" alt="Ma fiche" draggable={false} style={{ height: "3.8rem", width: "auto" }} />
           </button>
         )}
         {character && !activeCombatId && !inExpeditionScene && (

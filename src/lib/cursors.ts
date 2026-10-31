@@ -1,7 +1,7 @@
 // Curseur « créature » (public/cursors/cursor-creature.png) pour tout ce sur quoi on peut cliquer :
 // portails, lieux, autres joueurs, ennemis.
-export const CURSOR_DEFAULT = "url('/cursors/cursor-default.png') 2 2, pointer"; // curseur normal du jeu (🐞, ❤️…)
-export const CURSOR_INTERACT = "url('/cursors/cursor-creature.png') 24 24, pointer";
+export const CURSOR_DEFAULT = "url('/cursors/cursor-default.png') 1 1, default"; // curseur normal du jeu (🐞, ❤️…)
+export const CURSOR_INTERACT = "url('/cursors/cursor-creature.png') 12 12, pointer";
 
 
 // Curseur « flèche de pierre » (public/cursors/cursor-arrow.png, dessinée pointant vers la DROITE) pour les portails entre

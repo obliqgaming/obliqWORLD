@@ -9,6 +9,9 @@ export type Inspected = {
   axis: string | null;
   weapon: { name: string; image_url: string; rarity: "common" | "uncommon" | "rare" | "epic" | "legendary"; bonus: number; effect: string | null; prototype: boolean } | null;
   weapons_drawn: number;
+  companions_drawn?: number;
+  events_written?: number;
+  class_name?: string | null;
   companions: { name: string; image_url: string; tier: "small" | "medium" | "large" }[];
 };
 

@@ -18,56 +18,89 @@ export function InspectPanel({ characterId, onClose }: { characterId: string; on
     };
   }, [characterId]);
   const w = d?.weapon ?? null;
+  const spec = d ? (d.axis ?? (d.family === "magie" ? "Magie" : d.family === "melee" ? "Mêlée" : "—")) : "";
+  const stat = (icon: string, n: number, one: string, many: string) => (
+    <div className="flex items-center gap-2 rounded-lg bg-white/45 px-2 py-1">
+      <span className="text-base leading-none">{icon}</span>
+      <span className="text-lg font-extrabold leading-none">{n}</span>
+      <span className="text-[11px] leading-tight opacity-80">{n > 1 ? many : one}</span>
+    </div>
+  );
+  const title = "text-[11px] font-extrabold uppercase tracking-wide text-[#7a4a22]";
   return (
-    <div className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto parchment-scroll bg-black/55 p-2" onClick={onClose} style={{ fontFamily: "'Baloo 2', cursive" }}>
-      <div className="max-h-full w-[min(34rem,96%)] overflow-y-auto parchment-scroll rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-4 text-[#3a2410] shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between">
-          <div className="text-xl font-extrabold">🔍 {d?.name ?? "Inspecter"}</div>
+    <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/55 p-2" onClick={onClose} style={{ fontFamily: "'Baloo 2', cursive" }}>
+      <div className="flex max-h-full w-[min(34rem,96%)] flex-col rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] text-[#3a2410] shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex shrink-0 items-center justify-between border-b border-[#7a4a22]/40 px-4 py-2">
+          <div className="truncate text-xl font-extrabold">{d?.name ?? "Fiche de personnage"}</div>
           <button type="button" onClick={onClose} className="rounded border border-[#7a4a22] px-3 py-0.5 text-xs font-bold hover:bg-[#7a4a22]/15">Fermer</button>
         </div>
-        {err && <div className="mt-2 text-sm font-bold text-[#92400e]">{err}</div>}
-        {!d && !err && <div className="mt-3 text-sm">Chargement…</div>}
-        {d && (
-          <>
-            <div className="mt-3 flex gap-4">
-              <div className="flex h-48 w-48 shrink-0 items-center justify-center rounded border border-[#7a4a22]/60 bg-white/40">
-                {d.image_url && <img src={d.image_url} alt="" className="max-h-full max-w-full object-contain" draggable={false} />}
-              </div>
-              <div className="min-w-0 space-y-1 text-sm">
-                <div>Niveau <b>{d.level ?? 1}</b></div>
-                <div>{d.family === "magie" ? "Magie" : d.family === "melee" ? "Mêlée" : ""}{d.axis ? <> · <b>{d.axis}</b></> : null}</div>
-                <div>✍ <b>{d.weapons_drawn}</b> arme{d.weapons_drawn > 1 ? "s" : ""} dessinée{d.weapons_drawn > 1 ? "s" : ""}</div>
-              </div>
-            </div>
-            <div className="mt-3 font-extrabold">Arme équipée</div>
-            {w ? (
-              <div className="mt-1 flex gap-2 rounded border border-[#7a4a22]/60 bg-white/40 p-2 text-xs">
-                <img src={w.image_url} alt="" className="h-14 w-14 shrink-0 object-contain" draggable={false} />
-                <div>
-                  <div className="text-sm font-extrabold"><RarityName name={`${w.prototype ? "Prototype de " : ""}${w.name}`} rarity={w.rarity} /></div>
-                  <div>{RARITY_INFO[w.rarity].label} · {bonusText(w.bonus)}</div>
-                  {w.effect && EFFECT_INFO[w.effect] && <div><b>{EFFECT_INFO[w.effect]!.name}</b> : {EFFECT_INFO[w.effect]!.text}</div>}
+        <div className="min-h-0 flex-1 overflow-y-auto parchment-scroll px-4 pb-4 pt-3">
+          {err && <div className="text-sm font-bold text-[#92400e]">{err}</div>}
+          {!d && !err && <div className="text-sm">Chargement…</div>}
+          {d && (
+            <>
+              <div className="flex gap-4">
+                <div className="flex h-44 w-44 shrink-0 items-center justify-center rounded-lg border border-[#7a4a22]/60 bg-white/40">
+                  {d.image_url && <img src={d.image_url} alt="" className="max-h-full max-w-full object-contain" draggable={false} />}
+                </div>
+                <div className="flex min-w-0 flex-1 flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-full bg-[#7a4a22] px-3 py-1 text-sm font-extrabold text-[#fff3d6]">Niv. {d.level ?? 1}</span>
+                    <div className="min-w-0 leading-tight">
+                      <div className="text-[10px] font-bold uppercase opacity-60">Spécialisation</div>
+                      <div className="truncate text-sm font-extrabold">{spec}{d.class_name ? <span className="font-bold opacity-70"> · « {d.class_name} »</span> : null}</div>
+                    </div>
+                  </div>
+                  <div className={title}>Créations</div>
+                  <div className="grid gap-1.5">
+                    {stat("✍", d.weapons_drawn, "arme dessinée", "armes dessinées")}
+                    {stat("🐾", d.companions_drawn ?? 0, "compagnon dessiné", "compagnons dessinés")}
+                    {stat("📜", d.events_written ?? 0, "passage écrit", "passages écrits")}
+                  </div>
                 </div>
               </div>
-            ) : (
-              <div className="mt-1 text-sm opacity-70">Aucune arme équipée.</div>
-            )}
-            <div className="mt-3 font-extrabold">Compagnons ({d.companions.length})</div>
-            {d.companions.length === 0 ? (
-              <div className="mt-1 text-sm opacity-70">Aucun compagnon.</div>
-            ) : (
-              <div className="mt-1 flex flex-wrap gap-2">
-                {d.companions.map((c, i) => (
-                  <div key={i} className="w-20 text-center text-[11px] leading-tight" title={c.name}>
-                    <img src={c.image_url} alt="" className="mx-auto h-14 w-14 object-contain" draggable={false} />
-                    <div className="truncate font-bold">{c.name}</div>
-                    <div className="rounded px-1" style={{ background: TIER_INFO[c.tier].color, color: "#2b1406" }}>{TIER_INFO[c.tier].label}</div>
+              <div className="my-3 border-t border-[#7a4a22]/30" />
+              <div className={title}>Arme équipée</div>
+              {w ? (
+                <div className="mt-1.5 flex gap-3 rounded-lg border border-[#7a4a22]/50 bg-white/40 p-2">
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded bg-white/50">
+                    <img src={w.image_url} alt="" className="max-h-full max-w-full object-contain" draggable={false} />
                   </div>
-                ))}
-              </div>
-            )}
-          </>
-        )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <RarityName name={`${w.prototype ? "Prototype de " : ""}${w.name}`} rarity={w.rarity} />
+                      <span className="rounded px-1.5 py-px text-[10px] font-extrabold" style={{ background: RARITY_INFO[w.rarity].color, color: "#2b1406" }}>{RARITY_INFO[w.rarity].label}</span>
+                    </div>
+                    <div className="mt-1 flex flex-wrap gap-1.5 text-[11px] font-bold">
+                      <span className="rounded bg-[#fde68a] px-1.5 py-px">{bonusText(w.bonus)}</span>
+                      {w.effect && EFFECT_INFO[w.effect] && <span className="rounded bg-[#dbeafe] px-1.5 py-px text-[#1d4ed8]">{EFFECT_INFO[w.effect]!.name}</span>}
+                    </div>
+                    {w.effect && EFFECT_INFO[w.effect] && <div className="mt-0.5 text-[11px] opacity-80">{EFFECT_INFO[w.effect]!.text}</div>}
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-1 text-sm opacity-70">Aucune arme équipée.</div>
+              )}
+              <div className="my-3 border-t border-[#7a4a22]/30" />
+              <div className={title}>Compagnons ({d.companions.length})</div>
+              {d.companions.length === 0 ? (
+                <div className="mt-1 text-sm opacity-70">Aucun compagnon.</div>
+              ) : (
+                <div className="mt-1.5 grid grid-cols-3 gap-2 sm:grid-cols-4">
+                  {d.companions.map((c, i) => (
+                    <div key={i} className="rounded-lg border border-[#7a4a22]/40 bg-white/40 p-1.5 text-center leading-tight" title={c.name}>
+                      <div className="flex h-16 items-center justify-center">
+                        <img src={c.image_url} alt="" className="max-h-full max-w-full object-contain" draggable={false} />
+                      </div>
+                      <div className="mt-1 truncate text-[12px] font-bold">{c.name}</div>
+                      <div className="text-[10px] opacity-70">{TIER_INFO[c.tier].label}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

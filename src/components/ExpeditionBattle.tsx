@@ -752,7 +752,7 @@ export function ExpeditionBattle({
           </div>
           {error && !replaying && <div className="rounded bg-[#4a0d0d]/90 px-2 py-0.5 text-[11px] font-bold text-[#fca5a5]">{error}</div>}
           {!myDead && !replaying && (
-            <div className="flex flex-wrap justify-center gap-2 rounded-xl border border-[#7a4a22]/60 bg-[#2b1406]/90 p-2">
+            <div className="flex flex-wrap justify-center gap-2 rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6]/95 p-2 shadow-lg">
               {[{ key: null as string | null, p: null as GamePower | null, name: baseAttackName, cost: 0, cd: 0, desc: "Attaque de base (gratuite)" }]
                 .concat(
                   myPowers.map((p) => ({
@@ -769,26 +769,38 @@ export function ExpeditionBattle({
                   const disabled = b.cd > 0 || noPm;
                   const activeSel = iAmReady && selectedPower === b.key;
                   const prev = previewOf(b.p);
+                  const tags = effectTags(b.p);
                   return (
-                    <button
-                      key={b.key ?? "base"}
-                      type="button"
-                      disabled={disabled}
-                      title={b.desc}
-                      onClick={() => void send(b.key)}
-                      className="min-w-28 rounded-lg border px-3 py-2 text-sm font-bold text-[#fff3d6] transition-colors hover:bg-[#7a4a22]/60 disabled:cursor-not-allowed disabled:opacity-40"
-                      style={{
-                        borderColor: activeSel ? "#9effa0" : "rgba(122,74,34,0.7)",
-                        background: activeSel ? "rgba(158,255,160,0.18)" : "rgba(0,0,0,0.25)",
-                      }}
-                    >
-                      <div>{b.name}</div>
-                      {prev && <div className="text-[11px] font-bold text-[#fbbf24]">{prev}</div>}
-                      {effectTags(b.p) && <div className="max-w-40 text-[10px] font-normal leading-tight text-[#fff3d6]/85">{effectTags(b.p)}</div>}
-                      <div className="text-[10px] font-normal opacity-80">
-                        {b.cd > 0 ? `recharge : ${b.cd} tour${b.cd > 1 ? "s" : ""}` : b.cost > 0 ? `${b.cost} PM${noPm ? " (insuffisant)" : ""}` : "gratuit"}
+                    <div key={b.key ?? "base"} className="group relative">
+                      <button
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => void send(b.key)}
+                        className="min-w-28 rounded-lg px-3 py-1.5 text-left text-sm font-bold text-[#3a2410] transition-colors hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-55"
+                        style={{
+                          fontFamily: "'Baloo 2', cursive",
+                          border: activeSel ? "2px solid #047857" : disabled ? "1px solid #b98a54" : "2px solid #c98a00",
+                          background: activeSel ? "#d1fae5" : disabled ? "rgba(255,255,255,0.3)" : "#fff1b8",
+                        }}
+                      >
+                        <div className="text-[13px] font-extrabold">{b.name}{activeSel ? " ✔" : ""}</div>
+                        {prev && <div className="text-[11px] font-bold text-[#92400e]">{prev}</div>}
+                        {tags && <div className="max-w-40 text-[10px] font-normal leading-tight opacity-85">{tags}</div>}
+                        <div className="mt-0.5 flex flex-wrap gap-1 text-[10px] font-bold">
+                          {b.cd > 0 ? (
+                            <span className="rounded bg-[#e5e7eb] px-1.5 py-px text-[#374151]">Recharge {b.cd} t.</span>
+                          ) : b.cost > 0 ? (
+                            <span className="rounded px-1.5 py-px" style={{ background: noPm ? "#fecaca" : "#dbeafe", color: noPm ? "#b91c1c" : "#1d4ed8" }}>{b.cost} PM{noPm ? " (insuffisant)" : ""}</span>
+                          ) : (
+                            <span className="rounded bg-[#e5e7eb] px-1.5 py-px text-[#374151]">Gratuit</span>
+                          )}
+                        </div>
+                      </button>
+                      <div className="pointer-events-none absolute bottom-full left-1/2 z-40 mb-1 hidden w-52 -translate-x-1/2 rounded-lg border-2 border-[#7a4a22] bg-[#f1dfb6] p-2 text-[11px] leading-tight text-[#3a2410] shadow-xl group-hover:block" style={{ fontFamily: "'Baloo 2', cursive" }}>
+                        <div className="text-[13px] font-extrabold">{b.name}</div>
+                        <div className="mt-0.5 opacity-90">{b.desc}</div>
                       </div>
-                    </button>
+                    </div>
                   );
                 })}
               <button
@@ -799,15 +811,16 @@ export function ExpeditionBattle({
                   setItemsOpen((o) => !o);
                   setItemKind(null);
                 }}
-                className="min-w-28 rounded-lg border border-[#7a4a22]/70 bg-black/25 px-3 py-2 text-sm font-bold text-[#fff3d6] hover:bg-[#7a4a22]/60 disabled:cursor-not-allowed disabled:opacity-40"
+                className="min-w-28 rounded-lg px-3 py-1.5 text-left text-sm font-bold text-[#3a2410] hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-55"
+                style={{ fontFamily: "'Baloo 2', cursive", border: "2px solid #c98a00", background: "#fff1b8" }}
               >
-                <div><Bag /> Objets</div>
-                <div className="text-[10px] font-normal">{stacks.length === 0 ? "aucun objet" : "prend ton tour"}</div>
+                <div className="text-[13px] font-extrabold"><Bag /> Objets</div>
+                <div className="mt-0.5 text-[10px] font-normal">{stacks.length === 0 ? "aucun objet" : "prend ton tour"}</div>
               </button>
             </div>
           )}
           {!myDead && !replaying && itemsOpen && (
-            <div className="flex flex-wrap items-center justify-center gap-2 rounded-xl border border-[#7a4a22]/60 bg-[#2b1406]/95 p-2">
+            <div className="flex flex-wrap items-center justify-center gap-2 rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6]/95 p-2 shadow-lg" style={{ fontFamily: "'Baloo 2', cursive" }}>
               {itemKind === null
                 ? stacks.map((st) => (
                     <button
@@ -815,7 +828,7 @@ export function ExpeditionBattle({
                       type="button"
                       title={CONSUMABLE_INFO[st.kind].text}
                       onClick={() => (st.kind === "potion_soin" && aliveAllies.length > 1 ? setItemKind(st) : void useItem(st, null))}
-                      className="rounded-lg border border-[#7a4a22]/70 bg-black/25 px-3 py-1.5 text-sm font-bold text-[#fff3d6] hover:bg-[#7a4a22]/60"
+                      className="rounded-lg border-2 border-[#c98a00] bg-[#fff1b8] px-3 py-1.5 text-sm font-bold text-[#3a2410] hover:brightness-95"
                     >
                       {CONSUMABLE_INFO[st.kind].icon} {CONSUMABLE_INFO[st.kind].name} ×{st.count}
                       <div className="max-w-44 text-[10px] font-normal leading-tight opacity-85">{CONSUMABLE_INFO[st.kind].text}</div>
@@ -823,9 +836,9 @@ export function ExpeditionBattle({
                   ))
                 : (
                     <>
-                      <span className="text-xs text-[#fff3d6]">Soigner qui ?</span>
+                      <span className="text-xs font-bold text-[#3a2410]">Soigner qui ?</span>
                       {aliveAllies.map((a) => (
-                        <button key={a.characterId} type="button" onClick={() => void useItem(itemKind, a.characterId)} className="rounded border border-[#7a4a22]/70 bg-black/25 px-2 py-1 text-xs font-bold text-[#fff3d6] hover:bg-[#7a4a22]/60">
+                        <button key={a.characterId} type="button" onClick={() => void useItem(itemKind, a.characterId)} className="rounded border-2 border-[#c98a00] bg-[#fff1b8] px-2 py-1 text-xs font-bold text-[#3a2410] hover:brightness-95">
                           {a.characterId === characterId ? "Moi" : a.name}
                         </button>
                       ))}

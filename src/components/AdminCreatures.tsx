@@ -15,7 +15,7 @@ export function AdminCreatures() {
     const { data, error } = await scenesClient
       .from("visual_assets")
       .select("id, name, image_url, monster_origin")
-      .not("monster_origin", "is", null)
+      .in("monster_origin", ["wild", "dead_character"])
       .order("monster_origin")
       .order("name");
     if (error) setMsg(error.message);

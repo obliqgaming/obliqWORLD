@@ -137,6 +137,12 @@
     border-color: var(--color-border);
   }
 
+  /* Curseur du jeu par défaut sur toute l'interface (cursor-default.png, pointe à 1,1). Les éléments qui demandent
+     explicitement le curseur « créature » (style en ligne) ou le curseur texte des champs de saisie restent prioritaires. */
+  html, body, button, a, select, summary, label, [role="button"], input[type="checkbox"], input[type="radio"], input[type="range"] {
+    cursor: url('/cursors/cursor-default.png') 1 1, default;
+  }
+
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
