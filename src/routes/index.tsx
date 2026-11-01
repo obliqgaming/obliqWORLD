@@ -1273,7 +1273,7 @@ function Index() {
     // Pendant l'affichage du résultat de l'étape précédente, l'étape suivante est déjà connue du
     // serveur : on ne change PAS la musique avant le « OK » de tout le monde.
     if (outcomeInfo && stepMusicRef.current !== null) return;
-    const ev = eventForStep(activeExpedition?.route, activeExpedition?.current_step_index ?? 0);
+    const ev = eventForStep(activeExpedition?.route, activeExpedition?.current_step_index ?? 0, activeExpedition?.id);
     const isBoss = ev.id === "boss-final" || ev.id === "mini-boss";
     const inCombat = !outcomeInfo && (!!activeCombatId || ev.kind === "combat");
     const danger = !outcomeInfo && ((runStep as any)?.step_type === "danger_imminent" || (runStep as any)?.step_type === "epreuve");
@@ -1343,7 +1343,7 @@ function Index() {
   };
 
   const stepIndex = activeExpedition?.current_step_index ?? 0;
-  const currentEvent = eventForStep(activeExpedition?.route, stepIndex);
+  const currentEvent = eventForStep(activeExpedition?.route, stepIndex, activeExpedition?.id);
   const expeditionPhase = currentEvent.kind;
   const participantCount = Math.max(1, party ? partyMembers.filter((m) => m.status === "joined").length : 1);
   const myVote = character ? (stepVotes.find((v) => v.character_id === character.id)?.choice_key ?? null) : null;
@@ -1354,7 +1354,7 @@ function Index() {
     if (!inExpeditionScene || !character || !activeExpedition || activeExpedition.status !== "active") return;
     const expId = activeExpedition.id;
     const idx = activeExpedition.current_step_index;
-    const ev = eventForStep(activeExpedition.route, idx);
+    const ev = eventForStep(activeExpedition.route, idx, activeExpedition.id);
     let cancelled = false;
     let channel: PresenceChannel | null = null;
     setRunStep(null);
@@ -1561,7 +1561,7 @@ function Index() {
     if (!inExpeditionScene || !character || !activeExpedition || activeExpedition.status !== "active") return;
     const expId = activeExpedition.id;
     const idx = activeExpedition.current_step_index;
-    const ev = eventForStep(activeExpedition.route, idx);
+    const ev = eventForStep(activeExpedition.route, idx, activeExpedition.id);
     let cancelled = false;
     (async () => {
       try {
@@ -1690,7 +1690,7 @@ function Index() {
       const e = await fetchExpeditionById(activeExpedition.id);
       if (e) setActiveExpedition(e);
       if (e && e.status === "active") {
-        const ev = eventForStep(e.route, e.current_step_index);
+        const ev = eventForStep(e.route, e.current_step_index, e.id);
         const { step, narrative } = await syncStep(e.id, e.current_step_index, ev);
         setNarrativeEvent(narrative);
         setRunStep(step);

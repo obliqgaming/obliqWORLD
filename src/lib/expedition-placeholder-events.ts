@@ -232,7 +232,86 @@ export function routeEvents(route: ExpeditionRoute | null | undefined): Placehol
   return route === "long" ? LONG_ROUTE : PLACEHOLDER_EVENTS;
 }
 
-export function eventForStep(route: ExpeditionRoute | null | undefined, idx: number): PlaceholderEvent {
+// ---------- Longueur et déroulé tirés au hasard (1er nov) ----------
+// Chaque expédition tire sa longueur (courte 7-10, longue 14-20) et place ses combats, son camp et son
+// mini-boss au hasard. Le boss final est TOUJOURS la dernière étape et c'est lui qui annonce la fin :
+// les joueurs ne savent donc pas à l'avance combien d'étapes il reste. Le tirage est déterministe à
+// partir de l'identifiant de l'expédition : tous les joueurs du groupe obtiennent le même déroulé,
+// sans rien stocker en base (aucun SQL).
+// Combats ordinaires : 1 en courte, 3 en longue, quelle que soit la longueur (les simulations du 1er nov montrent qu'un
+// combat de plus — 2 en courte, 4 en longue — rend les groupes beaucoup trop mortels). Pour en ajouter à partir d'une
+// certaine longueur, baisser extraCombatFromLength (ex. 19 = un combat de plus à partir de 19 étapes).
+export const ROUTE_LENGTHS = {
+  court: { min: 7, max: 10, combatsBase: 1, extraCombatFromLength: 99 },
+  long: { min: 14, max: 20, combatsBase: 3, extraCombatFromLength: 99, miniBoss: [5, 8] as const, camp: [6, 12] as const },
+} as const;
+
+function hashSeed(str: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+function mulberry32(a: number): () => number {
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const layoutCache = new Map<string, PlaceholderEvent[]>();
+
+export function buildLayout(route: ExpeditionRoute, seed: string): PlaceholderEvent[] {
+  const key = `${route}:${seed}`;
+  const hit = layoutCache.get(key);
+  if (hit) return hit;
+  const rnd = mulberry32(hashSeed(key));
+  const int = (a: number, b: number) => a + Math.floor(rnd() * (b - a + 1));
+  const cfg = ROUTE_LENGTHS[route];
+  const L = int(cfg.min, cfg.max);
+  const slots: (PlaceholderEvent | null)[] = Array.from({ length: L }, () => null);
+  slots[L - 1] = byId("boss-final");
+  const free = (i: number) => i >= 0 && i < L - 1 && slots[i] === null;
+  if (route === "long") {
+    const lc = ROUTE_LENGTHS.long;
+    slots[int(lc.miniBoss[0], lc.miniBoss[1])] = MINI_BOSS_EVENT;
+    let c = int(lc.camp[0], lc.camp[1]);
+    for (let g = 0; g < 20 && !free(c); g++) c = int(lc.camp[0], lc.camp[1]);
+    if (free(c)) slots[c] = CAMP_EVENT;
+  }
+  // Combats ordinaires : jamais deux de suite, jamais juste avant le boss, ni collés au mini-boss.
+  const nCombats = cfg.combatsBase + (L >= cfg.extraCombatFromLength ? 1 : 0);
+  const combatEv = byId("confrontation");
+  let placed = 0;
+  for (let g = 0; g < 200 && placed < nCombats; g++) {
+    const i = int(2, L - 3);
+    const near = (j: number) => slots[j] !== null && slots[j] !== CAMP_EVENT;
+    if (!free(i) || near(i - 1) || near(i + 1)) continue;
+    slots[i] = combatEv;
+    placed++;
+  }
+  // Complète avec les événements (les rencontres écrites par la communauté prennent leur place côté serveur).
+  const pool = ["passage-1", "rencontre", "decouverte", "traces", "passage-2"];
+  let k = 0;
+  const out = slots.map((e) => e ?? byId(pool[k++ % pool.length]!));
+  layoutCache.set(key, out);
+  return out;
+}
+
+/** Longueur réelle d'une expédition (à ne PAS montrer aux joueurs avant la fin). */
+export function expeditionLength(route: ExpeditionRoute | null | undefined, seed: string): number {
+  return buildLayout(route === "long" ? "long" : "court", seed).length;
+}
+
+export function eventForStep(route: ExpeditionRoute | null | undefined, idx: number, seed?: string | null): PlaceholderEvent {
+  if (seed) {
+    const list = buildLayout(route === "long" ? "long" : "court", seed);
+    return list[Math.min(idx, list.length - 1)]!;
+  }
   const list = routeEvents(route);
   return list[idx % list.length]!;
 }
