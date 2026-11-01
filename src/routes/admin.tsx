@@ -20,6 +20,7 @@ import {
   updateSceneMusic,
   isExpeditionSceneName,
   updateSceneZones,
+  updateScenePasture,
   type AuthIdentity,
   type DepthScale,
   type ExpeditionPortal,
@@ -162,7 +163,7 @@ function AdminTabs() {
   );
 }
 
-type Mode = "room" | "obstacle" | "depth" | "exit";
+type Mode = "room" | "obstacle" | "depth" | "exit" | "pasture";
 type DepthKey = "y80" | "y100" | "y120";
 type DepthDraft = { y80: number | null; y100: number | null; y120: number | null };
 
@@ -200,6 +201,7 @@ function AdminPage() {
 
   const [rooms, setRooms] = useState<Point[][]>([]);
   const [obstacles, setObstacles] = useState<Point[][]>([]);
+  const [pasture, setPasture] = useState<Point[][]>([]);   // espace de pâture (SQL 064)
   const [depthDraft, setDepthDraft] = useState<DepthDraft>(EMPTY_DEPTH);
   const [armedDepthKey, setArmedDepthKey] = useState<DepthKey | null>(null);
 
@@ -309,6 +311,7 @@ function AdminPage() {
 
         setRooms(dbRooms);
         setObstacles(dbObstacles);
+        setPasture(s.pasture_zone ? s.pasture_zone.map((z) => z.map((p) => ({ ...p }))) : []);
         setDepthDraft(dbDepth);
         const dbSnapshot: Snapshot = { rooms: dbRooms, obstacles: dbObstacles, depthDraft: dbDepth, draft: [] };
         lastSavedRef.current = dbSnapshot;
@@ -645,6 +648,7 @@ function AdminPage() {
     if (draft.length < 3) return;
     if (mode === "room") setRooms((list) => [...list, draft]);
     else if (mode === "obstacle") setObstacles((list) => [...list, draft]);
+    else if (mode === "pasture") setPasture((list) => [...list, draft]);
     setDraft([]);
   };
   const cancelShape = () => setDraft([]);
@@ -661,6 +665,14 @@ function AdminPage() {
         : null;
     try {
       await updateSceneZones(scene.id, rooms, obstacles, depthScale);
+      try {
+        await updateScenePasture(scene.id, pasture);
+      } catch (e) {
+        console.error(e);
+        setStatus("Zones enregistrées, mais PAS la zone de pâture : lance d'abord le SQL 064 dans Supabase.");
+        setSaving(false);
+        return;
+      }
       // Une forme en cours (pas encore "Terminée") n'est jamais envoyée en base
       // — si `draft` contient encore des points, ils restent non enregistrés à
       // raison, donc on garde le brouillon local plutôt que de le supprimer.
@@ -774,6 +786,17 @@ function AdminPage() {
             className={`rounded px-3 py-1 text-sm ${mode === "depth" ? "bg-blue-700" : "bg-neutral-800"}`}
           >
             📏 Profondeur
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMode("pasture");
+              setDraft([]);
+              setArmedDepthKey(null);
+            }}
+            className={`rounded px-3 py-1 text-sm ${mode === "pasture" ? "bg-amber-600" : "bg-neutral-800"}`}
+          >
+            🐾 Pâture
           </button>
           <button
             type="button"
@@ -1055,6 +1078,16 @@ function AdminPage() {
                   vectorEffect="non-scaling-stroke"
                 />
               ))}
+              {pasture.map((z, i) => (
+                <polygon
+                  key={`pasture-${i}`}
+                  points={z.map((p) => `${p.x},${p.y}`).join(" ")}
+                  fill="rgba(245,158,11,0.3)"
+                  stroke="rgba(217,119,6,0.95)"
+                  strokeWidth={0.35}
+                  vectorEffect="non-scaling-stroke"
+                />
+              ))}
               {obstacles.map((hole, i) => (
                 <polygon
                   key={`obstacle-${i}`}
@@ -1179,6 +1212,21 @@ function AdminPage() {
               </li>
             ))}
             {obstacles.length === 0 && <li className="opacity-50">Aucun pour l'instant</li>}
+          </ul>
+
+          <p className="mb-1 font-semibold">Pâture ({pasture.length})</p>
+          <ul className="mb-4 space-y-1">
+            {pasture.map((z, i) => (
+              <li key={i} className="flex items-center justify-between rounded bg-neutral-800 px-2 py-1">
+                <span>
+                  Zone {i + 1} ({z.length} pts)
+                </span>
+                <button type="button" onClick={() => setPasture((l) => l.filter((_, k) => k !== i))} className="text-red-400 hover:text-red-300">
+                  🗑
+                </button>
+              </li>
+            ))}
+            {pasture.length === 0 && <li className="opacity-50">Aucune (scène « village » seulement)</li>}
           </ul>
 
           <p className="mb-1 font-semibold">Profondeur</p>

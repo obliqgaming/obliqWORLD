@@ -69,6 +69,8 @@ export type Scene = {
   // chaque élément est un petit polygone "trou" que le personnage ne doit pas
   // traverser même s'il est entouré de zone marchable.
   obstacles: Point[][] | null;
+  // Espace de pâture (SQL 064) : zone où les compagnons du jour se promènent (scène « village »). Même format que walkable_zone.
+  pasture_zone?: Point[][] | null;
   created_at: string;
 };
 
@@ -268,6 +270,7 @@ function normalizeScene(row: any): Scene {
     ...row,
     walkable_zone: normalizePolygonList(row.walkable_zone),
     obstacles: normalizePolygonList(row.obstacles),
+    pasture_zone: normalizePolygonList(row.pasture_zone),
     depth_scale: normalizeDepthScale(row.depth_scale),
   } as Scene;
 }
@@ -397,6 +400,12 @@ export async function updateSceneZones(
       depth_scale: depthScale,
     })
     .eq("id", sceneId);
+  if (error) throw error;
+}
+
+// Zone de pâture (SQL 064). Appelée uniquement depuis /admin.
+export async function updateScenePasture(sceneId: string, zones: Point[][]) {
+  const { error } = await scenesClient.from("scenes").update({ pasture_zone: zones.map(polygonToRaw) }).eq("id", sceneId);
   if (error) throw error;
 }
 

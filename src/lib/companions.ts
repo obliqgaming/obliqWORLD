@@ -155,3 +155,59 @@ export async function fetchPartyCompanions(characterIds: string[]): Promise<Reco
   }
   return out;
 }
+
+// ---------- Pâture devant la ferme (SQL 064) ----------
+// Les compagnons du jour : tirage au hasard parmi TOUS (compagnons de départ + dessins des joueurs non masqués),
+// identique pour tous les joueurs (graine = la date à Paris), aucune écriture en base.
+export type PastureAnimal = { key: string; name: string; image_url: string; line: string; color: string };
+
+export const PASTURE_COUNT = 4;
+
+function seedFromString(str: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+export function seededRandom(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+let pastureCache: { day: string; list: PastureAnimal[] } | null = null;
+
+export async function fetchPastureAnimals(): Promise<PastureAnimal[]> {
+  const day = new Date().toLocaleDateString("fr-CA", { timeZone: "Europe/Paris" });
+  if (pastureCache && pastureCache.day === day) return pastureCache.list;
+  const [st, de] = await Promise.all([
+    scenesClient.from("starter_companions").select("id, name, image_url, tier").limit(200),
+    scenesClient.from("companion_designs").select("id, name, image_url, rarity, author_user_id").eq("hidden", false).limit(500),
+  ]);
+  const all: { key: string; name: string; image_url: string; rarity?: Rarity; tier?: Tier; author?: string }[] = [
+    ...((st.data ?? []) as any[]).map((r) => ({ key: `s:${r.id}`, name: r.name, image_url: r.image_url, tier: r.tier as Tier })),
+    ...((de.data ?? []) as any[]).map((r) => ({ key: `d:${r.id}`, name: r.name, image_url: r.image_url, rarity: r.rarity as Rarity, author: r.author_user_id as string })),
+  ].filter((r) => !!r.image_url);
+  all.sort((a, b) => (a.key < b.key ? -1 : 1));
+  const rnd = seededRandom(seedFromString(`pature:${day}`));
+  for (let i = all.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    [all[i], all[j]] = [all[j]!, all[i]!];
+  }
+  const picked = all.slice(0, PASTURE_COUNT);
+  const names = await fetchAuthorNames(picked.filter((p) => p.author).map((p) => p.author as string)).catch(() => ({} as Record<string, string>));
+  const { RARITY_INFO } = await import("./weapons");
+  const list: PastureAnimal[] = picked.map((p) =>
+    p.rarity
+      ? { key: p.key, name: p.name, image_url: p.image_url, line: `${RARITY_INFO[p.rarity].label}${names[p.author ?? ""] ? ` · par ${names[p.author!]}` : ""}`, color: RARITY_INFO[p.rarity].color }
+      : { key: p.key, name: p.name, image_url: p.image_url, line: `Compagnon de départ · ${TIER_INFO[p.tier ?? "small"].label}`, color: TIER_INFO[p.tier ?? "small"].color },
+  );
+  pastureCache = { day, list };
+  return list;
+}
