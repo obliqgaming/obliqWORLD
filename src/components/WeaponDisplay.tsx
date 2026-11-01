@@ -12,7 +12,13 @@ export function WeaponDisplay({ points, boxWidth }: { points: DisplayPoint[]; bo
   const n = points.length;
   useEffect(() => {
     let cancelled = false;
-    void fetchDisplayWeapons(n).then((l) => { if (!cancelled) setWeapons(l); }).catch(() => {});
+    void fetchDisplayWeapons(n)
+      .then((l) => {
+        if (cancelled) return;
+        console.info(`[Armes exposées] ${n} point(s) posé(s), ${l.length} arme(s) tirée(s) parmi celles en stock chez le forgeron.`);
+        setWeapons(l);
+      })
+      .catch((e) => console.warn("[Armes exposées] lecture de la boutique impossible :", e));
     return () => { cancelled = true; };
   }, [n]);
   useEffect(() => {
