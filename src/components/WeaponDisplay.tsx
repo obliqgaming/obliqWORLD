@@ -55,6 +55,7 @@ export function WeaponDisplay({ points, boxWidth }: { points: DisplayPoint[]; bo
                 width: (px * w.w) / long,
                 height: (px * w.h) / long,
                 left: 0, top: 0,
+                maxWidth: "none",   // Tailwind limite les images à 100 % de leur parent : ici le parent est un point de taille nulle
                 transform: `translate(-50%, -50%) rotate(${pt.rot}deg)`,
                 cursor: "url('/cursors/cursor-creature.png') 12 12, pointer",
                 filter: "drop-shadow(0 3px 3px rgba(0,0,0,0.45))",
