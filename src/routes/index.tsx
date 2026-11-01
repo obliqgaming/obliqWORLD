@@ -121,6 +121,8 @@ import { claimDailyGold, fetchSceneHotspots, useClaimedGoldToday, type SceneHots
 import { PartyInvitePopup } from "../components/PartyInvitePopup";
 import { PartyPanel } from "../components/PartyPanel";
 import { PeerContextMenu } from "../components/PeerContextMenu";
+import { TradePanel, TradeInvite, TradeWaiting } from "../components/TradePanel";
+import { fetchTradeState, subscribeToTrades, tradeRequest, tradeRespond, tradeCancel, type TradeState } from "../lib/trade";
 import { SoundControl } from "../components/SoundControl";
 import { findPath } from "../lib/pathfinding";
 
@@ -983,6 +985,36 @@ function Index() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [character?.id]);
+
+  // --- Échange entre joueurs (SQL 066) ---
+  const [trade, setTrade] = useState<TradeState | null>(null);
+  const tradeIdRef = useRef<string | null>(null);
+  const refreshTrade = async () => {
+    try {
+      const st = await fetchTradeState(tradeIdRef.current);
+      if (!st) { tradeIdRef.current = null; setTrade(null); return; }
+      tradeIdRef.current = st.trade.id;
+      setTrade(st);
+    } catch { /* ignoré */ }
+  };
+  useEffect(() => {
+    const uid = authIdentity?.userId;
+    if (!uid || !character?.id) return;
+    void refreshTrade();
+    const ch = subscribeToTrades(uid, () => { void refreshTrade(); });
+    return () => { void leaveScenePresence(ch); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authIdentity?.userId, character?.id]);
+  const closeTrade = () => { tradeIdRef.current = null; setTrade(null); };
+  const handleTradeWith = async (targetCharacterId: string) => {
+    try {
+      const id = await tradeRequest(targetCharacterId);
+      tradeIdRef.current = id;
+      await refreshTrade();
+    } catch (e: any) {
+      window.alert(e?.message ?? "Échange impossible");
+    }
+  };
 
   const handleInvitePeer = async (targetCharacterId: string) => {
     if (!character) return;
@@ -2475,10 +2507,25 @@ function Index() {
               const targetPeer = peers[peerMenu.peerKey];
               if (targetPeer) setInspectId(targetPeer.characterId);
             }}
+            {...(inExpeditionScene ? {} : { onTrade: () => {
+              const targetPeer = peers[peerMenu.peerKey];
+              if (targetPeer) void handleTradeWith(targetPeer.characterId);
+            } })}
             onClose={() => setPeerMenu(null)}
           />
         )}
         {inspectId && <InspectPanel characterId={inspectId} onClose={() => setInspectId(null)} />}
+        {trade && !inExpeditionScene && (() => {
+          const t = trade.trade;
+          const iAmA = trade.me === "a";
+          const other = iAmA ? t.name_b : t.name_a;
+          if (t.status === "pending") {
+            return iAmA
+              ? <TradeWaiting name={other} onCancel={() => { void tradeCancel(t.id).catch(() => {}); closeTrade(); }} />
+              : <TradeInvite name={other} onAnswer={(ok) => { void tradeRespond(t.id, ok).catch(() => {}); if (!ok) closeTrade(); }} />;
+          }
+          return <TradePanel state={trade} onClose={closeTrade} />;
+        })()}
 
         {party && character && !inExpeditionScene && (
           <PartyPanel

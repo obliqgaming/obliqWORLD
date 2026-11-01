@@ -9,6 +9,7 @@ export function PeerContextMenu({
   y,
   onInvite,
   onInspect,
+  onTrade,
   onClose,
 }: {
   peerName: string;
@@ -16,6 +17,7 @@ export function PeerContextMenu({
   y: number;
   onInvite: () => void;
   onInspect?: () => void;
+  onTrade?: () => void;
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -66,6 +68,18 @@ export function PeerContextMenu({
       >
         Inviter dans le groupe
       </button>
+      {onTrade && (
+        <button
+          type="button"
+          onClick={() => {
+            onTrade();
+            onClose();
+          }}
+          className="block w-full px-3 py-1.5 text-left hover:bg-[#7a4a22]/40"
+        >
+          🤝 Échanger
+        </button>
+      )}
       {onInspect && (
         <button
           type="button"
