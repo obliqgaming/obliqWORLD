@@ -34,7 +34,7 @@ export function CampPanel({ expeditionId, characterId, members }: { expeditionId
   const me = members.find((m) => m.characterId === characterId);
   const iAmDown = !me || me.pv <= 0;
   const alive = members.filter((m) => m.pv > 0 && !m.gone);
-  const fallen = members.filter((m) => m.pv <= 0 && !m.gone && m.characterId !== characterId);
+  const fallen = members.filter((m) => m.pv <= 0 && m.characterId !== characterId);
   const ateRation = uses.some((u) => u.kind === "ration" && u.character_id === characterId);
   const feastDone = uses.some((u) => u.kind === "festin");
   const count = (k: ConsumableKind) => stacks.find((s) => s.kind === k)?.count ?? 0;

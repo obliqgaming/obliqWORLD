@@ -5,7 +5,8 @@ export function DeadScreen({ name, cause, busy, error, onNewCharacter }: { name:
       <div className="w-[min(32rem,100%)] rounded-xl border-2 border-[#7a4a22] bg-[#2b1406] p-6 text-center shadow-xl">
         <div className="text-3xl">🕯️</div>
         <div className="mt-1 text-2xl font-extrabold">{name} est tombé·e</div>
-        <p className="mt-3 text-sm">{cause ? `${cause}.` : "L'expédition lui a été fatale."} Son souvenir reste dans la forêt.</p>
+        <p className="mt-3 text-sm">{cause ? `${cause}.` : "L'expédition lui a été fatale."}</p>
+        <p className="mt-2 text-sm">Son esprit rejoint la forêt. Un jour, quelqu'un le croisera peut-être sous la forme d'un monstre… et pourra même le capturer pour en faire un compagnon.</p>
         <p className="mt-2 text-sm">Tu gardes ton or et tes armes. Il est temps de dessiner un nouveau personnage.</p>
         <button type="button" disabled={busy} onClick={onNewCharacter} className="mt-4 rounded-lg border-2 border-[#166534] bg-[#16a34a] px-5 py-2 font-extrabold text-white disabled:opacity-50">
           {busy ? "…" : "Dessiner un nouveau personnage"}

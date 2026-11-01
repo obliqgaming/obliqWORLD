@@ -2675,6 +2675,31 @@ function Index() {
           />
         )}
 
+        {inExpeditionScene && character && activeExpedition && !endBanner && !deadInfo && (statOf(character.id)?.pv_current ?? 1) <= 0 && (
+          <div className="absolute left-3 top-16 z-40 w-[min(19rem,46%)] rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6]/97 p-3 text-[#3a2410] shadow-xl" style={{ fontFamily: "'Baloo 2', cursive" }}>
+            <div className="text-sm font-extrabold">🕯️ Tu es tombé·e</div>
+            <p className="mt-1 text-xs leading-snug">
+              Tes alliés peuvent peut-être te ressusciter au feu de camp avec une <b>larme de vie</b> — c'est très rare.
+              Sinon, ton esprit sera relâché à la fin de l'expédition : ton personnage rejoindra la forêt, où l'on pourra le croiser et même le capturer.
+            </p>
+            <button
+              type="button"
+              disabled={deadBusy}
+              onClick={() => {
+                if (!window.confirm("Relâcher ton esprit ? Ton personnage rejoint la forêt pour de bon, tu en dessineras un nouveau.")) return;
+                setDeadBusy(true);
+                archiveDeadCharacter()
+                  .then(() => setDeadInfo({ name: character.name, cause: "Tombé au combat" }))
+                  .catch((e) => setDeadError(e?.message ?? "Erreur"))
+                  .finally(() => setDeadBusy(false));
+              }}
+              className="mt-2 rounded border-2 border-[#7a4a22] px-3 py-1 text-xs font-bold text-[#5e3818] hover:bg-[#7a4a22]/15 disabled:opacity-50"
+            >
+              Relâcher mon esprit
+            </button>
+          </div>
+        )}
+
         {endBanner && <EndBanner
             title={endBanner.title}
             text={endBanner.text}

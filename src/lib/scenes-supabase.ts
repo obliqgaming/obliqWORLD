@@ -865,8 +865,7 @@ export async function fetchMyDeath(characterId: string): Promise<{ dead: boolean
     const { data: parts } = await scenesClient
       .from("expedition_participants")
       .select("expedition_id, expeditions(status)")
-      .eq("character_id", characterId)
-      .is("left_expedition_at", null);
+      .eq("character_id", characterId);   // (067) le moteur renseigne « left_expedition_at » dès la chute : on ne filtre plus dessus
     inExpedition = ((parts ?? []) as any[]).some((p) => p.expeditions?.status === "active");
   }
   return { dead, cause: row?.death_cause ?? null, inExpedition };
