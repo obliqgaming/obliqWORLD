@@ -9,6 +9,7 @@ const FONT = { fontFamily: "'Baloo 2', cursive" };
 export function WeaponDisplay({ points, boxWidth }: { points: DisplayPoint[]; boxWidth: number }) {
   const [weapons, setWeapons] = useState<DisplayWeapon[]>([]);
   const [sel, setSel] = useState<number | null>(null);
+  const [broken, setBroken] = useState<Record<string, boolean>>({});
   const n = points.length;
   useEffect(() => {
     let cancelled = false;
@@ -58,8 +59,13 @@ export function WeaponDisplay({ points, boxWidth }: { points: DisplayPoint[]; bo
                 cursor: "url('/cursors/cursor-creature.png') 12 12, pointer",
                 filter: "drop-shadow(0 3px 3px rgba(0,0,0,0.45))",
               }}
+              onLoad={(e) => console.info(`[Armes exposées] « ${w.name} » chargée : image ${e.currentTarget.naturalWidth}×${e.currentTarget.naturalHeight}, affichée ${Math.round(px * w.w / long)}×${Math.round(px * w.h / long)} px, point ${Math.round(pt.x)}/${Math.round(pt.y)} %`)}
+              onError={() => { console.warn(`[Armes exposées] image introuvable pour « ${w.name} » : ${w.image_url}`); setBroken((b) => ({ ...b, [w.key]: true })); }}
               onClick={(e) => { e.stopPropagation(); setSel((s) => (s === i ? null : i)); }}
             />
+            {broken[w.key] && (
+              <div className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded bg-[#2b1406]/85 px-1.5 py-0.5 text-[10px] font-bold text-[#fff3d6]" style={FONT}>⚔ {w.name}</div>
+            )}
           </div>
         );
       })}
