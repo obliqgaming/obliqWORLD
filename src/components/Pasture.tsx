@@ -3,7 +3,7 @@
 // Chaque animal a son propre rythme (pas de synchronisation) : immobile quelques secondes, puis quelques pas.
 import { useEffect, useRef, useState } from "react";
 import { computeDepthScale, pointInPolygon, type DepthScale, type Point } from "../lib/scenes-supabase";
-import { fetchPastureAnimals, seededRandom, type PastureAnimal } from "../lib/companions";
+import { fetchPastureAnimals, type PastureAnimal } from "../lib/companions";
 
 const FONT = { fontFamily: "'Baloo 2', cursive" };
 
@@ -33,7 +33,7 @@ function Animal({
   animal: PastureAnimal; zone: Point[][]; depthScale: DepthScale | null; boxWidth: number; startSeed: number; selected: boolean; onSelect: () => void; reg: Registry;
 }) {
   const [pos, setPos] = useState<Point>(() => {
-    const p = randomPointIn(zone, seededRandom(startSeed), animal.key, reg);
+    const p = randomPointIn(zone, Math.random, animal.key, reg);   // départ au hasard (la graine donnait des positions presque identiques)
     reg.current[animal.key] = p;
     return p;
   });
@@ -47,27 +47,27 @@ function Animal({
     reg.current[animal.key] = posRef.current;
     const step = () => {
       if (cancelled) return;
-      // Une fois sur trois, l'animal reste simplement là.
-      if (Math.random() > 0.66) {
-        timer = window.setTimeout(step, 3000 + Math.random() * 5000);
+      // De temps en temps (1 fois sur 6), l'animal reste simplement là.
+      if (Math.random() > 0.85) {
+        timer = window.setTimeout(step, 2000 + Math.random() * 2500);
         return;
       }
       const cur = posRef.current;
-      for (let k = 0; k < 14; k++) {
-        const t = { x: cur.x + (Math.random() * 2 - 1) * 7, y: cur.y + (Math.random() * 2 - 1) * 3 };
+      for (let k = 0; k < 24; k++) {
+        const t = { x: cur.x + (Math.random() * 2 - 1) * 6, y: cur.y + (Math.random() * 2 - 1) * 2.5 };
         if (!inZone(t, zone) || !farFromOthers(t, animal.key, reg)) continue;
         reg.current[animal.key] = t;   // la destination est réservée tout de suite : personne d'autre n'y va
         const dist = Math.hypot(t.x - cur.x, (t.y - cur.y) * 1.5);
-        const dur = Math.max(700, dist * 260);
+        const dur = Math.max(1800, dist * 650)   // lent : environ 2,5 fois plus lent qu'avant;
         setFacingRight(t.x > cur.x);
         setMs(dur);
         setPos(t);
         timer = window.setTimeout(() => { if (!cancelled) setMs(0); }, dur);
         break;
       }
-      timer = window.setTimeout(step, 3500 + Math.random() * 7000);
+      timer = window.setTimeout(step, 1500 + Math.random() * 2500);   // plus souvent
     };
-    timer = window.setTimeout(step, 1500 + Math.random() * 6000);
+    timer = window.setTimeout(step, 300 + Math.random() * 2500);
     return () => { cancelled = true; if (timer) window.clearTimeout(timer); delete reg.current[animal.key]; };
   }, [zone]);
   const moving = ms > 0;
@@ -97,7 +97,7 @@ function Animal({
           alt={animal.name}
           draggable={false}
           className="pointer-events-auto block w-full"
-          style={{ cursor: "url('/cursors/cursor-creature.png') 12 12, pointer", transformOrigin: "50% 100%", animation: moving ? "auberge-walk 250ms linear infinite" : "none", filter: "drop-shadow(0 3px 4px rgba(0,0,0,0.45))" }}
+          style={{ cursor: "url('/cursors/cursor-creature.png') 12 12, pointer", transformOrigin: "50% 100%", animation: moving ? "auberge-walk 450ms linear infinite" : "none", filter: "drop-shadow(0 3px 4px rgba(0,0,0,0.45))" }}
           onClick={(e) => { e.stopPropagation(); onSelect(); }}
         />
       </div>
