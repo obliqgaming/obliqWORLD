@@ -88,6 +88,7 @@ import { ExpeditionPortalMarker } from "../components/ExpeditionPortal";
 import { ExpeditionCombatView, type CombatAlly, type ExpeditionEvent } from "../components/ExpeditionCombatView";
 import { ExpeditionBattle } from "../components/ExpeditionBattle";
 import { Pasture } from "../components/Pasture";
+import { WeaponDisplay } from "../components/WeaponDisplay";
 import { CampPanel } from "../components/CampPanel";
 import { AxisChoiceModal, EndBanner, LevelUpModal, OutcomePanel, type OutcomeInfo } from "../components/ExpeditionExtras";
 import {
@@ -2497,6 +2498,9 @@ function Index() {
           />
         )}
 
+        {(scene.weapon_display?.length ?? 0) > 0 && !inExpeditionScene && (
+          <WeaponDisplay points={scene.weapon_display!} boxWidth={sceneBoxSize.width} />
+        )}
         {scene.name.toLowerCase() === "village" && (scene.pasture_zone?.length ?? 0) > 0 && (
           <Pasture zone={scene.pasture_zone!} depthScale={scene.depth_scale} boxWidth={sceneBoxSize.width} />
         )}

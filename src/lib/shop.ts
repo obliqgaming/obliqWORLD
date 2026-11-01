@@ -57,3 +57,44 @@ export async function shopCollect(): Promise<number> {
   if (error) throw error;
   return Number(data ?? 0);
 }
+
+// ---------- Armes exposées autour du forgeron (SQL 065) ----------
+// Armes en stock dans la boutique, tirées au hasard chaque jour (graine = date à Paris, mêmes armes pour tous).
+export type DisplayWeapon = { key: string; name: string; image_url: string; w: number; h: number; line: string; color: string; price: number };
+let displayCache: { day: string; count: number; list: DisplayWeapon[] } | null = null;
+
+export async function fetchDisplayWeapons(count: number): Promise<DisplayWeapon[]> {
+  const day = new Date().toLocaleDateString("fr-CA", { timeZone: "Europe/Paris" });
+  if (displayCache && displayCache.day === day && displayCache.count === count) return displayCache.list;
+  const { data, error } = await scenesClient
+    .from("weapon_listings")
+    .select("weapon_id, author_user_id, price, stock_left, weapon:weapons(*)")
+    .gt("stock_left", 0)
+    .limit(300);
+  if (error) throw error;
+  const rows = ((data ?? []) as any[]).filter((r) => r.weapon && !r.weapon.hidden && r.weapon.image_url);
+  rows.sort((a, b) => (a.weapon_id < b.weapon_id ? -1 : 1));
+  const { seededRandom } = await import("./companions");
+  const { RARITY_INFO } = await import("./weapons");
+  let h = 2166136261;
+  for (const ch of `vitrine:${day}`) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }
+  const rnd = seededRandom(h >>> 0);
+  for (let i = rows.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    [rows[i], rows[j]] = [rows[j], rows[i]];
+  }
+  const picked = rows.slice(0, count);
+  const names = await fetchAuthorNames(picked.map((r) => r.author_user_id as string)).catch(() => ({} as Record<string, string>));
+  const list: DisplayWeapon[] = picked.map((r) => ({
+    key: r.weapon_id,
+    name: r.weapon.name,
+    image_url: r.weapon.image_url,
+    w: Number(r.weapon.width) || 1,
+    h: Number(r.weapon.height) || 1,
+    line: `${RARITY_INFO[r.weapon.rarity as Rarity]?.label ?? ""}${names[r.author_user_id] ? ` · par ${names[r.author_user_id]}` : ""}`,
+    color: RARITY_INFO[r.weapon.rarity as Rarity]?.color ?? "#f3f4f6",
+    price: Number(r.price),
+  }));
+  displayCache = { day, count, list };
+  return list;
+}

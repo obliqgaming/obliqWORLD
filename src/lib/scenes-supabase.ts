@@ -38,6 +38,7 @@ export const scenesClient = createClient(SCENES_SUPABASE_URL, SCENES_SUPABASE_PU
 });
 
 export type Point = { x: number; y: number };
+export type DisplayPoint = { x: number; y: number; rot: number; size: number };
 
 // Calibration de la taille du personnage selon sa profondeur dans le décor :
 // y80/y100/y120 sont les positions verticales (% de la scène) où le personnage
@@ -71,6 +72,8 @@ export type Scene = {
   obstacles: Point[][] | null;
   // Espace de pâture (SQL 064) : zone où les compagnons du jour se promènent (scène « village »). Même format que walkable_zone.
   pasture_zone?: Point[][] | null;
+  // Armes exposées (SQL 065) : points où s'affichent, chaque jour, des armes de la boutique du forgeron.
+  weapon_display?: DisplayPoint[] | null;
   created_at: string;
 };
 
@@ -271,6 +274,9 @@ function normalizeScene(row: any): Scene {
     walkable_zone: normalizePolygonList(row.walkable_zone),
     obstacles: normalizePolygonList(row.obstacles),
     pasture_zone: normalizePolygonList(row.pasture_zone),
+    weapon_display: Array.isArray(row.weapon_display)
+      ? (row.weapon_display as any[]).filter((d) => d && typeof d.x === "number" && typeof d.y === "number").map((d) => ({ x: d.x, y: d.y, rot: Number(d.rot) || 0, size: Number(d.size) > 0 ? Number(d.size) : 1 }))
+      : [],
     depth_scale: normalizeDepthScale(row.depth_scale),
   } as Scene;
 }
@@ -406,6 +412,16 @@ export async function updateSceneZones(
 // Zone de pâture (SQL 064). Appelée uniquement depuis /admin.
 export async function updateScenePasture(sceneId: string, zones: Point[][]) {
   const { error } = await scenesClient.from("scenes").update({ pasture_zone: zones.map(polygonToRaw) }).eq("id", sceneId);
+  if (error) throw error;
+}
+
+// Points d'exposition des armes (SQL 065). Appelée uniquement depuis /admin.
+export async function updateSceneWeaponDisplay(sceneId: string, pts: DisplayPoint[]) {
+  const r = (n: number) => Math.round(n * 10) / 10;
+  const { error } = await scenesClient
+    .from("scenes")
+    .update({ weapon_display: pts.map((d) => ({ x: r(d.x), y: r(d.y), rot: Math.round(d.rot), size: r(d.size) })) })
+    .eq("id", sceneId);
   if (error) throw error;
 }
 

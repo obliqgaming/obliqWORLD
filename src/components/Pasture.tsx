@@ -7,25 +7,36 @@ import { fetchPastureAnimals, seededRandom, type PastureAnimal } from "../lib/co
 
 const FONT = { fontFamily: "'Baloo 2', cursive" };
 
+// Distance minimale entre deux animaux (en % de la scène ; l'axe vertical compte double car la scène est en perspective).
+const SEP_X = 7;
+const SEP_Y = 3.5;
+type Registry = { current: Record<string, Point> };
+const farFromOthers = (p: Point, self: string, reg: Registry) =>
+  Object.entries(reg.current).every(([k, o]) => k === self || Math.hypot((p.x - o.x) / SEP_X, (p.y - o.y) / SEP_Y) >= 1);
+
 const inZone = (p: Point, zone: Point[][]) => zone.some((poly) => poly.length >= 3 && pointInPolygon(p, poly));
 
-function randomPointIn(zone: Point[][], rnd: () => number): Point {
+function randomPointIn(zone: Point[][], rnd: () => number, self?: string, reg?: Registry): Point {
   const pts = zone.flat();
   const minX = Math.min(...pts.map((p) => p.x)), maxX = Math.max(...pts.map((p) => p.x));
   const minY = Math.min(...pts.map((p) => p.y)), maxY = Math.max(...pts.map((p) => p.y));
   for (let i = 0; i < 80; i++) {
     const p = { x: minX + rnd() * (maxX - minX), y: minY + rnd() * (maxY - minY) };
-    if (inZone(p, zone)) return p;
+    if (inZone(p, zone) && (!reg || !self || farFromOthers(p, self, reg))) return p;
   }
   return pts[0]!;
 }
 
 function Animal({
-  animal, zone, depthScale, boxWidth, startSeed, selected, onSelect,
+  animal, zone, depthScale, boxWidth, startSeed, selected, onSelect, reg,
 }: {
-  animal: PastureAnimal; zone: Point[][]; depthScale: DepthScale | null; boxWidth: number; startSeed: number; selected: boolean; onSelect: () => void;
+  animal: PastureAnimal; zone: Point[][]; depthScale: DepthScale | null; boxWidth: number; startSeed: number; selected: boolean; onSelect: () => void; reg: Registry;
 }) {
-  const [pos, setPos] = useState<Point>(() => randomPointIn(zone, seededRandom(startSeed)));
+  const [pos, setPos] = useState<Point>(() => {
+    const p = randomPointIn(zone, seededRandom(startSeed), animal.key, reg);
+    reg.current[animal.key] = p;
+    return p;
+  });
   const [facingRight, setFacingRight] = useState(false);
   const [ms, setMs] = useState(0);
   const posRef = useRef(pos);
@@ -33,6 +44,7 @@ function Animal({
   useEffect(() => {
     let timer: number | undefined;
     let cancelled = false;
+    reg.current[animal.key] = posRef.current;
     const step = () => {
       if (cancelled) return;
       // Une fois sur trois, l'animal reste simplement là.
@@ -43,7 +55,8 @@ function Animal({
       const cur = posRef.current;
       for (let k = 0; k < 14; k++) {
         const t = { x: cur.x + (Math.random() * 2 - 1) * 7, y: cur.y + (Math.random() * 2 - 1) * 3 };
-        if (!inZone(t, zone)) continue;
+        if (!inZone(t, zone) || !farFromOthers(t, animal.key, reg)) continue;
+        reg.current[animal.key] = t;   // la destination est réservée tout de suite : personne d'autre n'y va
         const dist = Math.hypot(t.x - cur.x, (t.y - cur.y) * 1.5);
         const dur = Math.max(700, dist * 260);
         setFacingRight(t.x > cur.x);
@@ -55,14 +68,14 @@ function Animal({
       timer = window.setTimeout(step, 3500 + Math.random() * 7000);
     };
     timer = window.setTimeout(step, 1500 + Math.random() * 6000);
-    return () => { cancelled = true; if (timer) window.clearTimeout(timer); };
+    return () => { cancelled = true; if (timer) window.clearTimeout(timer); delete reg.current[animal.key]; };
   }, [zone]);
   const moving = ms > 0;
   return (
     <div
       className="absolute"
       style={{
-        left: `${pos.x}%`, top: `${pos.y}%`, width: boxWidth * 0.075,
+        left: `${pos.x}%`, top: `${pos.y}%`, width: boxWidth * 0.045,   // moitié de la taille d'un personnage (comme un compagnon en suivi)
         transformOrigin: "50% 100%",
         transform: `translate(-50%, -100%) scale(${computeDepthScale(pos.y, depthScale)})`,
         transition: moving ? `left ${ms}ms linear, top ${ms}ms linear, transform ${ms}ms linear` : "none",
@@ -95,6 +108,7 @@ function Animal({
 export function Pasture({ zone, depthScale, boxWidth }: { zone: Point[][]; depthScale: DepthScale | null; boxWidth: number }) {
   const [animals, setAnimals] = useState<PastureAnimal[]>([]);
   const [sel, setSel] = useState<string | null>(null);
+  const reg = useRef<Record<string, Point>>({});
   useEffect(() => {
     let cancelled = false;
     void fetchPastureAnimals().then((l) => { if (!cancelled) setAnimals(l); }).catch(() => {});
@@ -109,7 +123,7 @@ export function Pasture({ zone, depthScale, boxWidth }: { zone: Point[][]; depth
   return (
     <div className="pointer-events-none absolute inset-0 z-10">
       {animals.map((a, i) => (
-        <Animal key={a.key} animal={a} zone={zone} depthScale={depthScale} boxWidth={boxWidth} startSeed={i * 7919 + 13} selected={sel === a.key} onSelect={() => setSel((s) => (s === a.key ? null : a.key))} />
+        <Animal key={a.key} animal={a} zone={zone} depthScale={depthScale} boxWidth={boxWidth} startSeed={i * 7919 + 13} selected={sel === a.key} reg={reg} onSelect={() => setSel((s) => (s === a.key ? null : a.key))} />
       ))}
     </div>
   );

@@ -21,6 +21,8 @@ import {
   isExpeditionSceneName,
   updateSceneZones,
   updateScenePasture,
+  updateSceneWeaponDisplay,
+  type DisplayPoint,
   type AuthIdentity,
   type DepthScale,
   type ExpeditionPortal,
@@ -163,7 +165,7 @@ function AdminTabs() {
   );
 }
 
-type Mode = "room" | "obstacle" | "depth" | "exit" | "pasture";
+type Mode = "room" | "obstacle" | "depth" | "exit" | "pasture" | "display";
 type DepthKey = "y80" | "y100" | "y120";
 type DepthDraft = { y80: number | null; y100: number | null; y120: number | null };
 
@@ -201,6 +203,7 @@ function AdminPage() {
 
   const [rooms, setRooms] = useState<Point[][]>([]);
   const [obstacles, setObstacles] = useState<Point[][]>([]);
+  const [display, setDisplay] = useState<DisplayPoint[]>([]);   // armes exposées (SQL 065)
   const [pasture, setPasture] = useState<Point[][]>([]);   // espace de pâture (SQL 064)
   const [depthDraft, setDepthDraft] = useState<DepthDraft>(EMPTY_DEPTH);
   const [armedDepthKey, setArmedDepthKey] = useState<DepthKey | null>(null);
@@ -311,6 +314,7 @@ function AdminPage() {
 
         setRooms(dbRooms);
         setObstacles(dbObstacles);
+        setDisplay(s.weapon_display ? s.weapon_display.map((d) => ({ ...d })) : []);
         setPasture(s.pasture_zone ? s.pasture_zone.map((z) => z.map((p) => ({ ...p }))) : []);
         setDepthDraft(dbDepth);
         const dbSnapshot: Snapshot = { rooms: dbRooms, obstacles: dbObstacles, depthDraft: dbDepth, draft: [] };
@@ -404,6 +408,11 @@ function AdminPage() {
       if (placingExit) void handleCreateExitAt(p);
       else if (placingPortal) void handlePlacePortalAt(p, placingPortal);
       else if (placingHotspot) void handlePlaceHotspotAt(placingHotspot, p);
+      return;
+    }
+
+    if (mode === "display") {
+      setDisplay((l) => (l.length >= 8 ? l : [...l, { x: p.x, y: p.y, rot: 0, size: 1 }]));
       return;
     }
 
@@ -667,9 +676,10 @@ function AdminPage() {
       await updateSceneZones(scene.id, rooms, obstacles, depthScale);
       try {
         await updateScenePasture(scene.id, pasture);
+        await updateSceneWeaponDisplay(scene.id, display);
       } catch (e) {
         console.error(e);
-        setStatus("Zones enregistrées, mais PAS la zone de pâture : lance d'abord le SQL 064 dans Supabase.");
+        setStatus("Zones enregistrées, mais PAS la pâture / les armes exposées : lance d'abord les SQL 064 et 065 dans Supabase.");
         setSaving(false);
         return;
       }
@@ -797,6 +807,17 @@ function AdminPage() {
             className={`rounded px-3 py-1 text-sm ${mode === "pasture" ? "bg-amber-600" : "bg-neutral-800"}`}
           >
             🐾 Pâture
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMode("display");
+              setDraft([]);
+              setArmedDepthKey(null);
+            }}
+            className={`rounded px-3 py-1 text-sm ${mode === "display" ? "bg-cyan-700" : "bg-neutral-800"}`}
+          >
+            ⚔ Armes exposées
           </button>
           <button
             type="button"
@@ -1078,6 +1099,12 @@ function AdminPage() {
                   vectorEffect="non-scaling-stroke"
                 />
               ))}
+              {display.map((d, i) => (
+                <g key={`display-${i}`} transform={`translate(${d.x} ${d.y}) rotate(${d.rot})`}>
+                  <line x1={-3.5 * d.size} y1={0} x2={3.5 * d.size} y2={0} stroke="rgba(34,211,238,0.95)" strokeWidth={1.2} vectorEffect="non-scaling-stroke" />
+                  <circle cx={0} cy={0} r={0.7} fill="rgba(34,211,238,1)" />
+                </g>
+              ))}
               {pasture.map((z, i) => (
                 <polygon
                   key={`pasture-${i}`}
@@ -1212,6 +1239,25 @@ function AdminPage() {
               </li>
             ))}
             {obstacles.length === 0 && <li className="opacity-50">Aucun pour l'instant</li>}
+          </ul>
+
+          <p className="mb-1 font-semibold">Armes exposées ({display.length}/8)</p>
+          <ul className="mb-4 space-y-1">
+            {display.map((d, i) => (
+              <li key={i} className="rounded bg-neutral-800 px-2 py-1">
+                <div className="flex items-center justify-between">
+                  <span>Point {i + 1}</span>
+                  <button type="button" onClick={() => setDisplay((l) => l.filter((_, k) => k !== i))} className="text-red-400 hover:text-red-300">🗑</button>
+                </div>
+                <label className="block text-xs opacity-80">Rotation : {d.rot}°
+                  <input type="range" min={-180} max={180} step={5} value={d.rot} onChange={(e) => setDisplay((l) => l.map((x, k) => (k === i ? { ...x, rot: Number(e.target.value) } : x)))} className="w-full" />
+                </label>
+                <label className="block text-xs opacity-80">Taille : ×{d.size.toFixed(1)}
+                  <input type="range" min={0.5} max={2.5} step={0.1} value={d.size} onChange={(e) => setDisplay((l) => l.map((x, k) => (k === i ? { ...x, size: Number(e.target.value) } : x)))} className="w-full" />
+                </label>
+              </li>
+            ))}
+            {display.length === 0 && <li className="opacity-50">Clique sur la scène pour poser un point (le nombre de points = le nombre d'armes exposées chaque jour)</li>}
           </ul>
 
           <p className="mb-1 font-semibold">Pâture ({pasture.length})</p>

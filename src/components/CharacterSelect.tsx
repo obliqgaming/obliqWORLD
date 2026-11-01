@@ -3,6 +3,7 @@ import { uploadDrawingAsCharacterAsset, type AuthIdentity, type CharacterFamily,
 import { AccountBadge } from "./AccountBadge";
 import { DrawingCanvas } from "./DrawingCanvas";
 import { SoundControl } from "./SoundControl";
+import { claimCode } from "../lib/referral";
 
 // Provisoire pendant le développement : permet de se connecter en invité avec un
 // « personnage déjà existant ». À passer à false quand le jeu sera ouvert : les
@@ -44,12 +45,37 @@ export function CharacterSelect({
   const [selected, setSelected] = useState<string | null>(null);
 
   const [formMessage, setFormMessage] = useState<string | null>(null);
+  // Code de parrain (SQL 062) : il doit être enregistré AVANT la création du premier personnage.
+  const [refOpen, setRefOpen] = useState(false);
+  const [refCode, setRefCode] = useState("");
+  const [refOk, setRefOk] = useState(false);
+  const [refMsg, setRefMsg] = useState<string | null>(null);
+  const submitRefCode = async (): Promise<boolean> => {
+    if (refOk || !refCode.trim()) return true;
+    try {
+      const r = await claimCode(refCode);
+      if (r.ok) {
+        setRefOk(true);
+        setRefMsg("Code enregistré ✔ ton parrain recevra une surprise.");
+        return true;
+      }
+      setRefMsg(r.reason ?? "Code refusé.");
+    } catch (e: any) {
+      setRefMsg(e?.message ?? "Connecte-toi d'abord pour utiliser un code.");
+    }
+    return false;
+  };
   const handleDrawingExported = async (blob: Blob, handAnchor: Point | null) => {
     if (!family) {
       setFormMessage("Choisis ta spécialisation ci-dessous (Mêlée ou Magie), puis valide de nouveau ton dessin.");
       return;
     }
     setFormMessage(null);
+    if (!(await submitRefCode())) {
+      setRefOpen(true);
+      setFormMessage("Le code de parrain est refusé : corrige-le ou vide le champ, puis valide de nouveau ton dessin.");
+      return;
+    }
     setSaving(true);
     try {
       const asset = await uploadDrawingAsCharacterAsset(blob, name, handAnchor);
@@ -191,6 +217,28 @@ export function CharacterSelect({
           ))}
         </div>
 
+          <div className="mt-3 text-center">
+            {!refOpen ? (
+              <button type="button" onClick={() => setRefOpen(true)} className="text-xs font-bold text-[#7a4a22] underline">
+                🎁 Un ami t'a invité ? Entre son code de parrain
+              </button>
+            ) : (
+              <div className="mx-auto flex max-w-xs items-center gap-2">
+                <input
+                  value={refCode}
+                  maxLength={12}
+                  disabled={refOk}
+                  onChange={(e) => { setRefCode(e.target.value.toUpperCase()); setRefMsg(null); }}
+                  placeholder="CODE DE PARRAIN"
+                  className="min-w-0 flex-1 rounded border-2 border-[#7a4a22]/70 bg-white/60 px-2 py-1 text-center text-sm font-bold tracking-widest outline-none"
+                />
+                <button type="button" disabled={refOk || !refCode.trim()} onClick={() => void submitRefCode()} className="rounded-lg bg-[#7a4a22] px-3 py-1 text-xs font-bold text-[#fff3d6] disabled:opacity-40">
+                  Valider
+                </button>
+              </div>
+            )}
+            {refMsg && <p className="mt-1 text-xs font-bold text-[#92400e]">{refMsg}</p>}
+          </div>
           {formMessage && <p className="mt-2 text-center text-sm font-bold text-[#92400e]">{formMessage}</p>}
         </div>
       </div>
