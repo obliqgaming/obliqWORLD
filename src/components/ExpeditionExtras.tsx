@@ -49,7 +49,7 @@ export function OutcomePanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [outcome.stepIndex]);
   return (
-    <div className="absolute left-1/2 top-[14%] z-40 w-[min(30rem,92%)] -translate-x-1/2 rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6]/97 p-4 text-[#3a2410] shadow-xl" style={PANEL_FONT}>
+    <div className="absolute left-1/2 top-[22%] z-40 w-[min(30rem,94%)] -translate-x-1/2 rounded-xl md:left-[71%] md:top-[40%] md:w-[min(30rem,46%)] border-2 border-[#7a4a22] bg-[#f1dfb6]/97 p-4 text-[#3a2410] shadow-xl" style={PANEL_FONT}>
       <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-[#7a4a22]">
         {nar ? (nar.success ? "Réussite !" : "Échec…") : "Résultat du vote"}
       </div>

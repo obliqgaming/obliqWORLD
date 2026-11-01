@@ -645,6 +645,7 @@ export function ExpeditionBattle({
             }}
           >
             <div className="absolute -top-16 left-1/2 w-44 -translate-x-1/2 text-center text-[11px] font-bold text-[#fff3d6]" style={{ textShadow: "0 1px 3px #000" }}>
+              {selected && !dead && active ? <div className="-mb-0.5 text-sm leading-none text-[#fbbf24]" style={{ textShadow: "0 1px 3px #000" }}>▼ cible</div> : null}
               <div className="whitespace-nowrap leading-tight">
                 {ROLE_LABEL[en.role] ? <span className="mr-1 text-[9px] uppercase tracking-widest text-[#fbbf24]">{ROLE_LABEL[en.role]} ·</span> : null}
                 {en.visual_asset_id && entry?.name ? entry.name : en.name}

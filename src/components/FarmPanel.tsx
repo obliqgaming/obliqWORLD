@@ -1,10 +1,12 @@
 // La ferme : tes compagnons (créatures gagnées en butin). Un seul t'accompagne en expédition ;
 // il prend la moitié des dégâts que tu reçois. À 0 PV il s'enfuit et se repose quelques expéditions.
 import { uiSound } from "../lib/ui-sounds";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FarmDraw, FarmShop } from "./FarmDraw";
 import { RARITY_INFO } from "../lib/weapons";
-import { TIER_INFO, claimStarterCompanion, fetchMyCompanions, fetchStarterChoices, releaseCompanion, setActiveCompanion, type Companion, type StarterCompanion } from "../lib/companions";
+import { Coin } from "./GameIcons";
+import { shopCollect } from "../lib/shop";
+import { TIER_INFO, claimStarterCompanion, fetchCompanionRules, fetchCompanionShop, fetchMyCompanions, fetchStarterChoices, releaseCompanion, setActiveCompanion, type Companion, type StarterCompanion } from "../lib/companions";
 
 const BTN = "rounded-lg border-2 border-[#7a4a22] bg-[#7a4a22] px-3 py-1 text-xs font-bold text-[#fff3d6] hover:bg-[#5e3818] disabled:opacity-50";
 
@@ -15,6 +17,19 @@ export function FarmPanel({ onClose }: { onClose: () => void }) {
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [tab, setTab] = useState<"mine" | "draw" | "buy">("mine");
   const [starters, setStarters] = useState<StarterCompanion[]>([]);
+  // Or des ventes de MES compagnons, à récupérer depuis n'importe quel onglet.
+  const [pending, setPending] = useState(0);
+  const [authorPct, setAuthorPct] = useState<number | null>(null);
+  const reloadPending = async () => {
+    try {
+      const l = await fetchCompanionShop();
+      setPending(l.filter((x) => x.mine).reduce((t, x) => t + x.author_gold_pending, 0));
+    } catch { /* ignoré */ }
+  };
+  useEffect(() => {
+    void reloadPending();
+    void fetchCompanionRules().then((r) => setAuthorPct(r?.authorPct ?? null)).catch(() => {});
+  }, []);
 
   const reload = async () => {
     try {
@@ -29,7 +44,10 @@ export function FarmPanel({ onClose }: { onClose: () => void }) {
     void reload();
   }, []);
 
+  const lock = useRef(false);
   async function act(fn: () => Promise<void>) {
+    if (lock.current) return;   // anti double-clic
+    lock.current = true;
     setBusy(true);
     setMsg(null);
     try {
@@ -41,6 +59,7 @@ export function FarmPanel({ onClose }: { onClose: () => void }) {
       uiSound("error");
       setMsg(e?.message ?? "Erreur");
     } finally {
+      lock.current = false;
       setBusy(false);
       setConfirmId(null);
     }
@@ -58,6 +77,13 @@ export function FarmPanel({ onClose }: { onClose: () => void }) {
           <div>💤 À 0 PV, il s'enfuit <i>(il n'est jamais perdu)</i> et se repose : <b>3</b> expéditions (petit), <b>6</b> (moyen) ou <b>9</b> (grand).</div>
           <div>🎁 Les compagnons se gagnent <b>en butin</b> sur les créatures de la forêt, <i>très rarement</i>, ou s'<b>achètent</b> / se <b>dessinent</b> ici.</div>
         </div>
+        {authorPct !== null && <div className="mt-1.5 text-sm leading-snug">✍ Les compagnons que tu dessines sont vendus ici : tu touches <b>{authorPct} %</b> de chaque vente.</div>}
+        {pending > 0 && (
+          <div className="mt-2 flex items-center gap-2 rounded border border-[#7a4a22] bg-[#fde7c8] p-2 text-sm font-bold">
+            📬 Tes ventes t'ont rapporté {pending} <Coin />
+            <button type="button" disabled={busy} className={BTN} onClick={() => void act(async () => { await shopCollect(); await reloadPending(); })}>Récupérer</button>
+          </div>
+        )}
         <div className="mt-3 flex gap-2">
           <button type="button" onClick={() => setTab("mine")} className={`rounded px-3 py-1 text-sm font-bold ${tab === "mine" ? "bg-[#7a4a22] text-[#fff3d6]" : "border border-[#7a4a22]"}`}>🐾 Mes compagnons</button>
           <button type="button" onClick={() => setTab("draw")} className={`rounded px-3 py-1 text-sm font-bold ${tab === "draw" ? "bg-[#7a4a22] text-[#fff3d6]" : "border border-[#7a4a22]"}`}>🎨 Dessiner</button>

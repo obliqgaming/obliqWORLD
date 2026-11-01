@@ -1270,17 +1270,20 @@ function Index() {
   // Si deux étapes de même type s'enchaînent, le choix ne change pas : la musique continue sans redémarrer.
   useEffect(() => {
     if (!inExpeditionScene) return;
+    // Pendant l'affichage du résultat de l'étape précédente, l'étape suivante est déjà connue du
+    // serveur : on ne change PAS la musique avant le « OK » de tout le monde.
+    if (outcomeInfo && stepMusicRef.current !== null) return;
     const ev = eventForStep(activeExpedition?.route, activeExpedition?.current_step_index ?? 0);
     const isBoss = ev.id === "boss-final" || ev.id === "mini-boss";
-    const inCombat = !!activeCombatId || ev.kind === "combat";
-    const danger = (runStep as any)?.step_type === "danger_imminent" || (runStep as any)?.step_type === "epreuve";
+    const inCombat = !outcomeInfo && (!!activeCombatId || ev.kind === "combat");
+    const danger = !outcomeInfo && ((runStep as any)?.step_type === "danger_imminent" || (runStep as any)?.step_type === "epreuve");
     const kind = !activeExpedition ? null : inCombat ? (isBoss ? "boss" : "combat") : danger ? "danger" : "narrative";
     const spec = (kind ? (scene as any)[`music_${kind}`] : "") || scene.music_url;
     if (spec === stepMusicRef.current) return;
     stepMusicRef.current = spec;
     playMusic(spec, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inExpeditionScene, scene.id, activeExpedition?.id, activeExpedition?.current_step_index, activeCombatId, (runStep as any)?.step_type, scene.music_url, (scene as any).music_narrative, (scene as any).music_combat, (scene as any).music_danger, (scene as any).music_boss]);
+  }, [inExpeditionScene, scene.id, activeExpedition?.id, activeExpedition?.current_step_index, activeCombatId, !!outcomeInfo, (runStep as any)?.step_type, scene.music_url, (scene as any).music_narrative, (scene as any).music_combat, (scene as any).music_danger, (scene as any).music_boss]);
 
   // Lancement détecté (statut 'active') : on mémorise l'expédition.
   useEffect(() => {
@@ -1622,24 +1625,60 @@ function Index() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeExpedition?.id, activeExpedition?.current_step_index, activeExpedition?.status, inExpeditionScene, character?.id]);
 
-  // Le résultat reste affiché jusqu'au « OK » (ou 120 s) ; ensuite le personnage traverse l'écran vers la droite, puis l'étape suivante apparaît.
-  const [leavingIds, setLeavingIds] = useState<string[]>([]);
+  // Le résultat reste affiché jusqu'au « OK ». Chacun fait « OK » à son rythme : son personnage traverse
+  // l'écran vers la droite, et les autres joueurs le VOIENT traverser (message en direct, sans base de
+  // données). Le décor, la musique et l'étape suivante ne changent qu'une fois que tout le monde est passé.
+  const [acks, setAcks] = useState<Record<number, string[]>>({});
+  const ackChannelRef = useRef<PresenceChannel | null>(null);
+  const addAck = (idx: number, cid: string) =>
+    setAcks((prev) => ((prev[idx] ?? []).includes(cid) ? prev : { ...prev, [idx]: [...(prev[idx] ?? []), cid] }));
+  useEffect(() => {
+    if (!inExpeditionScene || !activeExpedition || activeExpedition.status !== "active") return;
+    const ch = scenesClient
+      .channel(`expedition-ack:${activeExpedition.id}`)
+      .on("broadcast", { event: "ack" }, ({ payload }) => {
+        if (payload && typeof payload.idx === "number" && typeof payload.cid === "string") addAck(payload.idx, payload.cid);
+      })
+      .subscribe();
+    ackChannelRef.current = ch;
+    return () => {
+      ackChannelRef.current = null;
+      leaveScenePresence(ch);
+    };
+  }, [activeExpedition?.id, activeExpedition?.status, inExpeditionScene]);
+  const outIdx = outcomeInfo ? outcomeInfo.stepIndex : null;
+  const leavingIds = outIdx !== null ? (acks[outIdx] ?? []) : [];
+  const iAcked = !!character && leavingIds.includes(character.id);
+  // Joueurs attendus : ceux qui sont encore en vie et dans l'expédition (moi inclus).
+  const requiredIds = combatAllies
+    .filter((a) => a.isSelf || ((statOf(a.characterId)?.pv_current ?? 1) > 0 && !statOf(a.characterId)?.left_expedition_at))
+    .map((a) => a.characterId);
+  const allAcked = outIdx !== null && requiredIds.length > 0 && requiredIds.every((id) => leavingIds.includes(id));
   const closeOutcome = () => {
-    if (!outcomeInfo) return;
-    if (!character || leavingIds.length > 0) return;
-    setLeavingIds([character.id]);
-    window.setTimeout(() => {
-      setOutcomeInfo(null);
-      setLeavingIds([]);
-    }, 1700);
+    if (!outcomeInfo || !character || iAcked) return;
+    addAck(outcomeInfo.stepIndex, character.id);
+    void ackChannelRef.current?.send({ type: "broadcast", event: "ack", payload: { idx: outcomeInfo.stepIndex, cid: character.id } });
   };
   const closeOutcomeRef = useRef(closeOutcome);
   closeOutcomeRef.current = closeOutcome;
+  // Tout le monde est passé : on laisse finir la traversée (1,7 s) puis on change d'étape.
+  useEffect(() => {
+    if (!allAcked) return;
+    const t = window.setTimeout(() => setOutcomeInfo(null), 1700);
+    return () => window.clearTimeout(t);
+  }, [allAcked, outIdx]);
+  // Sécurités : un joueur absent ne bloque pas le groupe. 120 s sans « OK » → OK automatique ;
+  // 45 s après MON « OK », on passe à la suite même si quelqu'un n'a pas répondu.
   useEffect(() => {
     if (!outcomeInfo) return;
     const t = window.setTimeout(() => closeOutcomeRef.current(), 120000);
     return () => window.clearTimeout(t);
   }, [outcomeInfo]);
+  useEffect(() => {
+    if (!iAcked || allAcked) return;
+    const t = window.setTimeout(() => setOutcomeInfo(null), 45000);
+    return () => window.clearTimeout(t);
+  }, [iAcked, allAcked, outIdx]);
   const bgMirrored = (outcomeInfo ? stepIndex - 1 : stepIndex) % 2 === 1;
 
   // Fin d'un combat gagné : on relit l'expédition et l'étape (le serveur a pu
@@ -2504,12 +2543,12 @@ function Index() {
           />
         )}
 
-        {inExpeditionScene && character && (!activeCombatId || !!outcomeInfo) && expeditionPhase === "event" && (
+        {inExpeditionScene && character && (!!outcomeInfo || (!activeCombatId && expeditionPhase === "event")) && (
           <ExpeditionCombatView
             sceneImageUrl={scene.image_url}
             mirrorBg={bgMirrored}
             walkOutIds={leavingIds}
-            eventNumber={stepIndex + 1}
+            eventNumber={(outcomeInfo ? stepIndex - 1 : stepIndex) + 1}
             phase="event"
             event={demoEvent}
             myVote={myVote}
@@ -2549,7 +2588,7 @@ function Index() {
           />
         )}
 
-        {inExpeditionScene && character && !activeCombatId && expeditionPhase === "combat" && (
+        {inExpeditionScene && character && !activeCombatId && !outcomeInfo && expeditionPhase === "combat" && (
           <div
             className="absolute left-1/2 top-1/2 z-30 -translate-x-1/2 -translate-y-1/2 rounded-lg border-2 border-[#7a4a22]/70 bg-[#2b1406]/95 px-5 py-3 text-center text-sm font-bold text-[#fff3d6]"
             style={{ fontFamily: "'Baloo 2', cursive" }}
@@ -2558,7 +2597,12 @@ function Index() {
           </div>
         )}
 
-        {inExpeditionScene && outcomeInfo && (
+        {inExpeditionScene && outcomeInfo && iAcked && !allAcked && (
+          <div className="absolute left-1/2 top-[40%] z-40 -translate-x-1/2 rounded-full bg-black/65 px-4 py-1 text-xs font-bold text-[#fff3d6] md:left-[71%]" style={{ fontFamily: "'Baloo 2', cursive" }}>
+            En attente des autres joueurs ({leavingIds.filter((id) => requiredIds.includes(id)).length}/{requiredIds.length})…
+          </div>
+        )}
+        {inExpeditionScene && outcomeInfo && !iAcked && (
           <OutcomePanel
             outcome={outcomeInfo}
             myPvMax={character ? (runStats.find((r) => r.character_id === character.id)?.pv_max ?? null) : null}

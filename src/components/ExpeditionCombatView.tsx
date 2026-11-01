@@ -277,7 +277,7 @@ export function ExpeditionCombatView({
       {phase === "event" && !hideEvent && (
         <>
           {/* Situation : à droite, là où apparaît l'adversaire en combat */}
-          <div className="absolute right-[7%] top-[24%] z-30 w-[min(26rem,38%)] rounded-lg border-2 border-[#7a4a22]/70 bg-[#f1dfb6]/95 px-5 py-4 text-sm leading-snug text-[#3a2410] shadow-lg">
+          <div className="absolute left-[71%] top-[40%] z-30 w-[min(26rem,38%)] -translate-x-1/2 rounded-lg border-2 border-[#7a4a22]/70 bg-[#f1dfb6]/95 px-5 py-4 text-sm leading-snug text-[#3a2410] shadow-lg">
             <div className="mb-1 flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-[#7a4a22]">
               <span>{event.typeLabel}</span>
             </div>

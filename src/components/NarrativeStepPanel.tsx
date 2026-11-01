@@ -60,7 +60,7 @@ export function NarrativeStepPanel({
   const voteForPick = `p:${pick}`;
   return (
     // À droite, là où se tiennent les ennemis en combat : le bloc remplit le « vide » en face du groupe.
-    <div className="absolute right-[3%] top-[22%] z-30 w-[min(30rem,94%)] rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6]/97 p-4 text-[#3a2410] shadow-xl md:w-[min(30rem,46%)]" style={FONT}>
+    <div className="absolute left-1/2 top-[22%] z-30 w-[min(30rem,94%)] -translate-x-1/2 rounded-xl md:left-[71%] md:top-[40%] border-2 border-[#7a4a22] bg-[#f1dfb6]/97 p-4 text-[#3a2410] shadow-xl md:w-[min(30rem,46%)]" style={FONT}>
       <div className="text-center text-[11px] font-bold uppercase tracking-widest text-[#7a4a22]">{TYPE_LABEL[t]}</div>
       <div className="mt-1 flex justify-center">
         <span
