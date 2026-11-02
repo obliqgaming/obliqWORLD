@@ -186,6 +186,8 @@ const autoNameColor = (id: string) => {
   return NAME_COLORS[h % NAME_COLORS.length]!;
 };
 const CHAT_COLOR_KEY = "obliqworld-chat-color";
+// Profondeur : plus un personnage est bas à l'écran, plus il est « proche » donc devant (de 20 à 29, sous les fenêtres).
+const depthZ = (y: number) => 20 + Math.max(0, Math.min(9, Math.floor(y / 10)));
 const GROUP_CHAT_COLOR = "#7dd3fc"; // canal /g (groupe) ; le canal /d (dire) garde la couleur habituelle
 const mergeChat = (a: ChatMessage[], b: ChatMessage[]): ChatMessage[] => {
   const out = [...a];
@@ -2543,7 +2545,7 @@ function Index() {
             style={{
               left: `${pos.x}%`,
               top: `${pos.y}%`,
-              zIndex: bubbles[character.id] ? 35 : 20,   // un personnage qui parle passe devant les autres : sa bulle reste visible
+              zIndex: bubbles[character.id] ? 35 : depthZ(pos.y),   // le plus bas à l'écran est devant ; un personnage qui parle passe devant pour que sa bulle reste visible
               // Largeur en fraction de la largeur RÉELLE de la scène affichée
               // (pas en pixels fixes) pour que le personnage suive les
               // changements de taille de la fenêtre en mode fenêtré.
@@ -2598,7 +2600,7 @@ function Index() {
               style={{
                 left: `${peer.position.x}%`,
                 top: `${peer.position.y}%`,
-                zIndex: bubbles[peer.characterId] ? 35 : 20,
+                zIndex: bubbles[peer.characterId] ? 35 : depthZ(peer.position.y),
                 width: sceneBoxSize.width * CHARACTER_WIDTH_RATIO,
                 transformOrigin: "50% 100%",
                 transform: `translate(-50%, -100%) scale(${computeDepthScale(peer.position.y, scene.depth_scale)})`,
