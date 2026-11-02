@@ -849,15 +849,21 @@ export async function fetchMyCharacter(): Promise<Character | null> {
   return flattenCharacter(row);
 }
 
+export type DeathSummary = { level: number | null; className: string | null; days: number | null };
 // Mort définitive : le personnage est-il tombé ? (SQL 007/010 : character_build.is_alive)
-export async function fetchMyDeath(characterId: string): Promise<{ dead: boolean; cause: string | null; inExpedition: boolean }> {
+export async function fetchMyDeath(characterId: string): Promise<{ dead: boolean; cause: string | null; inExpedition: boolean; summary: DeathSummary }> {
   const { data, error } = await scenesClient
     .from("character_build")
-    .select("is_alive, death_cause")
+    .select("is_alive, death_cause, level, class_name, axis_key, created_at")
     .eq("character_id", characterId)
     .maybeSingle();
   if (error) throw error;
-  const row = data as { is_alive: boolean | null; death_cause: string | null } | null;
+  const row = data as { is_alive: boolean | null; death_cause: string | null; level?: number | null; class_name?: string | null; axis_key?: string | null; created_at?: string | null } | null;
+  const summary: DeathSummary = {
+    level: row?.level ?? null,
+    className: row?.class_name ?? row?.axis_key ?? null,
+    days: row?.created_at ? Math.max(0, Math.floor((Date.now() - new Date(row.created_at).getTime()) / 86400000)) : null,
+  };
   const dead = row?.is_alive === false;
   let inExpedition = false;
   if (dead) {
@@ -868,7 +874,7 @@ export async function fetchMyDeath(characterId: string): Promise<{ dead: boolean
       .eq("character_id", characterId);   // (067) le moteur renseigne « left_expedition_at » dès la chute : on ne filtre plus dessus
     inExpedition = ((parts ?? []) as any[]).some((p) => p.expeditions?.status === "active");
   }
-  return { dead, cause: row?.death_cause ?? null, inExpedition };
+  return { dead, cause: row?.death_cause ?? null, inExpedition, summary };
 }
 
 // Archive les personnages morts du compte (jamais supprimés) pour pouvoir en dessiner un nouveau.

@@ -19,6 +19,7 @@ import {
   fetchMyActiveParty,
   fetchMyCharacter,
   fetchMyDeath,
+  type DeathSummary,
   archiveDeadCharacter,
   fetchOpenExpeditionForParty,
   fetchActiveExpeditionForParty,
@@ -275,7 +276,7 @@ function Index() {
   const [helpOpen, setHelpOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [welcomeOpen, setWelcomeOpen] = useState(false);
-  const [deadInfo, setDeadInfo] = useState<{ name: string; cause: string | null } | null>(null);
+  const [deadInfo, setDeadInfo] = useState<{ name: string; cause: string | null; summary?: DeathSummary } | null>(null);
   const [deadBusy, setDeadBusy] = useState(false);
   const [deadError, setDeadError] = useState<string | null>(null);
   // Journal visible à l'écran (dernières lignes), pour diagnostiquer sans
@@ -767,7 +768,7 @@ function Index() {
             .then((d) => {
               if (cancelled) return;
               if (d.dead && !d.inExpedition) {
-                setDeadInfo({ name: c.name, cause: d.cause });
+                setDeadInfo({ name: c.name, cause: d.cause, summary: d.summary });
                 return;
               }
               setCharacter(c);
@@ -823,7 +824,7 @@ function Index() {
     if (!character) return;
     try {
       const d = await fetchMyDeath(character.id);
-      if (d.dead && !d.inExpedition) setDeadInfo({ name: character.name, cause: d.cause });
+      if (d.dead && !d.inExpedition) setDeadInfo({ name: character.name, cause: d.cause, summary: d.summary });
     } catch (e) {
       console.error("Death check failed", e);
     }
@@ -2323,7 +2324,7 @@ function Index() {
   }
 
   if (deadInfo) {
-    return <DeadScreen name={deadInfo.name} cause={deadInfo.cause} busy={deadBusy} error={deadError} onNewCharacter={() => void handleNewCharacterAfterDeath()} />;
+    return <DeadScreen name={deadInfo.name} cause={deadInfo.cause} summary={deadInfo.summary} busy={deadBusy} error={deadError} onNewCharacter={() => void handleNewCharacterAfterDeath()} />;
   }
 
   if (loginRequired) {
@@ -2689,7 +2690,7 @@ function Index() {
                 if (!window.confirm("Relâcher ton esprit ? Ton personnage rejoint la forêt pour de bon, tu en dessineras un nouveau.")) return;
                 setDeadBusy(true);
                 archiveDeadCharacter()
-                  .then(() => setDeadInfo({ name: character.name, cause: "Tombé au combat" }))
+                  .then(() => fetchMyDeath(character.id).then((d) => setDeadInfo({ name: character.name, cause: d.cause ?? "Tombé au combat", summary: d.summary })).catch(() => setDeadInfo({ name: character.name, cause: "Tombé au combat" })))
                   .catch((e) => setDeadError(e?.message ?? "Erreur"))
                   .finally(() => setDeadBusy(false));
               }}
