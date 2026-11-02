@@ -2681,13 +2681,13 @@ function Index() {
             <div className="text-sm font-extrabold">🕯️ Tu es tombé·e</div>
             <p className="mt-1 text-xs leading-snug">
               Tes alliés peuvent peut-être te ressusciter au feu de camp avec une <b>larme de vie</b> — c'est très rare.
-              Sinon, ton esprit sera relâché à la fin de l'expédition : ton personnage rejoindra la forêt, où l'on pourra le croiser et même le capturer.
+              Sinon, ton esprit sera relâché à la fin de l'expédition, ou dès que tu le décides.
             </p>
             <button
               type="button"
               disabled={deadBusy}
               onClick={() => {
-                if (!window.confirm("Relâcher ton esprit ? Ton personnage rejoint la forêt pour de bon, tu en dessineras un nouveau.")) return;
+                if (!window.confirm("Relâcher ton esprit ? Ton personnage rejoint la forêt pour de bon et tu perds tes biens (armes, or, objets, compagnons ; pas les prototypes). Tu en dessineras un nouveau.")) return;
                 setDeadBusy(true);
                 archiveDeadCharacter()
                   .then(() => fetchMyDeath(character.id).then((d) => setDeadInfo({ name: character.name, cause: d.cause ?? "Tombé au combat", summary: d.summary })).catch(() => setDeadInfo({ name: character.name, cause: "Tombé au combat" })))
