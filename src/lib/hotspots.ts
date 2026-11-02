@@ -11,7 +11,6 @@ export const HOTSPOT_KINDS: { kind: HotspotKind; label: string; icon: string; hi
   { kind: "merchant", label: "Marchand", icon: "🛍", hint: "Acheter des potions, revendre des objets" },
   { kind: "farm", label: "Ferme", icon: "🐾", hint: "Tes compagnons" },
   { kind: "quests", label: "Quêtes (quotidienne)", icon: "/icons/quest-permit.svg", hint: "Accepter la quête du jour" },
-  { kind: "board", label: "Tableau « cherche un groupe »", icon: "📋", hint: "Annonces pour former un groupe" },
   { kind: "step_editor", label: "Éditeur d'étapes", icon: "📜", hint: "Écrire des étapes d'expédition" },
 ];
 

@@ -176,6 +176,14 @@ const CHARACTER_WIDTH_RATIO = 120 / 1333;
 const CHAT_BUBBLE_MS = 4500;
 const CHAT_LOG_SIZE = 30;
 const chatCache = new Map<string, ChatMessage[]>(); // log du tchat par scène (survit aux allers-retours entre scènes)
+const NAME_COLORS = ["#fca5a5", "#fdba74", "#fde047", "#bef264", "#86efac", "#5eead4", "#7dd3fc", "#a5b4fc", "#d8b4fe", "#f0abfc", "#fda4af", "#fff3d6"];
+// Couleur automatique d'un pseudo (si le joueur n'en a pas choisi) : toujours la même pour un même personnage.
+const autoNameColor = (id: string) => {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return NAME_COLORS[h % NAME_COLORS.length]!;
+};
+const CHAT_COLOR_KEY = "obliqworld-chat-color";
 const GROUP_CHAT_COLOR = "#7dd3fc"; // canal /g (groupe) ; le canal /d (dire) garde la couleur habituelle
 const mergeChat = (a: ChatMessage[], b: ChatMessage[]): ChatMessage[] => {
   const out = [...a];
@@ -433,6 +441,15 @@ function Index() {
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [chatInput, setChatInput] = useState("");
   const [chatChannel, setChatChannel] = useState<"say" | "group">("say");
+  const [chatColor, setChatColor] = useState<string | null>(() => {
+    try { return localStorage.getItem(CHAT_COLOR_KEY); } catch { return null; }
+  });
+  const [colorOpen, setColorOpen] = useState(false);
+  const pickChatColor = (c: string | null) => {
+    setChatColor(c);
+    setColorOpen(false);
+    try { if (c) localStorage.setItem(CHAT_COLOR_KEY, c); else localStorage.removeItem(CHAT_COLOR_KEY); } catch { /* ignoré */ }
+  };
   const groupChatRef = useRef<PresenceChannel | null>(null);
   const [bubbles, setBubbles] = useState<Record<string, { text: string; expiresAt: number }>>({});
   const bubbleTimers = useRef<Record<string, number>>({});
@@ -2389,16 +2406,16 @@ function Index() {
       if (!body) { setChatInput(""); return; }
     }
     if (channel === "group" && !party) channel = "say";
-    const msg: ChatMessage = { characterId: character.id, name: character.name, text: body, ts: Date.now(), channel };
+    const msg: ChatMessage = { characterId: character.id, name: character.name, text: body, ts: Date.now(), channel, ...(chatColor ? { color: chatColor } : {}) };
     setChatLog((log) => [...log.slice(-(CHAT_LOG_SIZE - 1)), msg]);
     if (channel === "group") {
       if (!groupChatRef.current || !sendGroupChat(groupChatRef.current, msg)) logPresence("message de groupe NON envoyé (canal pas encore ouvert)");
-      void saveChatMessage(character.id, "group", null, party!.id, body).catch(() => {});
+      void saveChatMessage(character.id, "group", null, party!.id, body, chatColor).catch(() => {});
     } else {
       showBubble(character.id, body);
       const sent = broadcastChatMessage(channelRef.current, msg);
       if (!sent) logPresence(`message NON envoyé (canal pas encore ouvert, state=${channelRef.current.state})`);
-      void saveChatMessage(character.id, "say", scene.id, null, body).catch(() => {});
+      void saveChatMessage(character.id, "say", scene.id, null, body, chatColor).catch(() => {});
     }
     setChatInput("");
     bumpChatActivity();
@@ -2639,7 +2656,7 @@ function Index() {
           <Pasture zone={scene.pasture_zone!} depthScale={scene.depth_scale} boxWidth={sceneBoxSize.width} />
         )}
 
-        {character && !inExpeditionScene && hotspots.filter((h) => !claimedGold.has(h.id)).map((h) => (
+        {character && !inExpeditionScene && hotspots.filter((h) => h.kind !== "board" && !claimedGold.has(h.id)).map((h) => (
           <HotspotMarker key={h.id} hotspot={h} onClick={() => walkThen(h.position, () => (h.kind.startsWith("gold") ? collectGold(h) : setOpenHotspot(h)))} />
         ))}
         {goldFloats.map((g) => (
@@ -2842,7 +2859,8 @@ function Index() {
         />
         {/* Barre d'icônes du bas : toutes de la même taille, alignées et centrées. */}
         {character && !activeCombatId && (() => {
-          const box = inExpeditionScene ? "1.9rem" : "3.8rem";
+          const boxPx = inExpeditionScene ? 30 : Math.round(Math.min(60, Math.max(34, sceneBoxSize.width * 0.05)));   // suit la taille de la scène
+          const box = `${boxPx}px`;
           const items: { key: string; title: string; src: string; onClick: () => void }[] = [
             ...(!inExpeditionScene ? [{ key: "sheet", title: "Ma fiche de personnage", src: "/icons/sheet.png", onClick: () => setInspectId(character.id) }] : []),
             { key: "bag", title: "Inventaire", src: "/icons/bag.svg", onClick: () => setInventoryOpen(true) },
@@ -2953,7 +2971,7 @@ function Index() {
           Devient ~90% transparent après 15s sans nouveau message, et repasse
           net dès qu'on le survole (le survol relance aussi les 15s au moment
           où la souris ressort). */}
-      <div className="pointer-events-none absolute bottom-3 left-3 z-40 w-[min(560px,88vw)]">
+      <div className={`pointer-events-none absolute bottom-3 left-3 ${trade || boardOpen ? "z-[60]" : "z-40"}`} style={{ width: Math.max(150, Math.min(560, viewport.w / 2 - ((inExpeditionScene ? 1 : 4) * (inExpeditionScene ? 30 : Math.round(Math.min(60, Math.max(34, sceneBoxSize.width * 0.05)))) + 32) / 2 - 24)) }}>
         <div
           className="flex flex-col justify-end gap-1 px-2 py-1 transition-opacity duration-300"
           style={{
@@ -2979,7 +2997,7 @@ function Index() {
             {chatLog.map((m, i) => (
               <p key={i} style={m.channel === "group" ? { color: GROUP_CHAT_COLOR } : m.characterId === "system" ? { opacity: 0.75, fontStyle: "italic" } : undefined}>
                 {m.channel === "group" && <span className="mr-1 text-[11px] font-extrabold uppercase">[Groupe]</span>}
-                {m.characterId === "system" ? m.text : <><span className="font-bold">{m.name} :</span> {m.text}</>}
+                {m.characterId === "system" ? m.text : <><span className="font-bold" style={{ color: m.color ?? autoNameColor(m.characterId) }}>{m.name} :</span> {m.text}</>}
               </p>
             ))}
           </div>
@@ -3015,10 +3033,29 @@ function Index() {
                 textShadow: "0 1px 4px rgba(0, 0, 0, 0.7)",
               }}
             />
+            {colorOpen && (
+              <div className="absolute bottom-full right-0 mb-1 w-52 rounded-lg bg-black/80 p-2">
+                <div className="mb-1 text-[11px] font-bold text-[#fff3d6]">Couleur de ton pseudo</div>
+                <div className="grid grid-cols-6 gap-1.5">
+                  {NAME_COLORS.map((c) => (
+                    <button key={c} type="button" onClick={() => pickChatColor(c)} className="h-6 w-6 rounded-full border-2" style={{ background: c, borderColor: chatColor === c ? "#fff" : "transparent" }} />
+                  ))}
+                </div>
+                <button type="button" onClick={() => pickChatColor(null)} className="mt-1.5 text-[11px] font-bold text-[#fff3d6] underline">Couleur automatique</button>
+              </div>
+            )}
+            <button
+              type="button"
+              title="Couleur de ton pseudo"
+              onClick={() => { setColorOpen((o) => !o); setEmojiOpen(false); }}
+              className="rounded-md bg-black/35 px-2 text-lg hover:bg-black/50"
+            >
+              <span style={{ display: "inline-block", width: "1.1rem", height: "1.1rem", borderRadius: "50%", background: chatColor ?? (character ? autoNameColor(character.id) : "#fff3d6"), border: "2px solid #fff3d6", verticalAlign: "middle" }} />
+            </button>
             <button
               type="button"
               title="Emojis"
-              onClick={() => setEmojiOpen((o) => !o)}
+              onClick={() => { setEmojiOpen((o) => !o); setColorOpen(false); }}
               className="rounded-md bg-black/35 px-2 text-lg hover:bg-black/50"
             >
               😊

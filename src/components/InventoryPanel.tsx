@@ -80,7 +80,10 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
     if (character) void fetchMyBuild(character.id).then((b) => setFamily(b?.family ?? null)).catch(() => {});
   }, [reload, character]);
 
+  const lock = useRef(false);
   async function act(fn: () => Promise<void>) {
+    if (lock.current) return;   // anti double-clic
+    lock.current = true;
     setBusy(true);
     setMsg(null);
     try {
@@ -92,6 +95,7 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
       uiSound("error");
       setMsg(e?.message ?? "Erreur");
     } finally {
+      lock.current = false;
       setBusy(false);
     }
   }
@@ -168,11 +172,15 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
               {stacks.length > 0 && (
                 <div className="mb-2 rounded border border-[#b98a54] bg-[#f6e8c4] p-2 text-sm">
                   <div className="text-xs font-extrabold uppercase">Objets (utilisables en combat)</div>
-                  {stacks.map((st) => (
-                    <div key={st.kind}>
-                      {CONSUMABLE_INFO[st.kind].icon} <b>{CONSUMABLE_INFO[st.kind].name}</b> ×{st.count} — <span className="text-xs">{CONSUMABLE_INFO[st.kind].text}</span>
-                    </div>
-                  ))}
+                  <div className="mt-1 grid grid-cols-[1.6rem_max-content_minmax(0,1fr)] items-start gap-x-2 gap-y-1">
+                    {stacks.map((st) => (
+                      <div key={st.kind} className="contents">
+                        <span className="text-center">{CONSUMABLE_INFO[st.kind].icon}</span>
+                        <span className="whitespace-nowrap"><b>{CONSUMABLE_INFO[st.kind].name}</b> ×{st.count}</span>
+                        <span className="text-xs leading-snug">{CONSUMABLE_INFO[st.kind].text}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
               {items.length === 0 && <div className="text-sm">Aucune arme sur toi. Va voir le forgeron !</div>}
