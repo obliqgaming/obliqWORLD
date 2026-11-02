@@ -1,6 +1,7 @@
 // Marqueur cliquable d'un lieu interactif + fenêtre qui s'ouvre au clic.
 // Pour l'instant les fenêtres sont des maquettes : le contenu arrive pas à pas
 // (forge, éditeur d'étapes).
+import { GroupBoard } from "./GroupBoard";
 import { uiSound } from "../lib/ui-sounds";
 import { Coin, HotspotGlyph } from "./GameIcons";
 import { CURSOR_INTERACT } from "../lib/cursors";
@@ -46,17 +47,22 @@ export function HotspotPanel({
   onClose,
   character,
   onWeaponChanged,
+  onInvite,
 }: {
   hotspot: SceneHotspot;
   onClose: () => void;
   character?: ForgeCharacter | null;
   onWeaponChanged?: () => void;
+  onInvite?: (characterId: string) => void;
 }) {
   if (hotspot.kind === "forge") {
     return <ForgePanel character={character ?? null} onClose={onClose} onWeaponChanged={onWeaponChanged ?? (() => {})} />;
   }
   if (hotspot.kind.startsWith("gold")) {
     return <GoldPanel hotspotId={hotspot.id} onClose={onClose} />;
+  }
+  if (hotspot.kind === "board") {
+    return <GroupBoard character={character ? { id: character.id, name: character.name } : null} onClose={onClose} onInvite={onInvite} />;
   }
   if (hotspot.kind === "quests") {
     return <QuestPanel onClose={onClose} />;

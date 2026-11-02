@@ -87,6 +87,8 @@ import { ensureSessionCleanup, publishDisplayName, markLoggedOut, loggedOutInfo,
 import { PetSprite } from "../components/PetSprite";
 import { fetchMyCompanions, fetchPartyCompanions, type PartyCompanion } from "../lib/companions";
 import { AboutDialog } from "../components/AboutDialog";
+import { GroupBoard } from "../components/GroupBoard";
+import { fetchAdReminders, meetLabel } from "../lib/group-ads";
 import { WelcomeModal } from "../components/WelcomeModal";
 import { ADMIN_USER_ID, REQUIRE_PROVIDER_LOGIN } from "../lib/alpha-config";
 import { ExpeditionPortalMarker } from "../components/ExpeditionPortal";
@@ -285,6 +287,7 @@ function Index() {
   const myGearRef = useRef(0);
   const [helpOpen, setHelpOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [boardOpen, setBoardOpen] = useState(false);
   const [welcomeOpen, setWelcomeOpen] = useState(false);
   const [deadInfo, setDeadInfo] = useState<{ name: string; cause: string | null; summary?: DeathSummary } | null>(null);
   const [deadBusy, setDeadBusy] = useState(false);
@@ -1296,6 +1299,25 @@ function Index() {
     return () => { if (groupChatRef.current === ch) groupChatRef.current = null; leaveScenePresence(ch); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [party?.id, character?.id]);
+
+  // Rappel à la connexion : un rendez-vous de groupe (le mien ou celui où je suis inscrit) approche.
+  useEffect(() => {
+    if (!character?.id) return;
+    let cancelled = false;
+    void fetchAdReminders()
+      .then((rs) => {
+        if (cancelled || rs.length === 0) return;
+        setChatLog((log) => [
+          ...log,
+          ...rs.map((r) => ({
+            characterId: "system", name: "Tchat", ts: Date.now(),
+            text: `📋 Rendez-vous ${meetLabel(r.meet_at)} : « ${r.text} »${r.mine ? " (ton annonce)" : ` (par ${r.author_name})`}`,
+          })),
+        ]);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [character?.id]);
 
   // ---------- Sorties de la scène courante ----------
   useEffect(() => {
@@ -2631,6 +2653,7 @@ function Index() {
             onClose={() => setOpenHotspot(null)}
             character={character ? { id: character.id, name: character.name, imageUrl: character.image_url, visualAssetId: character.visual_asset_id } : null}
             onWeaponChanged={handleMyWeaponChanged}
+            onInvite={(id) => void handleInvitePeer(id)}
           />
         )}
 
@@ -2886,6 +2909,20 @@ function Index() {
           >
             ❤️
           </button>
+        )}
+        {character && !activeCombatId && !inExpeditionScene && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setBoardOpen(true); }}
+            title="Cherche un groupe"
+            className="absolute right-5 top-44 z-30 px-1 text-2xl leading-none transition-transform hover:scale-110"
+            style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.7))", cursor: CURSOR_DEFAULT }}
+          >
+            📋
+          </button>
+        )}
+        {boardOpen && character && !inExpeditionScene && (
+          <GroupBoard character={{ id: character.id, name: character.name }} onClose={() => setBoardOpen(false)} onInvite={(id) => void handleInvitePeer(id)} />
         )}
         {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
         {referralReveal && character && !inExpeditionScene && <ReferralReveal onDone={() => setReferralReveal(false)} />}

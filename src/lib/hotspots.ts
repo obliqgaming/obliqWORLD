@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { ensureUserId, scenesClient, type Point } from "./scenes-supabase";
 
-export type HotspotKind = "forge" | "step_editor" | "merchant" | "farm" | "gold" | "quests";
+export type HotspotKind = "forge" | "step_editor" | "merchant" | "farm" | "gold" | "quests" | "board";
 
 export const HOTSPOT_KINDS: { kind: HotspotKind; label: string; icon: string; hint: string; multi?: boolean; bare?: boolean }[] = [
   { kind: "gold", label: "Tas d'or (quotidien)", icon: "/icons/coin.svg", hint: "Ramasser de l'or une fois par jour", multi: true, bare: true },
@@ -11,6 +11,7 @@ export const HOTSPOT_KINDS: { kind: HotspotKind; label: string; icon: string; hi
   { kind: "merchant", label: "Marchand", icon: "🛍", hint: "Acheter des potions, revendre des objets" },
   { kind: "farm", label: "Ferme", icon: "🐾", hint: "Tes compagnons" },
   { kind: "quests", label: "Quêtes (quotidienne)", icon: "/icons/quest-permit.svg", hint: "Accepter la quête du jour" },
+  { kind: "board", label: "Tableau « cherche un groupe »", icon: "📋", hint: "Annonces pour former un groupe" },
   { kind: "step_editor", label: "Éditeur d'étapes", icon: "📜", hint: "Écrire des étapes d'expédition" },
 ];
 
