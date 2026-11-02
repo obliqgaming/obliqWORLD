@@ -2687,7 +2687,7 @@ function Index() {
               type="button"
               disabled={deadBusy}
               onClick={() => {
-                if (!window.confirm("Relâcher ton esprit ? Ton personnage rejoint la forêt pour de bon et tu perds tes biens (armes, or, objets, compagnons ; pas les prototypes). Tu en dessineras un nouveau.")) return;
+                if (!window.confirm("Relâcher ton esprit ? Ton personnage rejoint la forêt pour de bon et tu perds tout ce qu'il possédait. Tu en dessineras un nouveau.")) return;
                 setDeadBusy(true);
                 archiveDeadCharacter()
                   .then(() => fetchMyDeath(character.id).then((d) => setDeadInfo({ name: character.name, cause: d.cause ?? "Tombé au combat", summary: d.summary })).catch(() => setDeadInfo({ name: character.name, cause: "Tombé au combat" })))
