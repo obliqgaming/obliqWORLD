@@ -2840,48 +2840,34 @@ function Index() {
           className="absolute right-5 top-16 z-30 h-2.5 w-2.5 rounded-full opacity-40 transition-opacity hover:opacity-90"
           style={{ background: presenceDebugOn ? "#9effa0" : "#fff3d6" }}
         />
-        {character && !activeCombatId && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setInventoryOpen(true);
-            }}
-            title="Inventaire"
-            className={`absolute bottom-2 left-1/2 z-30 -translate-x-1/2 px-2 leading-none transition-transform hover:scale-110 ${inExpeditionScene ? "text-3xl" : "text-6xl"}`}
-            style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.7))", fontFamily: "'Baloo 2', cursive", cursor: CURSOR_INTERACT }}
-          >
-            <img src="/icons/bag.svg" alt="Inventaire" draggable={false} style={{ height: inExpeditionScene ? "1.9rem" : "3.8rem", width: "auto" }} />
-          </button>
-        )}
-        {character && !activeCombatId && !inExpeditionScene && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setInspectId(character.id);
-            }}
-            title="Ma fiche de personnage"
-            className="absolute bottom-2 left-1/2 z-30 px-2 leading-none transition-transform hover:scale-110"
-            style={{ marginLeft: "-2.8rem", transform: "translateX(-100%)", filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.7))", cursor: CURSOR_INTERACT }}
-          >
-            <img src="/icons/sheet.svg" alt="Ma fiche" draggable={false} style={{ height: "3.8rem", width: "auto" }} />
-          </button>
-        )}
-        {character && !activeCombatId && !inExpeditionScene && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setTalentsOpen(true);
-            }}
-            title="Talents"
-            className="absolute bottom-2 left-1/2 z-30 px-2 leading-none transition-transform hover:scale-110"
-            style={{ marginLeft: "2.8rem", filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.7))", cursor: CURSOR_INTERACT }}
-          >
-            <img src="/icons/target.png" alt="Talents" draggable={false} style={{ height: "3.8rem", width: "auto" }} />
-          </button>
-        )}
+        {/* Barre d'icônes du bas : toutes de la même taille, alignées et centrées. */}
+        {character && !activeCombatId && (() => {
+          const box = inExpeditionScene ? "1.9rem" : "3.8rem";
+          const items: { key: string; title: string; src: string; onClick: () => void }[] = [
+            ...(!inExpeditionScene ? [{ key: "sheet", title: "Ma fiche de personnage", src: "/icons/sheet.png", onClick: () => setInspectId(character.id) }] : []),
+            { key: "bag", title: "Inventaire", src: "/icons/bag.svg", onClick: () => setInventoryOpen(true) },
+            ...(!inExpeditionScene ? [
+              { key: "talents", title: "Talents", src: "/icons/target.png", onClick: () => setTalentsOpen(true) },
+              { key: "groups", title: "Cherche un groupe", src: "/icons/group.png", onClick: () => setBoardOpen(true) },
+            ] : []),
+          ];
+          return (
+            <div className="absolute bottom-2 left-1/2 z-30 flex -translate-x-1/2 items-end gap-2">
+              {items.map((it) => (
+                <button
+                  key={it.key}
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); it.onClick(); }}
+                  title={it.title}
+                  className="px-1 leading-none transition-transform hover:scale-110"
+                  style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.7))", cursor: CURSOR_INTERACT }}
+                >
+                  <img src={it.src} alt={it.title} draggable={false} style={{ height: box, width: box, objectFit: "contain" }} />
+                </button>
+              ))}
+            </div>
+          );
+        })()}
         {character && !activeCombatId && (
           <button
             type="button"
@@ -2908,17 +2894,6 @@ function Index() {
             style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.7))", cursor: CURSOR_DEFAULT }}
           >
             ❤️
-          </button>
-        )}
-        {character && !activeCombatId && !inExpeditionScene && (
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); setBoardOpen(true); }}
-            title="Cherche un groupe"
-            className="absolute right-5 top-44 z-30 px-1 text-2xl leading-none transition-transform hover:scale-110"
-            style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.7))", cursor: CURSOR_DEFAULT }}
-          >
-            📋
           </button>
         )}
         {boardOpen && character && !inExpeditionScene && (
