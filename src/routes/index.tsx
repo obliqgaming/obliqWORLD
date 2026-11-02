@@ -3,6 +3,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   acceptPartyInvite,
   broadcastChatMessage,
+  fetchChatHistory,
+  joinGroupChat,
+  sendGroupChat,
+  saveChatMessage,
   broadcastMove,
   computeDepthScale,
   connectIdentityProvider,
@@ -170,6 +174,12 @@ const CHARACTER_WIDTH_RATIO = 120 / 1333;
 const CHAT_BUBBLE_MS = 4500;
 const CHAT_LOG_SIZE = 30;
 const chatCache = new Map<string, ChatMessage[]>(); // log du tchat par scène (survit aux allers-retours entre scènes)
+const GROUP_CHAT_COLOR = "#7dd3fc"; // canal /g (groupe) ; le canal /d (dire) garde la couleur habituelle
+const mergeChat = (a: ChatMessage[], b: ChatMessage[]): ChatMessage[] => {
+  const out = [...a];
+  for (const m of b) if (!out.some((o) => o.characterId === m.characterId && o.text === m.text && Math.abs(o.ts - m.ts) < 5000)) out.push(m);
+  return out.sort((x, y) => x.ts - y.ts).slice(-CHAT_LOG_SIZE);
+};
 const CHAT_IDLE_MS = 15000; // délai avant que le tchat devienne quasi transparent
 const CHAT_IDLE_OPACITY = 0.1;
 // ---------- État "absent" ----------
@@ -419,6 +429,8 @@ function Index() {
   const chatInputRef = useRef<HTMLInputElement | null>(null);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [chatInput, setChatInput] = useState("");
+  const [chatChannel, setChatChannel] = useState<"say" | "group">("say");
+  const groupChatRef = useRef<PresenceChannel | null>(null);
   const [bubbles, setBubbles] = useState<Record<string, { text: string; expiresAt: number }>>({});
   const bubbleTimers = useRef<Record<string, number>>({});
   const [chatIdle, setChatIdle] = useState(false);
@@ -1255,6 +1267,35 @@ function Index() {
     setChatLog(restored);
     setChatInput("");
   }, [scene.id]);
+
+  // L'historique vient de la base (50 derniers messages du lieu + ceux du groupe) : on le fusionne à ce qui est déjà affiché.
+  useEffect(() => {
+    if (!character) return;
+    let cancelled = false;
+    const sid = scene.id;
+    void fetchChatHistory(sid, party?.id ?? null, CHAT_LOG_SIZE)
+      .then((h) => { if (!cancelled && chatSceneRef.current === sid) setChatLog((cur) => mergeChat(h, cur)); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scene.id, party?.id, character?.id]);
+
+  // Canal du groupe : suit le groupe partout (même en expédition).
+  useEffect(() => {
+    if (!party?.id) {
+      setChatChannel((c) => (c === "group" ? "say" : c));
+      return;
+    }
+    const myId = character?.id;
+    const ch = joinGroupChat(party.id, (m) => {
+      if (m.characterId === myId) return;
+      setChatLog((log) => [...log.slice(-(CHAT_LOG_SIZE - 1)), m]);
+      bumpChatActivity();
+    });
+    groupChatRef.current = ch;
+    return () => { if (groupChatRef.current === ch) groupChatRef.current = null; leaveScenePresence(ch); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [party?.id, character?.id]);
 
   // ---------- Sorties de la scène courante ----------
   useEffect(() => {
@@ -2309,11 +2350,34 @@ function Index() {
       return;
     }
 
-    const msg: ChatMessage = { characterId: character.id, name: character.name, text, ts: Date.now() };
+    // /g (ou /groupe) et /d (ou /dire) changent de canal ; suivis d'un texte, ils l'envoient aussi.
+    let channel = chatChannel;
+    let body = text;
+    const cmd = /^\/(g|groupe|d|dire)(?:\s+([\s\S]*))?$/i.exec(text);
+    if (cmd) {
+      const wantGroup = cmd[1]!.toLowerCase().startsWith("g");
+      if (wantGroup && !party) {
+        setChatLog((log) => [...log.slice(-(CHAT_LOG_SIZE - 1)), { characterId: "system", name: "Tchat", text: "Tu n'es dans aucun groupe.", ts: Date.now() }]);
+        setChatInput("");
+        return;
+      }
+      channel = wantGroup ? "group" : "say";
+      setChatChannel(channel);
+      body = (cmd[2] ?? "").trim();
+      if (!body) { setChatInput(""); return; }
+    }
+    if (channel === "group" && !party) channel = "say";
+    const msg: ChatMessage = { characterId: character.id, name: character.name, text: body, ts: Date.now(), channel };
     setChatLog((log) => [...log.slice(-(CHAT_LOG_SIZE - 1)), msg]);
-    showBubble(character.id, text);
-    const sent = broadcastChatMessage(channelRef.current, msg);
-    if (!sent) logPresence(`message NON envoyé (canal pas encore ouvert, state=${channelRef.current.state})`);
+    if (channel === "group") {
+      if (!groupChatRef.current || !sendGroupChat(groupChatRef.current, msg)) logPresence("message de groupe NON envoyé (canal pas encore ouvert)");
+      void saveChatMessage(character.id, "group", null, party!.id, body).catch(() => {});
+    } else {
+      showBubble(character.id, body);
+      const sent = broadcastChatMessage(channelRef.current, msg);
+      if (!sent) logPresence(`message NON envoyé (canal pas encore ouvert, state=${channelRef.current.state})`);
+      void saveChatMessage(character.id, "say", scene.id, null, body).catch(() => {});
+    }
     setChatInput("");
     bumpChatActivity();
     markActive();
@@ -2901,8 +2965,9 @@ function Index() {
           >
             {chatLog.length === 0 && <p className="opacity-70">Le t'chat est vide pour l'instant…</p>}
             {chatLog.map((m, i) => (
-              <p key={i}>
-                <span className="font-bold">{m.name} :</span> {m.text}
+              <p key={i} style={m.channel === "group" ? { color: GROUP_CHAT_COLOR } : m.characterId === "system" ? { opacity: 0.75, fontStyle: "italic" } : undefined}>
+                {m.channel === "group" && <span className="mr-1 text-[11px] font-extrabold uppercase">[Groupe]</span>}
+                {m.characterId === "system" ? m.text : <><span className="font-bold">{m.name} :</span> {m.text}</>}
               </p>
             ))}
           </div>
@@ -2930,10 +2995,10 @@ function Index() {
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
               maxLength={200}
-              placeholder="Écrire un message…"
+              placeholder={chatChannel === "group" ? "Message au groupe (/d pour parler à tous)…" : party ? "Écrire un message… (/g pour le groupe)" : "Écrire un message…"}
               className="flex-1 rounded-md bg-black/35 px-2 py-1 text-sm outline-none placeholder:text-[#fff3d6]/50"
               style={{
-                color: "#fff3d6",
+                color: chatChannel === "group" ? GROUP_CHAT_COLOR : "#fff3d6",
                 fontFamily: "'Baloo 2', cursive",
                 textShadow: "0 1px 4px rgba(0, 0, 0, 0.7)",
               }}

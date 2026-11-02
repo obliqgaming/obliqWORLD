@@ -132,6 +132,8 @@ export type ChatMessage = {
   name: string;
   text: string;
   ts: number;
+  /** « say » (/d, par défaut) ou « group » (/g). Absent = « say » (anciens messages). */
+  channel?: "say" | "group";
 };
 
 export type PresenceChannel = RealtimeChannel;
@@ -1096,6 +1098,38 @@ export function leaveScenePresence(channel: PresenceChannel | null) {
 export function broadcastChatMessage(channel: PresenceChannel, msg: ChatMessage): boolean {
   if (!isChannelReady(channel)) return false;
   channel.send({ type: "broadcast", event: "chat", payload: msg });
+  return true;
+}
+
+
+// ---------- Tchat gardé en base (SQL 069) + canal de groupe ----------
+// Le direct passe par Realtime (gratuit) ; la base sert à relire l'historique en arrivant dans un lieu.
+export async function saveChatMessage(characterId: string, channel: "say" | "group", sceneId: string | null, partyId: string | null, text: string): Promise<void> {
+  const { error } = await scenesClient.rpc("chat_send", { p_character_id: characterId, p_channel: channel, p_scene_id: sceneId, p_party_id: partyId, p_text: text });
+  if (error) throw error;
+}
+
+export async function fetchChatHistory(sceneId: string, partyId: string | null, size = 50): Promise<ChatMessage[]> {
+  const out: ChatMessage[] = [];
+  const toMsg = (r: any, channel: "say" | "group"): ChatMessage => ({ characterId: r.character_id, name: r.name, text: r.text, ts: new Date(r.created_at).getTime(), channel });
+  const say = await scenesClient.from("chat_messages").select("character_id, name, text, created_at").eq("channel", "say").eq("scene_id", sceneId).order("created_at", { ascending: false }).limit(size);
+  for (const r of (say.data ?? []) as any[]) out.push(toMsg(r, "say"));
+  if (partyId) {
+    const g = await scenesClient.from("chat_messages").select("character_id, name, text, created_at").eq("channel", "group").eq("party_id", partyId).order("created_at", { ascending: false }).limit(size);
+    for (const r of (g.data ?? []) as any[]) out.push(toMsg(r, "group"));
+  }
+  return out.sort((a, b) => a.ts - b.ts).slice(-size);
+}
+
+/** Canal de diffusion du groupe : suit le groupe partout (même en expédition), indépendant du lieu. */
+export function joinGroupChat(partyId: string, onMessage: (msg: ChatMessage) => void): PresenceChannel {
+  const ch = scenesClient.channel(`party-chat:${partyId}`);
+  ch.on("broadcast", { event: "chat" }, ({ payload }) => onMessage({ ...(payload as ChatMessage), channel: "group" })).subscribe();
+  return ch;
+}
+export function sendGroupChat(channel: PresenceChannel, msg: ChatMessage): boolean {
+  if (!isChannelReady(channel)) return false;
+  channel.send({ type: "broadcast", event: "chat", payload: { ...msg, channel: "group" } });
   return true;
 }
 
