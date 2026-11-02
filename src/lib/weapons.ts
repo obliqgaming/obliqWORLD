@@ -15,8 +15,8 @@ export const WEAPON_TYPES: { key: WeaponType; label: string }[] = [
 
 export type Rarity = "common" | "uncommon" | "rare" | "epic" | "legendary";
 export const RARITY_INFO: Record<Rarity, { label: string; color: string; chance: string }> = {
-  common: { label: "Commune", color: "#f3f4f6", chance: "72 %" },
-  uncommon: { label: "Inhabituelle", color: "#4ade80", chance: "—" },
+  common: { label: "Commune", color: "#4ade80", chance: "72 %" },
+  uncommon: { label: "Inhabituelle", color: "#2dd4bf", chance: "—" },
   rare: { label: "Rare", color: "#60a5fa", chance: "22 %" },
   epic: { label: "Épique", color: "#c084fc", chance: "6 %" },
   legendary: { label: "Légendaire", color: "#f87171", chance: "à venir" },

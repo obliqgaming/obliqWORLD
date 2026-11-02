@@ -881,6 +881,13 @@ export async function fetchMyDeath(characterId: string): Promise<{ dead: boolean
   return { dead, cause: row?.death_cause ?? null, inExpedition, summary };
 }
 
+// Relâcher son esprit (SQL 072) : marque le tombé comme mort s'il est à 0 PV puis l'archive. Renvoie le nombre archivé.
+export async function releaseSpirit(): Promise<number> {
+  const { data, error } = await scenesClient.rpc("character_release_spirit");
+  if (error) throw error;
+  return (data as number | null) ?? 0;
+}
+
 // Archive les personnages morts du compte (jamais supprimés) pour pouvoir en dessiner un nouveau.
 export async function archiveDeadCharacter(): Promise<void> {
   const { error } = await scenesClient.rpc("character_archive_dead");

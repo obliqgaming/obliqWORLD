@@ -25,6 +25,7 @@ import {
   fetchMyDeath,
   type DeathSummary,
   archiveDeadCharacter,
+  releaseSpirit,
   fetchOpenExpeditionForParty,
   fetchActiveExpeditionForParty,
   fetchExpeditionScene,
@@ -88,6 +89,7 @@ import { PetSprite } from "../components/PetSprite";
 import { fetchMyCompanions, fetchPartyCompanions, type PartyCompanion } from "../lib/companions";
 import { AboutDialog } from "../components/AboutDialog";
 import { GroupBoard } from "../components/GroupBoard";
+import { GroupAdBanner } from "../components/GroupAdBanner";
 import { fetchAdReminders, meetLabel } from "../lib/group-ads";
 import { WelcomeModal } from "../components/WelcomeModal";
 import { ADMIN_USER_ID, REQUIRE_PROVIDER_LOGIN } from "../lib/alpha-config";
@@ -176,7 +178,7 @@ const CHARACTER_WIDTH_RATIO = 120 / 1333;
 const CHAT_BUBBLE_MS = 4500;
 const CHAT_LOG_SIZE = 30;
 const chatCache = new Map<string, ChatMessage[]>(); // log du tchat par scène (survit aux allers-retours entre scènes)
-const NAME_COLORS = ["#fca5a5", "#fdba74", "#fde047", "#bef264", "#86efac", "#5eead4", "#7dd3fc", "#a5b4fc", "#d8b4fe", "#f0abfc", "#fda4af", "#fff3d6"];
+const NAME_COLORS = ["#fca5a5", "#fdba74", "#fde047", "#bef264", "#86efac", "#5eead4", "#7dd3fc", "#a5b4fc", "#d8b4fe", "#f0abfc", "#cbd5e1", "#fff3d6"];
 // Couleur automatique d'un pseudo (si le joueur n'en a pas choisi) : toujours la même pour un même personnage.
 const autoNameColor = (id: string) => {
   let h = 0;
@@ -1381,6 +1383,17 @@ function Index() {
   // ---------- Scène « expédition » : téléportation du groupe au lancement ----------
   const inExpeditionScene = isExpeditionSceneName(scene.name);
 
+  // Étape « affichée » : dès que le serveur avance current_step_index, le résultat de l'étape précédente n'est pas
+  // encore chargé (quelques centaines de ms). Pendant ce temps on garde l'ancien index pour le décor (miroir) et la
+  // musique : sinon l'image se retournait et la musique de l'étape suivante démarrait AVANT le « OK » de tout le monde.
+  const [hold, setHold] = useState<{ exp: string; settled: number }>({ exp: "", settled: -1 });
+  const stepIndex = activeExpedition?.current_step_index ?? 0;
+  const holdExp = activeExpedition?.id ?? "";
+  if (hold.exp !== holdExp) setHold({ exp: holdExp, settled: stepIndex });
+  const heldIdx = hold.exp === holdExp ? Math.min(hold.settled, stepIndex) : stepIndex;
+  const settleHold = (i: number) => setHold((h) => (h.settled >= i ? h : { ...h, settled: i }));
+  const asyncDoneRef = useRef<number>(-1);
+
   // Musique par type d'étape (SQL 050) : narratif / combat / danger / boss ; vide = musique de la scène.
   // Si deux étapes de même type s'enchaînent, le choix ne change pas : la musique continue sans redémarrer.
   useEffect(() => {
@@ -1388,6 +1401,7 @@ function Index() {
     // Pendant l'affichage du résultat de l'étape précédente, l'étape suivante est déjà connue du
     // serveur : on ne change PAS la musique avant le « OK » de tout le monde.
     if (outcomeInfo && stepMusicRef.current !== null) return;
+    if (heldIdx < stepIndex) return;   // résultat de l'étape précédente pas encore affiché : on ne touche à rien
     const ev = eventForStep(activeExpedition?.route, activeExpedition?.current_step_index ?? 0, activeExpedition?.id);
     const isBoss = ev.id === "boss-final" || ev.id === "mini-boss";
     const inCombat = !outcomeInfo && (!!activeCombatId || ev.kind === "combat");
@@ -1398,7 +1412,7 @@ function Index() {
     stepMusicRef.current = spec;
     playMusic(spec, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inExpeditionScene, scene.id, activeExpedition?.id, activeExpedition?.current_step_index, activeCombatId, !!outcomeInfo, (runStep as any)?.step_type, scene.music_url, (scene as any).music_narrative, (scene as any).music_combat, (scene as any).music_danger, (scene as any).music_boss]);
+  }, [inExpeditionScene, scene.id, activeExpedition?.id, activeExpedition?.current_step_index, activeCombatId, !!outcomeInfo, heldIdx, (runStep as any)?.step_type, scene.music_url, (scene as any).music_narrative, (scene as any).music_combat, (scene as any).music_danger, (scene as any).music_boss]);
 
   // Lancement détecté (statut 'active') : on mémorise l'expédition.
   useEffect(() => {
@@ -1457,7 +1471,6 @@ function Index() {
     return { step, narrative: null as NarrativeEvent | null };
   };
 
-  const stepIndex = activeExpedition?.current_step_index ?? 0;
   const currentEvent = eventForStep(activeExpedition?.route, stepIndex, activeExpedition?.id);
   const expeditionPhase = currentEvent.kind;
   const participantCount = Math.max(1, party ? partyMembers.filter((m) => m.status === "joined").length : 1);
@@ -1678,6 +1691,7 @@ function Index() {
     const idx = activeExpedition.current_step_index;
     const ev = eventForStep(activeExpedition.route, idx, activeExpedition.id);
     let cancelled = false;
+    let outcomeShown = false;
     (async () => {
       try {
         setCombatError(null);
@@ -1695,6 +1709,7 @@ function Index() {
             const isNarr = !!prev.step_type && prev.step_type !== "legacy" && !!prev.id;
             const nameMap: Record<string, string> = Object.fromEntries(partyMembers.map((m) => [m.character_id, m.name]));
             if (character) nameMap[character.id] = nameMap[character.id] ?? character.name;
+            outcomeShown = true;
             setOutcomeInfo({
               stepIndex: idx - 1,
               narrative: isNarr
@@ -1732,6 +1747,12 @@ function Index() {
       } catch (e) {
         console.error("combat start failed", e);
         if (!cancelled) setCombatError(e instanceof Error ? e.message : String((e as { message?: string })?.message ?? e));
+      } finally {
+        // Le chargement de cette étape est terminé : sans résultat à afficher, on passe à l'étape tout de suite.
+        if (!cancelled) {
+          asyncDoneRef.current = idx;
+          if (!outcomeShown) settleHold(idx);
+        }
       }
     })();
     return () => {
@@ -1739,6 +1760,19 @@ function Index() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeExpedition?.id, activeExpedition?.current_step_index, activeExpedition?.status, inExpeditionScene, character?.id]);
+
+  // Le résultat a été fermé (tout le monde est passé) : l'étape suivante peut s'afficher.
+  useEffect(() => {
+    if (!outcomeInfo && asyncDoneRef.current === stepIndex) settleHold(stepIndex);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!outcomeInfo, stepIndex]);
+  // Filet de sécurité : si le chargement traîne, on n'attend pas plus de 10 s.
+  useEffect(() => {
+    if (heldIdx >= stepIndex) return;
+    const t = window.setTimeout(() => settleHold(stepIndex), 10000);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [heldIdx, stepIndex]);
 
   // Le résultat reste affiché jusqu'au « OK ». Chacun fait « OK » à son rythme : son personnage traverse
   // l'écran vers la droite, et les autres joueurs le VOIENT traverser (message en direct, sans base de
@@ -1794,7 +1828,7 @@ function Index() {
     const t = window.setTimeout(() => setOutcomeInfo(null), 45000);
     return () => window.clearTimeout(t);
   }, [iAcked, allAcked, outIdx]);
-  const bgMirrored = (outcomeInfo ? stepIndex - 1 : stepIndex) % 2 === 1;
+  const bgMirrored = (outcomeInfo ? outcomeInfo.stepIndex : heldIdx) % 2 === 1;
 
   // Fin d'un combat gagné : on relit l'expédition et l'étape (le serveur a pu
   // faire avancer l'étape ou redonner 180 s au prochain vote).
@@ -2509,6 +2543,7 @@ function Index() {
             style={{
               left: `${pos.x}%`,
               top: `${pos.y}%`,
+              zIndex: bubbles[character.id] ? 35 : 20,   // un personnage qui parle passe devant les autres : sa bulle reste visible
               // Largeur en fraction de la largeur RÉELLE de la scène affichée
               // (pas en pixels fixes) pour que le personnage suive les
               // changements de taille de la fenêtre en mode fenêtré.
@@ -2563,6 +2598,7 @@ function Index() {
               style={{
                 left: `${peer.position.x}%`,
                 top: `${peer.position.y}%`,
+                zIndex: bubbles[peer.characterId] ? 35 : 20,
                 width: sceneBoxSize.width * CHARACTER_WIDTH_RATIO,
                 transformOrigin: "50% 100%",
                 transform: `translate(-50%, -100%) scale(${computeDepthScale(peer.position.y, scene.depth_scale)})`,
@@ -2793,9 +2829,12 @@ function Index() {
               onClick={() => {
                 if (!window.confirm("Relâcher ton esprit ? Ton personnage rejoint la forêt pour de bon et tu perds tout ce qu'il possédait. Tu en dessineras un nouveau.")) return;
                 setDeadBusy(true);
-                archiveDeadCharacter()
-                  .then(() => fetchMyDeath(character.id).then((d) => setDeadInfo({ name: character.name, cause: d.cause ?? "Tombé au combat", summary: d.summary })).catch(() => setDeadInfo({ name: character.name, cause: "Tombé au combat" })))
-                  .catch((e) => setDeadError(e?.message ?? "Erreur"))
+                releaseSpirit()
+                  .then((n) => {
+                    if (n < 1) throw new Error("Impossible de relâcher ton esprit pour l'instant : réessaie dans un instant.");
+                    return fetchMyDeath(character.id).then((d) => setDeadInfo({ name: character.name, cause: d.cause ?? "Tombé au combat", summary: d.summary })).catch(() => setDeadInfo({ name: character.name, cause: "Tombé au combat" }));
+                  })
+                  .catch((e) => window.alert(e?.message ?? "Erreur"))
                   .finally(() => setDeadBusy(false));
               }}
               className="mt-2 rounded border-2 border-[#7a4a22] px-3 py-1 text-xs font-bold text-[#5e3818] hover:bg-[#7a4a22]/15 disabled:opacity-50"
@@ -2914,6 +2953,7 @@ function Index() {
             ❤️
           </button>
         )}
+        {character && !inExpeditionScene && !activeCombatId && !boardOpen && <GroupAdBanner onOpen={() => setBoardOpen(true)} />}
         {boardOpen && character && !inExpeditionScene && (
           <GroupBoard character={{ id: character.id, name: character.name }} onClose={() => setBoardOpen(false)} onInvite={(id) => void handleInvitePeer(id)} />
         )}
@@ -3025,7 +3065,7 @@ function Index() {
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
               maxLength={200}
-              placeholder={chatChannel === "group" ? "Message au groupe (/d pour parler à tous)…" : party ? "Écrire un message… (/g pour le groupe)" : "Écrire un message…"}
+              placeholder={chatChannel === "group" ? "Message au groupe (/d pour général)…" : party ? "Écrire un message… (/g pour groupe, /d pour général)" : "Écrire un message…"}
               className="flex-1 rounded-md bg-black/35 px-2 py-1 text-sm outline-none placeholder:text-[#fff3d6]/50"
               style={{
                 color: chatChannel === "group" ? GROUP_CHAT_COLOR : "#fff3d6",
@@ -3079,7 +3119,7 @@ const CHAT_EMOJIS = ["😀", "😂", "😍", "😎", "😢", "😡", "😮", "�
 function SpeechBubble({ text }: { text: string }) {
   return (
     <div
-      className="pointer-events-none absolute bottom-full left-1/2 mb-2 w-max max-w-[220px] -translate-x-1/2 rounded-xl border border-[#7a4a22]/70 bg-[#fff3d6] px-3 py-1.5 text-center text-sm text-[#2a180c] shadow-md"
+      className="pointer-events-none absolute bottom-full left-1/2 z-[999] mb-2 w-max max-w-[220px] -translate-x-1/2 rounded-xl border border-[#7a4a22]/70 bg-[#fff3d6] px-3 py-1.5 text-center text-sm text-[#2a180c] shadow-md"
       style={{ fontFamily: "'Baloo 2', cursive" }}
     >
       {text}

@@ -16,9 +16,10 @@ import { CONSUMABLE_INFO, fetchMyConsumables, type ConsumableStack } from "../li
 import type { ForgeCharacter } from "./ForgePanel";
 import { fetchMyBuild } from "../lib/expedition-combat";
 
-export function RarityName({ name, rarity }: { name: string; rarity: keyof typeof RARITY_INFO }) {
+// Prototype : nom en blanc ; sinon couleur de la rareté (commune = vert).
+export function RarityName({ name, rarity, prototype }: { name: string; rarity: keyof typeof RARITY_INFO; prototype?: boolean }) {
   return (
-    <span className="rounded px-1.5 py-0.5 text-xs font-extrabold" style={{ background: "#2b1406", color: RARITY_INFO[rarity].color }}>
+    <span className="rounded px-1.5 py-0.5 text-xs font-extrabold" style={{ background: "#2b1406", color: prototype ? "#f3f4f6" : RARITY_INFO[rarity].color }}>
       {name}
     </span>
   );
@@ -188,7 +189,7 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
                 <div key={it.id} className={`flex items-center gap-2 rounded border p-1.5 ${it.id === shownId ? "border-[#7a4a22] bg-white/70" : "border-[#7a4a22]/50 bg-white/40"}`}>
                   <img src={it.weapon.image_url} alt="" className="h-10 w-12 shrink-0 object-contain" />
                   <div className="min-w-0 flex-1">
-                    <div className="truncate"><RarityName name={itemDisplayName(it) + (it.weapon.hidden ? " (masquée)" : "")} rarity={itemStats(it).rarity} /></div>
+                    <div className="truncate"><RarityName name={itemDisplayName(it) + (it.weapon.hidden ? " (masquée)" : "")} rarity={itemStats(it).rarity} prototype={it.is_prototype} /></div>
                     <ItemDetails it={it} />
                   </div>
                   <div className="flex flex-col gap-1">

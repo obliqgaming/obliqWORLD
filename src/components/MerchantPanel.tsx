@@ -106,7 +106,7 @@ export function MerchantPanel({ onClose, onWeaponChanged }: { onClose: () => voi
                 <div key={it.id} className="flex items-center gap-2 rounded border border-[#7a4a22]/60 bg-white/40 p-2 text-sm">
                   <img src={it.weapon.image_url} alt="" className="h-12 w-9 shrink-0 object-contain" />
                   <div className="min-w-0 flex-1 truncate">
-                    <b style={{ color: RARITY_INFO[it.weapon.rarity].color, background: "#2b1406", padding: "0 4px", borderRadius: 4 }}>{itemDisplayName(it)}</b>
+                    <b style={{ color: it.is_prototype ? "#f3f4f6" : RARITY_INFO[it.weapon.rarity].color, background: "#2b1406", padding: "0 4px", borderRadius: 4 }}>{itemDisplayName(it)}</b>
                     <span className="ml-1 text-xs opacity-70">{RARITY_INFO[it.weapon.rarity].label} · {it.durability}/{it.durability_max}</span>
                   </div>
                   {v == null ? (
