@@ -40,7 +40,7 @@ function BoosterInner({ r }: { r: BoosterResult }) {
     return (
       <div className="flex flex-col items-center gap-1">
         <img src={r.image_url} alt="" className="h-16 object-contain" />
-        <div className="text-lg font-extrabold" style={{ color: rar?.color === "#f3f4f6" ? "#3a2410" : rar?.color }}>⚔ {r.name}</div>
+        <div className="text-lg font-extrabold" style={{ color: rar?.color === "#4ade80" ? "#166534" : rar?.color }}>⚔ {r.name}</div>
         <div className="text-xs"><i>{rar?.label ?? r.rarity}</i></div>
       </div>
     );
@@ -137,7 +137,7 @@ export function QuestPanel({ onClose }: { onClose: () => void }) {
                 type="button"
                 disabled={busy}
                 className={`${BTN} mt-2`}
-                onClick={() => void act(async () => { const r = await claimQuest(); setReward(r); setRevealing(true); })}
+                onClick={() => void act(async () => { const r = await claimQuest(); setReward(r); setRevealing(true); window.dispatchEvent(new Event("obliq-quest-changed")); })}
               >
                 🎁 Ouvrir ma surprise
               </button>
@@ -156,7 +156,7 @@ export function QuestPanel({ onClose }: { onClose: () => void }) {
                     <div className="font-extrabold">{q.title}</div>
                     <div className="text-xs"><i>{q.description}</i></div>
                   </div>
-                  <button type="button" disabled={busy || doneToday} className={BTN} onClick={() => void act(() => acceptQuest(q.quest_key))}>
+                  <button type="button" disabled={busy || doneToday} className={BTN} onClick={() => void act(async () => { await acceptQuest(q.quest_key); window.dispatchEvent(new Event("obliq-quest-changed")); })}>
                     Accepter
                   </button>
                 </div>

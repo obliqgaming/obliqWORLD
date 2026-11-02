@@ -2,8 +2,8 @@
 import { useEffect, useState } from "react";
 import { leaveScenePresence } from "../lib/scenes-supabase";
 import {
-  deleteGroupAd, fetchGroupAds, meetLabel, postGroupAd, signupGroupAd, subscribeGroupAds, unsignupGroupAd,
-  type GroupAd, type GroupAdSignup,
+  deleteGroupAd, fetchGroupAds, fetchSeenToday, meetLabel, seenLabel, postGroupAd, signupGroupAd, subscribeGroupAds, unsignupGroupAd,
+  type GroupAd, type GroupAdSignup, type SeenPlayer,
 } from "../lib/group-ads";
 
 const FONT = { fontFamily: "'Baloo 2', cursive" };
@@ -26,6 +26,14 @@ export function GroupBoard({ character, onClose, onInvite }: { character: { id: 
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [invited, setInvited] = useState<Record<string, boolean>>({});
+  const [tab, setTab] = useState<"ads" | "seen">("ads");
+  const [seen, setSeen] = useState<SeenPlayer[] | null>(null);
+  useEffect(() => {
+    if (tab !== "seen") return;
+    let cancelled = false;
+    void fetchSeenToday().then((l) => { if (!cancelled) setSeen(l); }).catch(() => { if (!cancelled) setSeen([]); });
+    return () => { cancelled = true; };
+  }, [tab]);
 
   const load = async () => {
     try {
@@ -52,11 +60,38 @@ export function GroupBoard({ character, onClose, onInvite }: { character: { id: 
     <div className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/55 p-2" style={FONT} onClick={(e) => e.stopPropagation()}>
       <div className="max-h-full w-[min(40rem,98%)] overflow-y-auto parchment-scroll rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-4 text-[#3a2410] shadow-xl">
         <div className="flex items-center justify-between">
-          <div className="text-xl font-extrabold">📋 Cherche un groupe</div>
+          <div className="text-xl font-extrabold">📋 Groupes</div>
           <button type="button" className={BTN2} onClick={onClose}>Fermer</button>
         </div>
+        <div className="mt-2 flex gap-2">
+          <button type="button" onClick={() => setTab("ads")} className={`rounded px-3 py-1 text-sm font-bold ${tab === "ads" ? "bg-[#7a4a22] text-[#fff3d6]" : "border border-[#7a4a22]"}`}>📋 Annonces</button>
+          <button type="button" onClick={() => setTab("seen")} className={`rounded px-3 py-1 text-sm font-bold ${tab === "seen" ? "bg-[#7a4a22] text-[#fff3d6]" : "border border-[#7a4a22]"}`}>👀 Vus aujourd'hui</button>
+        </div>
+        {tab === "seen" && (
+          <div className="mt-3">
+            <div className="text-sm font-extrabold">Joueurs vus aujourd'hui{seen ? ` (${seen.length})` : ""}</div>
+            <div className="mt-2 grid gap-1.5">
+              {seen === null && <div className="text-sm opacity-70">Chargement…</div>}
+              {seen !== null && seen.length === 0 && <div className="text-sm opacity-70">Personne pour l'instant.</div>}
+              {(seen ?? []).map((p) => (
+                <div key={p.character_id} className="flex items-center gap-2 rounded-lg border border-[#b98a54] bg-[#f6e8c4] px-2 py-1.5 text-sm">
+                  <div className="min-w-0 flex-1">
+                    <b>{p.name}</b>{p.is_me ? " (toi)" : ""}
+                    <span className="text-xs" style={{ color: "#5e3818" }}> · {[p.level ? `niv. ${p.level}` : null, p.class_name].filter(Boolean).join(" · ") || "—"}</span>
+                  </div>
+                  <span className="text-xs opacity-80">{seenLabel(p.last_seen_at)}</span>
+                  {!p.is_me && onInvite && (
+                    <button type="button" disabled={invited[p.character_id]} className={BTN} onClick={() => { onInvite(p.character_id); setInvited((o) => ({ ...o, [p.character_id]: true })); }}>
+                      {invited[p.character_id] ? "Invité" : "Inviter"}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
-        {character && (
+        {tab === "ads" && character && (
           <div className="mt-3 rounded-lg border border-[#7a4a22]/50 bg-white/40 p-2">
             {mine ? (
               <>
@@ -101,8 +136,8 @@ export function GroupBoard({ character, onClose, onInvite }: { character: { id: 
           </div>
         )}
 
-        <div className="mt-3 text-xs font-extrabold uppercase text-[#7a4a22]">Annonces des autres joueurs</div>
-        <div className="mt-1 grid gap-2">
+        {tab === "ads" && <div className="mt-3 text-xs font-extrabold uppercase text-[#7a4a22]">Annonces des autres joueurs</div>}
+        {tab === "ads" && <div className="mt-1 grid gap-2">
           {ads.filter((a) => a.user_id !== me).length === 0 && <div className="text-sm opacity-70">Aucune annonce pour l'instant.</div>}
           {ads.filter((a) => a.user_id !== me).map((a) => {
             const n = signups.filter((s) => s.ad_id === a.id).length;
@@ -126,7 +161,7 @@ export function GroupBoard({ character, onClose, onInvite }: { character: { id: 
               </div>
             );
           })}
-        </div>
+        </div>}
         {msg && <div className="mt-2 text-center text-xs font-bold text-[#92400e]">{msg}</div>}
       </div>
     </div>

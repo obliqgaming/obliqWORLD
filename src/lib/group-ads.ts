@@ -48,3 +48,16 @@ export const meetLabel = (iso: string | null) => {
   const day = d.toDateString() === new Date().toDateString() ? "aujourd'hui" : d.toLocaleDateString("fr-FR", { weekday: "long" });
   return `${day} à ${d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
 };
+
+// « Vus aujourd'hui » (SQL 074).
+export type SeenPlayer = { character_id: string; name: string; level: number | null; class_name: string | null; last_seen_at: string; is_me: boolean };
+export const touchSeen = (characterId: string) => rpc("seen_touch", { p_character_id: characterId });
+export async function fetchSeenToday(): Promise<SeenPlayer[]> {
+  return ((await rpc("seen_today_list")) ?? []) as SeenPlayer[];
+}
+export const seenLabel = (iso: string) => {
+  const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+  if (mins < 5) return "à l'instant";
+  if (mins < 60) return `il y a ${mins} min`;
+  return `à ${new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
+};

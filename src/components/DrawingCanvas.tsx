@@ -573,7 +573,12 @@ export function DrawingCanvas({
             {anchorLabel}
           </label>
         ) : (
-          <div className="text-xs font-semibold text-[#3a2210]">{anchorLabel}</div>
+          <div className="flex items-center gap-2 text-xs font-semibold text-[#3a2210]">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-dashed border-[#c96a2e] bg-[#c96a2e]/20">
+              <Hand className="h-3.5 w-3.5 text-[#7a4a22]" />
+            </span>
+            <span>{anchorLabel}</span>
+          </div>
         )}
 
         <button

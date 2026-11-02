@@ -89,8 +89,9 @@ import { PetSprite } from "../components/PetSprite";
 import { fetchMyCompanions, fetchPartyCompanions, type PartyCompanion } from "../lib/companions";
 import { AboutDialog } from "../components/AboutDialog";
 import { GroupBoard } from "../components/GroupBoard";
+import { QuestTracker } from "../components/QuestTracker";
 import { GroupAdBanner } from "../components/GroupAdBanner";
-import { fetchAdReminders, meetLabel } from "../lib/group-ads";
+import { fetchAdReminders, meetLabel, touchSeen } from "../lib/group-ads";
 import { WelcomeModal } from "../components/WelcomeModal";
 import { ADMIN_USER_ID, REQUIRE_PROVIDER_LOGIN } from "../lib/alpha-config";
 import { ExpeditionPortalMarker } from "../components/ExpeditionPortal";
@@ -1320,6 +1321,16 @@ function Index() {
     return () => { if (groupChatRef.current === ch) groupChatRef.current = null; leaveScenePresence(ch); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [party?.id, character?.id]);
+
+  // « Vus aujourd'hui » : on note ma présence à la connexion, à chaque changement de lieu et au retour sur l'onglet (pas de polling).
+  useEffect(() => {
+    if (!character?.id) return;
+    const cid = character.id;
+    void touchSeen(cid).catch(() => {});
+    const onVis = () => { if (document.visibilityState === "visible") void touchSeen(cid).catch(() => {}); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [character?.id, scene.id]);
 
   // Rappel à la connexion : un rendez-vous de groupe (le mien ou celui où je suis inscrit) approche.
   useEffect(() => {
@@ -2988,6 +2999,7 @@ function Index() {
             onWeaponChanged={handleMyWeaponChanged}
           />
         )}
+        {character && !inExpeditionScene && !activeCombatId && <QuestTracker sceneId={scene.id} refreshKey={endBanner ? 1 : 0} />}
         <AccountBadge
           identity={authIdentity}
           onConnect={handleConnectProvider}

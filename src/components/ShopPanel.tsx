@@ -1,7 +1,7 @@
 // Onglet « Boutique » du forgeron : acheter les armes dessinées par les autres joueurs, fixer le prix des siennes.
 import { uiSound } from "../lib/ui-sounds";
 import { Coin } from "./GameIcons";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { EFFECT_INFO, RARITY_INFO, bonusText, weaponFits, weaponKindLabel } from "../lib/weapons";
 import { fetchShop, shopBuy, shopCollect, shopSetPrice, type Listing, type PriceRange } from "../lib/shop";
 import { RarityName } from "./InventoryPanel";
@@ -32,7 +32,10 @@ export function ShopPanel({ gold, family, onGoldChange, onBought }: { gold: numb
     void reload();
   }, []);
 
+  const lock = useRef(false);
   async function act(fn: () => Promise<void>, ok?: string) {
+    if (lock.current) return;   // anti double-clic
+    lock.current = true;
     setBusy(true);
     setMsg(null);
     try {
@@ -45,6 +48,7 @@ export function ShopPanel({ gold, family, onGoldChange, onBought }: { gold: numb
       uiSound("error");
       setMsg(e?.message ?? "Erreur");
     } finally {
+      lock.current = false;
       setBusy(false);
     }
   }
@@ -103,7 +107,6 @@ export function ShopPanel({ gold, family, onGoldChange, onBought }: { gold: numb
       <div className="space-y-1 text-sm leading-snug">
         <div>⚔ <b>Les armes dessinées par les joueurs</b> sont en vente ici.</div>
         <div>✍ L'auteur fixe le prix <i>(dans une fourchette selon la rareté)</i> et reçoit <b>{pct} %</b> de chaque vente.</div>
-        <div><Coin /> Tu as <b>{gold}</b></div>
       </div>
       {pending > 0 && (
         <div className="mt-2 flex items-center gap-2 rounded border border-[#7a4a22] bg-[#fde7c8] p-2 text-sm font-bold">

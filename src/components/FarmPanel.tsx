@@ -72,12 +72,6 @@ export function FarmPanel({ onClose }: { onClose: () => void }) {
           <div className="text-xl font-extrabold">🐾 La ferme</div>
           <button type="button" onClick={onClose} className="rounded border border-[#7a4a22] px-3 py-0.5 text-xs font-bold hover:bg-[#7a4a22]/15">Fermer</button>
         </div>
-        <div className="mt-2 space-y-1.5 text-sm leading-snug">
-          <div><b>Un seul compagnon</b> t'accompagne en expédition : il prend <b>la moitié des dégâts</b> que tu reçois.</div>
-          <div>💤 À 0 PV, il s'enfuit <i>(il n'est jamais perdu)</i> et se repose : <b>3</b> expéditions (petit), <b>6</b> (moyen) ou <b>9</b> (grand).</div>
-          <div>🎁 Les compagnons se gagnent <b>en butin</b> sur les créatures de la forêt, <i>très rarement</i>, ou s'<b>achètent</b> / se <b>dessinent</b> ici.</div>
-        </div>
-        {authorPct !== null && <div className="mt-1.5 text-sm leading-snug">✍ Les compagnons que tu dessines sont vendus ici : tu touches <b>{authorPct} %</b> de chaque vente.</div>}
         {pending > 0 && (
           <div className="mt-2 flex items-center gap-2 rounded border border-[#7a4a22] bg-[#fde7c8] p-2 text-sm font-bold">
             📬 Tes ventes t'ont rapporté {pending} <Coin />
@@ -105,6 +99,14 @@ export function FarmPanel({ onClose }: { onClose: () => void }) {
         )}
         {msg && <div className="mt-2 text-xs font-bold text-[#92400e]">{msg}</div>}
         {list === null && <div className="mt-3 text-sm">Chargement…</div>}
+        {tab === "mine" && (
+          <div className="mt-3 rounded-lg bg-white/35 p-2.5 text-sm leading-snug">
+            <div className="font-extrabold">🐾 Un compagnon t'accompagne en expédition</div>
+            <div className="mt-1">Il prend <b>la moitié des dégâts</b> que tu reçois.</div>
+            <div>💤 À 0 PV, il se repose : <b>3</b> expéditions (petit), <b>6</b> (moyen) ou <b>9</b> (grand).</div>
+            <div className="mt-1 text-xs opacity-80">Où en trouver : en butin sur les monstres, à l'onglet Acheter, ou en les dessinant.</div>
+          </div>
+        )}
         {tab === "mine" && <div className="mt-3 grid gap-2 md:grid-cols-2">
           {(list ?? []).map((c) => {
             const resting = c.rest_left > 0;

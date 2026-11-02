@@ -1,5 +1,5 @@
 // Ferme : dessiner un compagnon (SQL 048) et acheter ceux des autres joueurs.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { uiSound } from "../lib/ui-sounds";
 import { Coin } from "./GameIcons";
 import { DrawingCanvas } from "./DrawingCanvas";
@@ -27,9 +27,14 @@ export function FarmDraw({ onChanged }: { onChanged: () => void }) {
     void fetchMyGold().then(setGold);
   }, []);
 
+  const drawLock = useRef(false);
   async function handleExport(blob: Blob) {
-    if (busy) return;
-    if (!name.trim()) return setMsg("Donne un nom à ton compagnon.");
+    if (drawLock.current) return;
+    drawLock.current = true;
+    if (!name.trim()) {
+      drawLock.current = false;
+      return setMsg("Donne un nom à ton compagnon.");
+    }
     setBusy(true);
     setMsg(null);
     try {
@@ -42,16 +47,18 @@ export function FarmDraw({ onChanged }: { onChanged: () => void }) {
       uiSound("error");
       setMsg(e?.message?.includes("companion_design_create") ? "Lance d'abord le SQL 048." : (e?.message ?? "Erreur"));
     } finally {
+      drawLock.current = false;
       setBusy(false);
     }
   }
 
   return (
     <div className="mt-3">
-      <div className="space-y-1 text-sm leading-snug">
-        <div>🎨 Dessine un compagnon : <b>{rules?.cost ?? 6} <Coin /></b>, <b>un par jour</b>. Tu as <b>{gold}</b> <Coin />.</div>
-        <div>✨ Sa <b>rareté est tirée au sort</b> à la validation (plus elle est haute, plus il a de PV). Tu reçois tout de suite ton <b>prototype</b> (PV les plus bas), et le compagnon est mis en vente à la ferme : tu touches <b>{rules?.authorPct ?? 20} %</b> de chaque vente.</div>
-        <div>🌲 Il pourra aussi apparaître comme créature dans la forêt. Dessine-le de profil, sur fond transparent.</div>
+      <div className="rounded-lg bg-white/35 p-2.5 text-sm leading-snug">
+        <div className="font-extrabold">🎨 Dessine un compagnon : <b>{rules?.cost ?? 6} <Coin /></b>, <b>un par jour</b> <span className="font-semibold">· tu as <b>{gold}</b> <Coin /></span></div>
+        <div className="mt-1">✨ Sa <b>rareté est tirée au sort</b> à la validation (plus elle est haute, plus il a de PV). Tu reçois tout de suite ton <b>prototype</b>.</div>
+        <div>🌲 Il pourra aussi apparaître comme créature dans la forêt.</div>
+        <div className="mt-1.5 font-bold" style={{ color: "#92400e" }}>✋ Dessine-le de profil, sur fond transparent.</div>
       </div>
       <input value={name} maxLength={40} onChange={(e) => setName(e.target.value)} placeholder="Nom du compagnon" className="mt-2 w-full rounded border border-[#7a4a22] bg-white/70 px-2 py-1 text-sm" />
       <div className="mt-2">
@@ -92,7 +99,10 @@ export function FarmShop({ onChanged }: { onChanged: () => void }) {
     void reload();
   }, []);
 
+  const lock = useRef(false);
   async function act(fn: () => Promise<void>, ok: string) {
+    if (lock.current) return;
+    lock.current = true;
     setBusy(true);
     setMsg(null);
     try {
@@ -105,6 +115,7 @@ export function FarmShop({ onChanged }: { onChanged: () => void }) {
       uiSound("error");
       setMsg(e?.message ?? "Erreur");
     } finally {
+      lock.current = false;
       setBusy(false);
     }
   }
@@ -140,7 +151,10 @@ export function FarmShop({ onChanged }: { onChanged: () => void }) {
   const others = (list ?? []).filter((l) => !l.mine);
   return (
     <div className="mt-3">
-      <div className="text-sm">🛒 Les compagnons dessinés par les joueurs. Tu as <b>{gold}</b> <Coin />.</div>
+      <div className="rounded-lg bg-white/35 p-2.5 text-sm leading-snug">
+        <div className="font-extrabold">🛒 Compagnons dessinés par les joueurs <span className="font-semibold">· tu as <b>{gold}</b> <Coin /></span></div>
+        <div className="mt-1">✍ Tes dessins sont vendus ici : tu touches <b>{rules?.authorPct ?? 20} %</b> de chaque vente.</div>
+      </div>
       {pending > 0 && (
         <div className="mt-2 flex items-center gap-2 rounded border border-[#7a4a22] bg-[#fde7c8] p-2 text-sm font-bold">
           📬 Tes ventes t'ont rapporté {pending} <Coin />
