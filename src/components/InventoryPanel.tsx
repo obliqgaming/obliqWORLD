@@ -18,7 +18,7 @@ import { fetchMyBuild } from "../lib/expedition-combat";
 
 // Pastille de rareté (dite une seule fois) : fond coloré, texte foncé. Prototype = pastille blanche.
 export function Pill({ label, color }: { label: string; color: string }) {
-  return <span className="rounded px-1.5 py-px text-[10px] font-extrabold" style={{ background: color, color: "#2b1406", border: "1px solid rgba(43,20,6,.35)" }}>{label}</span>;
+  return <span className="inline-block rounded px-1.5 text-[10px] font-extrabold leading-[15px]" style={{ background: color, color: "#2b1406", border: "1px solid rgba(43,20,6,.35)" }}>{label}</span>;
 }
 export function RarityPill({ rarity, prototype }: { rarity: keyof typeof RARITY_INFO; prototype?: boolean | undefined }) {
   return prototype ? <Pill label="Prototype" color="#f3f4f6" /> : <Pill label={RARITY_INFO[rarity].label} color={RARITY_INFO[rarity].color} />;
@@ -27,7 +27,7 @@ export function RarityPill({ rarity, prototype }: { rarity: keyof typeof RARITY_
 export function RarityName({ name, rarity, prototype, pill, light }: { name: string; rarity: keyof typeof RARITY_INFO; prototype?: boolean | undefined; pill?: boolean; light?: boolean }) {
   return (
     <span>
-      <span className="text-sm font-bold" style={{ fontFamily: WEAPON_FONT, color: light ? "#fff3d6" : "#2b1406" }}>{name}</span>
+      <span className="text-base font-bold" style={{ fontFamily: WEAPON_FONT, color: light ? "#fff3d6" : "#2b1406" }}>{name}</span>
       {pill && <> <RarityPill rarity={rarity} prototype={prototype} /></>}
     </span>
   );
@@ -38,7 +38,7 @@ export function ItemDetails({ it }: { it: WeaponItem }) {
   const eff = st.effect ? EFFECT_INFO[st.effect] : null;
   const modelEff = it.weapon.effect_key ? EFFECT_INFO[it.weapon.effect_key] : null;
   return (
-    <div className="text-[11px] leading-tight">
+    <div className="text-[11px] leading-snug">
       <div className="opacity-90">
         <RarityPill rarity={st.rarity} prototype={it.is_prototype} /> · {weaponKindLabel(it.weapon.weapon_type)} · <b>{bonusText(st.bonus)}</b> · durabilité <b>{it.durability}/{it.durability_max}</b>
       </div>

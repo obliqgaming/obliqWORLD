@@ -69,7 +69,7 @@ export function InspectPanel({ characterId, onClose }: { characterId: string; on
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <RarityName name={`${w.prototype ? "Prototype de " : ""}${w.name}`} rarity={w.rarity} prototype={!!w.prototype} />
+                      <RarityName name={w.name} rarity={w.rarity} prototype={!!w.prototype} />
                       <span className="rounded px-1.5 py-px text-[10px] font-extrabold" style={{ background: w.prototype ? "#f3f4f6" : RARITY_INFO[w.rarity].color, color: "#2b1406" }}>{w.prototype ? "Prototype" : RARITY_INFO[w.rarity].label}</span>
                     </div>
                     <div className="mt-1 flex flex-wrap gap-1.5 text-[11px] font-bold">

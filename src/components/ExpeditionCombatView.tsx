@@ -122,6 +122,7 @@ export function PlaceholderEnemy() {
 export function ExpeditionCombatView({
   sceneImageUrl,
   eventNumber,
+  progress,
   phase,
   event,
   myVote,
@@ -139,6 +140,8 @@ export function ExpeditionCombatView({
   sceneImageUrl: string;
   /** Position dans l'expédition (1, 2, 3…). */
   eventNumber: number;
+  /** Avancée dans l'expédition (0 à 1), montrée par une jauge sans chiffres : la longueur réelle reste secrète. */
+  progress?: number | undefined;
   phase: "event" | "combat";
   event: ExpeditionEvent;
   myVote: string | null;
@@ -183,6 +186,11 @@ export function ExpeditionCombatView({
       {/* Tour */}
       <div className="absolute left-1/2 top-4 -translate-x-1/2 rounded-full bg-black/60 px-4 py-1 text-xs font-bold uppercase tracking-widest text-[#fff3d6]">
         {phase === "combat" ? `Événement ${eventNumber} · Combat · tour ${turn}` : `Événement ${eventNumber}`}
+        {progress !== undefined && (
+          <div className="mx-auto mt-1 h-1.5 w-40 overflow-hidden rounded-full bg-white/25">
+            <div className="h-full rounded-full bg-[#f6c453] transition-all duration-700" style={{ width: `${Math.round(Math.min(1, Math.max(0, progress)) * 100)}%` }} />
+          </div>
+        )}
       </div>
 
       {/* Groupe à gauche */}

@@ -26,4 +26,4 @@ export function PanelIcon({ src, size = "1.3em" }: { src: string; size?: string 
 }
 
 /** Police des noms d'armes (légèrement médiévale). */
-export const WEAPON_FONT = "'MedievalSharp', 'Baloo 2', cursive";
+export const WEAPON_FONT = "'IM Fell English', 'Baloo 2', cursive";

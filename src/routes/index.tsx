@@ -117,7 +117,7 @@ import {
   type GamePower,
   type RunStat,
 } from "../lib/expedition-combat";
-import { PLACEHOLDER_EVENTS, eventForStep } from "../lib/expedition-placeholder-events";
+import { PLACEHOLDER_EVENTS, eventForStep, expeditionLength } from "../lib/expedition-placeholder-events";
 import { openNarrativeStep, fetchNarrativeEvent, type NarrativeEvent } from "../lib/narrative";
 import { NarrativeStepPanel } from "../components/NarrativeStepPanel";
 import { HotspotMarker, HotspotPanel } from "../components/SceneHotspots";
@@ -154,7 +154,7 @@ export const Route = createFileRoute("/")({
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=MedievalSharp&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=IM+Fell+English&display=swap",
       },
     ],
   }),
@@ -2851,6 +2851,7 @@ function Index() {
             mirrorBg={bgMirrored}
             walkOutIds={leavingIds}
             eventNumber={(outcomeInfo ? stepIndex - 1 : stepIndex) + 1}
+            progress={activeExpedition ? ((outcomeInfo ? stepIndex - 1 : stepIndex) + 1) / Math.max(1, expeditionLength(activeExpedition.route, activeExpedition.id)) : undefined}
             phase="event"
             event={demoEvent}
             myVote={myVote}

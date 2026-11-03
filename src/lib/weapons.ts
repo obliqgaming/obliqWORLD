@@ -106,7 +106,7 @@ export function itemStats(it: WeaponItem): { rarity: Rarity; bonus: number; effe
 }
 
 export function itemDisplayName(it: WeaponItem): string {
-  return it.is_prototype ? `Prototype de ${it.weapon.name}` : it.weapon.name;
+  return it.weapon.name;
 }
 
 export async function fetchMyItems(): Promise<WeaponItem[]> {
