@@ -2577,7 +2577,7 @@ function Index() {
                 : "none",
             }}
           >
-            {bubbles[character.id] && <SpeechBubble text={bubbles[character.id].text} />}
+            {bubbles[character.id] && <SpeechBubble text={bubbles[character.id]!.text} />}
             {/* Le miroir (scaleX) est sur ce wrapper, séparé de l'<img> qui porte
                 l'animation d'oscillation de marche : l'animation CSS prend le
                 contrôle total de `transform` sur l'élément qu'elle anime, donc
@@ -2620,7 +2620,7 @@ function Index() {
                   : "none",
               }}
             >
-              {bubbles[peer.characterId] && <SpeechBubble text={bubbles[peer.characterId].text} />}
+              {bubbles[peer.characterId] && <SpeechBubble text={bubbles[peer.characterId]!.text} />}
               <div style={{ transform: isFacingRight ? "scaleX(-1)" : "none" }}>
                 {/* pointer-events-auto seulement sur l'image : le conteneur
                     reste pointer-events-none pour ne pas intercepter les
