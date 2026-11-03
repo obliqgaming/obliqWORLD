@@ -1,7 +1,7 @@
 // Onglet « Armes » de /admin : toutes les armes dessinées, à cacher ou supprimer
 // après coup (aucune validation avant publication).
 import { useEffect, useState } from "react";
-import { bonusText, weaponKindLabel, EFFECT_INFO, RARITY_INFO, adminDeleteWeapon, adminFetchAllWeapons, adminSetWeaponHidden, adminSetWeaponType, type Weapon } from "../lib/weapons";
+import { bonusText, weaponKindLabel, EFFECT_INFO, RARITY_INFO, adminDeleteWeapon, adminFetchAllWeapons, adminSetWeaponHidden, adminSetWeaponNoDisplay, adminSetWeaponType, type Weapon } from "../lib/weapons";
 
 export function AdminWeapons() {
   const [weapons, setWeapons] = useState<Weapon[]>([]);
@@ -52,6 +52,9 @@ export function AdminWeapons() {
                 </button>
                 <button type="button" className="rounded bg-neutral-700 px-2 py-0.5 font-semibold hover:bg-neutral-600" onClick={() => void act(() => adminSetWeaponHidden(w.id, !w.hidden))}>
                   {w.hidden ? "Réafficher" : "Cacher"}
+                </button>
+                <button type="button" className={`rounded px-2 py-0.5 font-semibold ${w.no_display ? "bg-amber-700 hover:bg-amber-600" : "bg-neutral-700 hover:bg-neutral-600"}`} title="Ne pas l'exposer devant le forgeron" onClick={() => void act(() => adminSetWeaponNoDisplay(w.id, !w.no_display))}>
+                  {w.no_display ? "Pas en vitrine ✔" : "Exclure de la vitrine"}
                 </button>
                 <button type="button" className="rounded bg-red-800 px-2 py-0.5 font-semibold hover:bg-red-700" onClick={() => { if (window.confirm(`Supprimer « ${w.name} » pour tout le monde ?`)) void act(() => adminDeleteWeapon(w.id)); }}>
                   Supprimer

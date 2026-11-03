@@ -57,6 +57,7 @@ export type Weapon = {
   width: number;
   height: number;
   hidden: boolean;
+  no_display?: boolean;
   created_at: string;
   rarity: Rarity;
   bonus_damage: number;
@@ -239,6 +240,10 @@ export async function adminSetWeaponType(id: string, type: WeaponType) {
 }
 export async function adminSetWeaponHidden(id: string, hidden: boolean) {
   const { error } = await scenesClient.rpc("admin_set_weapon_hidden", { p_weapon_id: id, p_hidden: hidden });
+  if (error) throw error;
+}
+export async function adminSetWeaponNoDisplay(id: string, value: boolean) {
+  const { error } = await scenesClient.rpc("admin_set_weapon_no_display", { p_weapon_id: id, p_value: value });
   if (error) throw error;
 }
 export async function adminDeleteWeapon(id: string) {

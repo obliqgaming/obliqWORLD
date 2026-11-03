@@ -20,11 +20,17 @@ function randomPointIn(zone: Point[][], rnd: () => number, self?: string, reg?: 
   const pts = zone.flat();
   const minX = Math.min(...pts.map((p) => p.x)), maxX = Math.max(...pts.map((p) => p.x));
   const minY = Math.min(...pts.map((p) => p.y)), maxY = Math.max(...pts.map((p) => p.y));
-  for (let i = 0; i < 80; i++) {
+  // Si aucun point n'est assez loin des autres, on prend le meilleur essai (le plus éloigné) plutôt qu'un coin fixe.
+  let best: Point | null = null, bestD = -1;
+  for (let i = 0; i < 120; i++) {
     const p = { x: minX + rnd() * (maxX - minX), y: minY + rnd() * (maxY - minY) };
-    if (inZone(p, zone) && (!reg || !self || farFromOthers(p, self, reg))) return p;
+    if (!inZone(p, zone)) continue;
+    if (!reg || !self) return p;
+    if (farFromOthers(p, self, reg)) return p;
+    const d = Math.min(...Object.entries(reg.current).filter(([k]) => k !== self).map(([, o]) => Math.hypot((p.x - o.x) / SEP_X, (p.y - o.y) / SEP_Y)));
+    if (d > bestD) { bestD = d; best = p; }
   }
-  return pts[0]!;
+  return best ?? pts[0]!;
 }
 
 function Animal({
@@ -39,6 +45,7 @@ function Animal({
   });
   const [facingRight, setFacingRight] = useState(false);
   const [ms, setMs] = useState(0);
+  const zoneKey = JSON.stringify(zone);
   const posRef = useRef(pos);
   posRef.current = pos;
   useEffect(() => {
@@ -69,7 +76,7 @@ function Animal({
     };
     timer = window.setTimeout(step, 300 + Math.random() * 2500);
     return () => { cancelled = true; if (timer) window.clearTimeout(timer); delete reg.current[animal.key]; };
-  }, [zone]);
+  }, [zoneKey]);
   const moving = ms > 0;
   return (
     <div

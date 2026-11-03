@@ -1,4 +1,5 @@
 // Fenêtre « Inspecter » : le dessin en grand d'un autre joueur, son arme, ses créations et ses compagnons.
+import { PanelIcon } from "./GameIcons";
 import { useEffect, useState } from "react";
 import { inspectCharacter, type Inspected } from "../lib/inspect";
 import { TIER_INFO } from "../lib/companions";
@@ -31,7 +32,7 @@ export function InspectPanel({ characterId, onClose }: { characterId: string; on
     <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/55 p-2" onClick={onClose} style={{ fontFamily: "'Baloo 2', cursive" }}>
       <div className="flex max-h-full w-[min(34rem,96%)] flex-col rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] text-[#3a2410] shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex shrink-0 items-center justify-between border-b border-[#7a4a22]/40 px-4 py-2">
-          <div className="truncate text-xl font-extrabold">{d?.name ?? "Fiche de personnage"}</div>
+          <div className="truncate text-xl font-extrabold"><PanelIcon src="/icons/sheet.png" />{d?.name ?? "Fiche de personnage"}</div>
           <button type="button" onClick={onClose} className="rounded border border-[#7a4a22] px-3 py-0.5 text-xs font-bold hover:bg-[#7a4a22]/15">Fermer</button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto parchment-scroll px-4 pb-4 pt-3">

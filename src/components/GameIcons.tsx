@@ -18,3 +18,8 @@ export function HotspotGlyph({ icon, size = "1.1em" }: { icon: string; size?: st
   }
   return <>{icon}</>;
 }
+
+/** Petite icône en haut à gauche d'un panneau (même image que dans la barre du bas). */
+export function PanelIcon({ src, size = "1.3em" }: { src: string; size?: string }) {
+  return <img src={src} alt="" draggable={false} style={{ display: "inline-block", height: size, width: size, objectFit: "contain", verticalAlign: "-0.25em", marginRight: "0.35em" }} />;
+}

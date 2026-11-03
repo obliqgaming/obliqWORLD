@@ -1,4 +1,5 @@
 // Écran des talents : mon arbre + l'autre arbre de ma famille. SQL 055.
+import { PanelIcon } from "./GameIcons";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { uiSound } from "../lib/ui-sounds";
 import { fetchGamePowers, fetchGameSettings, type GamePower } from "../lib/expedition-combat";
@@ -212,7 +213,7 @@ export function TalentPanel({ characterId, onClose }: { characterId: string; onC
           <>
             <div className="shrink-0 p-3 pb-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="text-xl font-extrabold">{build.class_name ?? AXIS_LABEL[own] ?? own}</div>
+                <div className="text-xl font-extrabold"><PanelIcon src="/icons/target.png" />{build.class_name ?? AXIS_LABEL[own] ?? own}</div>
                 <button type="button" className="rounded border-2 border-[#7a4a22] px-2 py-0.5 text-xs font-bold text-[#5e3818] hover:bg-[#7a4a22]/15" onClick={() => setRenaming(true)}>✎ Renommer</button>
               </div>
               <div className="mt-2 grid grid-cols-3 gap-2 text-center">

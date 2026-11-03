@@ -72,7 +72,7 @@ export async function fetchDisplayWeapons(count: number): Promise<DisplayWeapon[
     .gt("stock_left", 0)
     .limit(300);
   if (error) throw error;
-  const rows = ((data ?? []) as any[]).filter((r) => r.weapon && !r.weapon.hidden && r.weapon.image_url);
+  const rows = ((data ?? []) as any[]).filter((r) => r.weapon && !r.weapon.hidden && !r.weapon.no_display && r.weapon.image_url);
   rows.sort((a, b) => (a.weapon_id < b.weapon_id ? -1 : 1));
   const { seededRandom } = await import("./companions");
   const { RARITY_INFO } = await import("./weapons");
