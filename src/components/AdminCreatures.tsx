@@ -1,20 +1,23 @@
 // Onglet « Créatures » de /admin : renommer les créatures de la forêt (Wild), les personnages morts devenus monstres
 // et, avec eux, les compagnons obtenus (SQL 039).
 import { useEffect, useState } from "react";
-import { scenesClient } from "../lib/scenes-supabase";
+import { scenesClient, type Point } from "../lib/scenes-supabase";
+import { adminSetHandAnchor, type AdminCharacter } from "../lib/admin-characters";
+import { AnchorEditor } from "./AdminCharacters";
 
-type Creature = { id: string; name: string; image_url: string; monster_origin: "wild" | "dead_character" | "drawn_companion" };
+type Creature = { id: string; name: string; image_url: string; hand_anchor: Point | null; monster_origin: "wild" | "dead_character" | "drawn_companion" };
 
 export function AdminCreatures() {
   const [list, setList] = useState<Creature[] | null>(null);
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [anchorFor, setAnchorFor] = useState<Creature | null>(null);
 
   async function load() {
     const { data, error } = await scenesClient
       .from("visual_assets")
-      .select("id, name, image_url, monster_origin")
+      .select("id, name, image_url, hand_anchor, monster_origin")
       .in("monster_origin", ["wild", "dead_character"])
       .order("monster_origin")
       .order("name");
@@ -74,6 +77,26 @@ export function AdminCreatures() {
     await load();
   }
 
+  async function retire(c: Creature) {
+    if (!window.confirm(`Retirer « ${c.name} » de la forêt ? (elle ne sera plus tirée ; les compagnons déjà obtenus restent)`)) return;
+    setBusy(c.id);
+    const { error } = await scenesClient.rpc("admin_creature_retire", { p_asset_id: c.id });
+    setBusy(null);
+    if (error) return setMsg(error.message.includes("admin_creature_retire") ? "Fonction absente : lance le SQL 077." : error.message);
+    setMsg(`✔ « ${c.name} » retirée de la forêt.`);
+    await load();
+  }
+  async function saveAnchor(c: Creature, p: Point | null) {
+    try {
+      await adminSetHandAnchor(c.id, p);
+      setMsg(p ? `✔ Main de « ${c.name} » placée.` : `✔ Ancrage de « ${c.name} » effacé.`);
+      setAnchorFor(null);
+      await load();
+    } catch (e: any) {
+      setMsg(e?.message ?? "Erreur");
+    }
+  }
+
   return (
     <div className="p-2 text-sm text-white">
       <p className="mb-2 opacity-80">
@@ -95,7 +118,7 @@ export function AdminCreatures() {
       ) : (
         <table className="w-full text-left">
           <thead className="text-xs uppercase opacity-60">
-            <tr><th className="p-1" /><th className="p-1">Nom</th><th className="p-1">Origine</th><th className="p-1" /></tr>
+            <tr><th className="p-1" /><th className="p-1">Nom</th><th className="p-1">Origine</th><th className="p-1">Main</th><th className="p-1" /></tr>
           </thead>
           <tbody>
             {list.map((c) => (
@@ -112,6 +135,12 @@ export function AdminCreatures() {
                 </td>
                 <td className="p-1 opacity-70">{c.monster_origin === "wild" ? "Forêt (Wild)" : c.monster_origin === "drawn_companion" ? "Compagnon dessiné" : "Personnage mort"}</td>
                 <td className="p-1">
+                  <button type="button" onClick={() => setAnchorFor(c)} className="rounded bg-sky-800 px-2 py-0.5 text-xs font-semibold">
+                    {c.hand_anchor ? `x ${c.hand_anchor.x} · y ${c.hand_anchor.y}` : <span className="text-amber-300">non placée — placer</span>}
+                  </button>
+                </td>
+                <td className="flex gap-1 p-1">
+                  <button type="button" disabled={busy === c.id} onClick={() => void retire(c)} className="rounded bg-red-800 px-3 py-1 font-semibold disabled:opacity-40">Retirer</button>
                   <button type="button" disabled={busy === c.id || (edits[c.id] ?? c.name).trim() === c.name} onClick={() => void save(c)} className="rounded bg-emerald-700 px-3 py-1 font-semibold disabled:opacity-40">
                     Renommer
                   </button>
@@ -120,6 +149,13 @@ export function AdminCreatures() {
             ))}
           </tbody>
         </table>
+      )}
+      {anchorFor && (
+        <AnchorEditor
+          character={{ id: anchorFor.id, name: anchorFor.name, visual_asset_id: anchorFor.id, image_url: anchorFor.image_url, hand_anchor: anchorFor.hand_anchor, family: null, level: null, xp: null, axis_key: null, is_alive: null, death_cause: null } satisfies AdminCharacter}
+          onClose={() => setAnchorFor(null)}
+          onSave={(p) => void saveAnchor(anchorFor, p)}
+        />
       )}
     </div>
   );

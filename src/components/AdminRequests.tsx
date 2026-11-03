@@ -1,14 +1,18 @@
 // Onglet « Signalements » de /admin : bugs et demandes de suppression de compte.
 import { useEffect, useState } from "react";
+import { fetchAuthorNames } from "../lib/authors";
 import { adminFetchRequests, adminSetRequestStatus, type PlayerRequest } from "../lib/requests";
 
 export function AdminRequests() {
   const [rows, setRows] = useState<PlayerRequest[]>([]);
   const [filter, setFilter] = useState<"open" | "all">("open");
   const [msg, setMsg] = useState<string | null>(null);
+  const [names, setNames] = useState<Record<string, string>>({});
   const reload = async () => {
     try {
-      setRows(await adminFetchRequests());
+      const list = await adminFetchRequests();
+      setRows(list);
+      void fetchAuthorNames(list.map((r) => r.user_id)).then(setNames).catch(() => {});
     } catch (e: any) {
       setMsg(e?.message ?? "Erreur");
     }
@@ -32,7 +36,7 @@ export function AdminRequests() {
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <b className={r.kind === "deletion" ? "text-red-400" : "text-amber-300"}>{r.kind === "deletion" ? "Suppression de compte" : "Bug"}</b>
             <span className="text-neutral-400">{new Date(r.created_at).toLocaleString("fr-FR")}</span>
-            <span className="text-neutral-400">compte {r.user_id.slice(0, 8)}…</span>
+            <span className="text-neutral-400">{names[r.user_id] ? `par ${names[r.user_id]}` : `compte ${r.user_id.slice(0, 8)}…`}</span>
             {r.expedition_id && <span className="text-neutral-400">expédition {r.expedition_id.slice(0, 8)}…</span>}
             {r.step_id && <span className="text-neutral-400">étape {r.step_id.slice(0, 8)}…</span>}
           </div>

@@ -61,3 +61,10 @@ export const seenLabel = (iso: string) => {
   if (mins < 60) return `il y a ${mins} min`;
   return `à ${new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
 };
+
+// Joueurs croisés dans un lieu : on les ajoute à « Vus aujourd'hui » (une seule fois par joueur et par session).
+export async function touchSeenPeers(characterIds: string[]) {
+  if (characterIds.length === 0) return;
+  const { error } = await scenesClient.rpc("seen_touch_peers", { p_character_ids: characterIds });
+  if (error) throw error;
+}

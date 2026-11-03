@@ -210,13 +210,10 @@ export async function getAuthIdentity(): Promise<AuthIdentity> {
 export async function connectIdentityProvider(provider: "twitch" | "discord"): Promise<void> {
   if (!REQUIRE_PROVIDER_LOGIN) await ensureUserId();
   const { data } = await scenesClient.auth.getSession();
-  const redirectTo = window.location.href.split("#")[0] ?? window.location.origin;
+  const redirectTo = window.location.href.split("#")[0];
 
   if (data.session?.user?.is_anonymous) {
-    // redirectTo est accepté à l'exécution par l'API de liaison, même si le
-    // typage local de linkIdentity ne le liste pas.
-    const linkOpts = { redirectTo } as { captchaToken?: string } & { redirectTo: string };
-    const { error } = await scenesClient.auth.linkIdentity({ provider, options: linkOpts });
+    const { error } = await scenesClient.auth.linkIdentity({ provider, options: { redirectTo } });
     if (!error) return;
   }
 
@@ -988,8 +985,8 @@ export async function moveCharacterToScene(id: string, sceneId: string, position
 export function pointInPolygon(point: Point, polygon: Point[]): boolean {
   let inside = false;
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const xi = polygon[i]!.x, yi = polygon[i]!.y;
-    const xj = polygon[j]!.x, yj = polygon[j]!.y;
+    const xi = polygon[i].x, yi = polygon[i].y;
+    const xj = polygon[j].x, yj = polygon[j].y;
     const intersect =
       yi > point.y !== yj > point.y &&
       point.x < ((xj - xi) * (point.y - yi)) / (yj - yi) + xi;
@@ -1034,6 +1031,8 @@ export function joinScenePresence(
   // envoyé — si personne ne le refait, on reste invisible pour les autres
   // après une coupure, même quand tout a l'air normal de notre côté.
   onStatusChange?: (status: string, err?: Error) => void,
+  // Emotes (src/lib/emotes.ts) : message cosmétique reçu des autres joueurs du lieu.
+  onEmote?: (p: EmotePayload) => void,
 ): PresenceChannel {
   const channel = scenesClient.channel(`scene:${sceneId}`, {
     config: { presence: { key: userId } },
@@ -1054,6 +1053,9 @@ export function joinScenePresence(
     })
     .on("broadcast", { event: "chat" }, ({ payload }) => {
       if (onChatMessage) onChatMessage(payload as ChatMessage);
+    })
+    .on("broadcast", { event: "emote" }, ({ payload }) => {
+      onEmote?.(payload as EmotePayload);
     })
     .subscribe((status, err) => {
       if (isPresenceDebugEnabled()) console.debug(`[presence] channel status=${status} scene=${sceneId}`, err ?? "");
@@ -1107,6 +1109,13 @@ export function leaveScenePresence(channel: PresenceChannel | null) {
 // Renvoie true si le message est parti, false s'il a été sauté faute de
 // canal ouvert (voir isChannelReady) — l'appelant peut alors prévenir le
 // joueur plutôt que de le laisser croire que le message est parti.
+export type EmotePayload = { characterId: string; key: string };
+export function broadcastEmote(channel: PresenceChannel, p: EmotePayload): boolean {
+  if (!isChannelReady(channel)) return false;
+  channel.send({ type: "broadcast", event: "emote", payload: p });
+  return true;
+}
+
 export function broadcastChatMessage(channel: PresenceChannel, msg: ChatMessage): boolean {
   if (!isChannelReady(channel)) return false;
   channel.send({ type: "broadcast", event: "chat", payload: msg });

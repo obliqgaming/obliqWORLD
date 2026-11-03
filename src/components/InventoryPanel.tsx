@@ -38,9 +38,8 @@ export function ItemDetails({ it }: { it: WeaponItem }) {
       <AuthorLine userId={it.weapon.author_user_id} label="Dessinée par" />
       {it.is_prototype && (
         <div>
-          Modèle{" "}
-          <b style={outlinedName(RARITY_INFO[it.weapon.rarity].color)}>{RARITY_INFO[it.weapon.rarity].label.toLowerCase()}</b>
-          {modelEff ? <> (<b>{modelEff.name}</b>)</> : null} : <i>les exemplaires qui ont cette puissance se gagnent en butin.</i>
+          <b>Modèle butin</b> : <span style={outlinedName(RARITY_INFO[it.weapon.rarity].color)}>{RARITY_INFO[it.weapon.rarity].label.toLowerCase()}</span>
+          {modelEff ? <i> ({modelEff.name.toLowerCase()})</i> : null}
         </div>
       )}
     </div>

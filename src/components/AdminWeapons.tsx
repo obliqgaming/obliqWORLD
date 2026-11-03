@@ -1,16 +1,20 @@
 // Onglet « Armes » de /admin : toutes les armes dessinées, à cacher ou supprimer
 // après coup (aucune validation avant publication).
 import { useEffect, useState } from "react";
+import { fetchAuthorNames } from "../lib/authors";
 import { bonusText, weaponKindLabel, EFFECT_INFO, RARITY_INFO, adminDeleteWeapon, adminFetchAllWeapons, adminSetWeaponHidden, adminSetWeaponNoDisplay, adminSetWeaponType, type Weapon } from "../lib/weapons";
 
 export function AdminWeapons() {
   const [weapons, setWeapons] = useState<Weapon[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
+  const [names, setNames] = useState<Record<string, string>>({});
 
   const reload = async () => {
     try {
-      setWeapons(await adminFetchAllWeapons());
+      const list = await adminFetchAllWeapons();
+      setWeapons(list);
+      void fetchAuthorNames(list.map((w) => w.author_user_id)).then(setNames).catch(() => {});
     } catch (e) {
       console.error(e);
       setMsg("Impossible de lire les armes — as-tu lancé le SQL 014 ?");
@@ -45,7 +49,7 @@ export function AdminWeapons() {
               <div className="truncate text-sm font-bold" style={{ color: RARITY_INFO[w.rarity].color }}>{w.name}</div>
               <div>{RARITY_INFO[w.rarity].label} · {weaponKindLabel(w.weapon_type)} · {bonusText(w.bonus_damage)}</div>
               {w.effect_key && <div>{EFFECT_INFO[w.effect_key]?.name}</div>}
-              <div className="opacity-60">auteur {w.author_user_id.slice(0, 8)}… · {new Date(w.created_at).toLocaleDateString("fr-FR")}</div>
+              <div className="opacity-60">par {names[w.author_user_id] ?? `${w.author_user_id.slice(0, 8)}…`} · {new Date(w.created_at).toLocaleDateString("fr-FR")}</div>
               <div className="mt-1 flex gap-2">
                 <button type="button" className="rounded bg-sky-800 px-2 py-0.5 font-semibold hover:bg-sky-700" title="Corriger le type de l'arme" onClick={() => void act(() => adminSetWeaponType(w.id, w.weapon_type === "magic" ? "blunt_slash" : "magic"))}>
                   → {w.weapon_type === "magic" ? "mêlée" : "magique"}

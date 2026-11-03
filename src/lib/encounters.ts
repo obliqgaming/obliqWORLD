@@ -99,3 +99,8 @@ export const EXAMPLES: Record<NarrativeStepType, { situation: string; success: s
     failure: "Les ronces déchirent le courageux avant de se refermer derrière lui.",
   },
 };
+
+export async function adminDeleteEncounter(id: string) {
+  const { error } = await scenesClient.rpc("admin_community_event_delete", { p_id: id });
+  if (error) throw error;
+}

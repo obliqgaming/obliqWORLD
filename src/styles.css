@@ -184,3 +184,15 @@
 /* « +1 or » : monte au-dessus du tas ramassé puis s'efface. */
 @keyframes obw-gold-float { 0% { opacity: 0; transform: translate(-50%, 0); } 15% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -3.5rem); } }
 .obw-gold-float { animation: obw-gold-float 1.7s ease-out forwards; }
+
+/* ---------- Emotes (src/lib/emotes.ts) ---------- */
+@keyframes emote-saut { 0%,100% { transform: translateY(0) scale(1,1); } 15% { transform: translateY(0) scale(1.08,.9); } 50% { transform: translateY(-24%) scale(.95,1.06); } 85% { transform: translateY(0) scale(1.08,.9); } }
+@keyframes emote-danse { 0%,100% { transform: translateY(0) rotate(-9deg); } 25% { transform: translateY(-8%) rotate(0deg); } 50% { transform: translateY(0) rotate(9deg); } 75% { transform: translateY(-8%) rotate(0deg); } }
+@keyframes emote-rire { 0%,100% { transform: rotate(-4deg) translateY(0); } 50% { transform: rotate(4deg) translateY(-3%); } }
+@keyframes emote-salut { 0%,100% { transform: translateY(0) rotate(0deg); } 30% { transform: translateY(-10%) rotate(-6deg); } 60% { transform: translateY(0) rotate(5deg); } }
+@keyframes emote-colere { 0%,100% { transform: translateX(-3%); filter: sepia(.7) saturate(4) hue-rotate(-35deg); } 50% { transform: translateX(3%); filter: sepia(.7) saturate(4) hue-rotate(-35deg); } }
+@keyframes emote-peur { 0%,100% { transform: translateX(-2%) scale(.9); opacity: .85; } 50% { transform: translateX(2%) scale(.9); opacity: .85; } }
+@keyframes emote-triste { 0% { transform: rotate(0deg) scaleY(1); } 30%,100% { transform: rotate(6deg) scaleY(.94); filter: saturate(.6); } }
+@keyframes emote-tourner { 0% { transform: perspective(700px) rotateY(0deg); } 100% { transform: perspective(700px) rotateY(720deg); } }
+@keyframes emote-dormir { 0% { transform: translateX(0) rotate(0deg); } 100% { transform: translateX(-35%) rotate(82deg); } }
+@keyframes emote-symbol { 0% { opacity: 0; transform: translate(-50%, 0) scale(.6); } 20% { opacity: 1; transform: translate(-50%, -6px) scale(1); } 100% { opacity: 0; transform: translate(-50%, -28px) scale(1.1); } }

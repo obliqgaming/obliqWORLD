@@ -177,7 +177,7 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
 }
 
 // Glisse le repère sur le dessin du personnage, puis enregistre.
-function AnchorEditor({ character, onClose, onSave }: { character: AdminCharacter; onClose: () => void; onSave: (p: Point | null) => void }) {
+export function AnchorEditor({ character, onClose, onSave }: { character: AdminCharacter; onClose: () => void; onSave: (p: Point | null) => void }) {
   const [p, setP] = useState<Point>(character.hand_anchor ?? { x: 66.7, y: 66.7 });
   const [drag, setDrag] = useState(false);
   const box = useRef<HTMLDivElement | null>(null);

@@ -1,16 +1,20 @@
 // Onglet « Rencontres » de /admin : relire, corriger, approuver ou refuser les rencontres écrites.
 import { useEffect, useState } from "react";
-import { STATUS_LABEL, TYPE_LABEL, RISK_LABEL, adminFetchEncounters, adminUpdateEncounter, type CommunityEvent } from "../lib/encounters";
+import { STATUS_LABEL, TYPE_LABEL, RISK_LABEL, adminFetchEncounters, adminUpdateEncounter, adminDeleteEncounter, type CommunityEvent } from "../lib/encounters";
+import { fetchAuthorNames } from "../lib/authors";
 
 export function AdminEncounters() {
   const [rows, setRows] = useState<CommunityEvent[]>([]);
   const [filter, setFilter] = useState<string>("all");
   const [edit, setEdit] = useState<Record<string, Partial<CommunityEvent>>>({});
   const [msg, setMsg] = useState<string | null>(null);
+  const [names, setNames] = useState<Record<string, string>>({});
 
   const reload = async () => {
     try {
-      setRows(await adminFetchEncounters());
+      const list = await adminFetchEncounters();
+      setRows(list);
+      void fetchAuthorNames(list.map((r) => r.author_user_id)).then(setNames).catch(() => {});
       setEdit({});
     } catch (e: any) {
       setMsg(e?.message ?? "Erreur");
@@ -69,7 +73,7 @@ export function AdminEncounters() {
                 <option value="partage">dégâts partagés</option>
                 <option value="isole">dégâts isolés</option>
               </select>
-              <span className="text-neutral-400">{STATUS_LABEL[r.status]} · jouée {r.times_played}×</span>
+              <span className="text-neutral-400">{STATUS_LABEL[r.status]} · jouée {r.times_played}× · par {names[r.author_user_id] ?? "?"}</span>
             </div>
             <textarea className={area} rows={2} value={d.situation_text ?? ""} onChange={(e) => set(r.id, { situation_text: e.target.value })} />
             <textarea className={area} rows={2} value={d.success_text ?? ""} onChange={(e) => set(r.id, { success_text: e.target.value })} />
@@ -77,7 +81,7 @@ export function AdminEncounters() {
             <div className="flex gap-2">
               <button type="button" onClick={() => void save(r)} className="rounded bg-neutral-700 px-3 py-1 font-semibold">Enregistrer</button>
               <button type="button" onClick={() => void save(r, "approved")} className="rounded bg-green-700 px-3 py-1 font-semibold">Approuver</button>
-              <button type="button" onClick={() => void save(r, "rejected")} className="rounded bg-red-700 px-3 py-1 font-semibold">Refuser</button>
+              <button type="button" onClick={() => { if (window.confirm("Refuser et supprimer cette rencontre ?")) void adminDeleteEncounter(r.id).then(() => { setMsg("✔ Supprimée"); return reload(); }).catch((e: any) => setMsg(e?.message?.includes("admin_community_event_delete") ? "Fonction absente : lance le SQL 077." : (e?.message ?? "Erreur"))); }} className="rounded bg-red-700 px-3 py-1 font-semibold">Refuser (supprime)</button>
             </div>
           </div>
         );

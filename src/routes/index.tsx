@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   acceptPartyInvite,
   broadcastChatMessage,
+  broadcastEmote,
+  type EmotePayload,
   fetchChatHistory,
   joinGroupChat,
   sendGroupChat,
@@ -91,7 +93,7 @@ import { AboutDialog } from "../components/AboutDialog";
 import { GroupBoard } from "../components/GroupBoard";
 import { QuestTracker } from "../components/QuestTracker";
 import { GroupAdBanner } from "../components/GroupAdBanner";
-import { fetchAdReminders, meetLabel, touchSeen } from "../lib/group-ads";
+import { fetchAdReminders, meetLabel, touchSeen, touchSeenPeers } from "../lib/group-ads";
 import { WelcomeModal } from "../components/WelcomeModal";
 import { ADMIN_USER_ID, REQUIRE_PROVIDER_LOGIN } from "../lib/alpha-config";
 import { ExpeditionPortalMarker } from "../components/ExpeditionPortal";
@@ -121,6 +123,7 @@ import { NarrativeStepPanel } from "../components/NarrativeStepPanel";
 import { HotspotMarker, HotspotPanel } from "../components/SceneHotspots";
 import { InspectPanel } from "../components/InspectPanel";
 import { WornSprite } from "../components/WornSprite";
+import { EMOTES, EMOTE_KEYS, EMOTE_COOLDOWN_MS, emoteFromCommand, emoteStyle, type EmoteKey } from "../lib/emotes";
 import { CURSOR_DEFAULT, CURSOR_INTERACT, arrowCursor, useArrowCursorReady } from "../lib/cursors";
 import { InventoryPanel } from "../components/InventoryPanel";
 import { ClassNameModal, TalentPanel } from "../components/TalentPanel";
@@ -428,6 +431,8 @@ function Index() {
   const peerLastTRef = useRef<Record<string, number>>({});
   const peerWalkTimers = useRef<Record<string, number>>({});
   const peerRemoveTimers = useRef<Record<string, number>>({});
+  // « Vus aujourd'hui » : chaque joueur croisé est noté une fois par session.
+  const seenPeersRef = useRef<Set<string>>(new Set());
   const [peerWalking, setPeerWalking] = useState<Record<string, boolean>>({});
   const [peerDuration, setPeerDuration] = useState<Record<string, number>>({});
 
@@ -1322,6 +1327,17 @@ function Index() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [party?.id, character?.id]);
 
+  // Joueurs croisés → « Vus aujourd'hui » (une fois chacun par session ; petit délai pour grouper).
+  useEffect(() => {
+    const fresh = Object.values(peers).map((p) => p.characterId).filter((id) => id && !seenPeersRef.current.has(id));
+    if (fresh.length === 0) return;
+    const t = window.setTimeout(() => {
+      fresh.forEach((id) => seenPeersRef.current.add(id));
+      void touchSeenPeers(fresh).catch(() => {});
+    }, 1500);
+    return () => window.clearTimeout(t);
+  }, [peers]);
+
   // « Vus aujourd'hui » : on note ma présence à la connexion, à chaque changement de lieu et au retour sur l'onglet (pas de polling).
   useEffect(() => {
     if (!character?.id) return;
@@ -2007,6 +2023,55 @@ function Index() {
     });
   };
 
+  // ---------- Emotes ----------
+  const [emotes, setEmotes] = useState<Record<string, EmoteKey>>({});
+  const [emoteMenuOpen, setEmoteMenuOpen] = useState(false);
+  const emoteTimers = useRef<Record<string, number>>({});
+  const lastEmoteAt = useRef(0);
+  const clearEmote = (characterId: string) => {
+    if (emoteTimers.current[characterId]) window.clearTimeout(emoteTimers.current[characterId]);
+    delete emoteTimers.current[characterId];
+    setEmotes((e) => {
+      if (!(characterId in e)) return e;
+      const n = { ...e };
+      delete n[characterId];
+      return n;
+    });
+  };
+  const playEmote = (characterId: string, key: EmoteKey) => {
+    if (emoteTimers.current[characterId]) window.clearTimeout(emoteTimers.current[characterId]);
+    setEmotes((e) => ({ ...e, [characterId]: key }));
+    emoteTimers.current[characterId] = window.setTimeout(() => clearEmote(characterId), EMOTES[key].ms);
+  };
+  const handleEmoteReceived = (p: EmotePayload) => {
+    if (!p || !(p.key in EMOTES) || p.characterId === character?.id) return;
+    playEmote(p.characterId, p.key as EmoteKey);
+  };
+  const handleEmoteReceivedRef = useRef(handleEmoteReceived);
+  handleEmoteReceivedRef.current = handleEmoteReceived;
+  const sendEmote = (key: EmoteKey) => {
+    if (!character || walking) return;
+    const now = Date.now();
+    if (now - lastEmoteAt.current < EMOTE_COOLDOWN_MS) return;
+    lastEmoteAt.current = now;
+    playEmote(character.id, key);
+    if (channelRef.current) broadcastEmote(channelRef.current, { characterId: character.id, key });
+    markActive();
+  };
+  // Une emote s'arrête dès que le personnage (ou un autre joueur) se remet en marche, et à chaque changement de lieu.
+  useEffect(() => {
+    if (walking && character) clearEmote(character.id);
+  }, [walking]);
+  useEffect(() => {
+    Object.values(peers).forEach((p) => { if (p.walking) clearEmote(p.characterId); });
+  }, [peers]);
+  useEffect(() => {
+    Object.keys(emoteTimers.current).forEach((id) => window.clearTimeout(emoteTimers.current[id]));
+    emoteTimers.current = {};
+    setEmotes({});
+    setEmoteMenuOpen(false);
+  }, [scene.id]);
+
   const showBubble = (characterId: string, text: string) => {
     const expiresAt = Date.now() + CHAT_BUBBLE_MS;
     setBubbles((b) => ({ ...b, [characterId]: { text, expiresAt } }));
@@ -2092,6 +2157,7 @@ function Index() {
             reconnectTimer = window.setTimeout(() => connect(userId), delayMs);
           }
         },
+        (p) => handleEmoteReceivedRef.current(p),
       );
     };
 
@@ -2436,6 +2502,19 @@ function Index() {
       return;
     }
 
+    // /danse, /saut… : emotes ; /emotes : la liste.
+    const emoteCmd = /^\/(\S+)\s*$/.exec(text);
+    if (emoteCmd) {
+      const w = emoteCmd[1]!.toLowerCase();
+      const ek = emoteFromCommand(w);
+      if (ek) { sendEmote(ek); setChatInput(""); return; }
+      if (w === "emotes" || w === "emote") {
+        setChatLog((log) => [...log.slice(-(CHAT_LOG_SIZE - 1)), { characterId: "system", name: "Tchat", text: "Emotes : " + EMOTE_KEYS.map((k) => "/" + EMOTES[k].commands[0]).join("  "), ts: Date.now() }]);
+        setChatInput("");
+        return;
+      }
+    }
+
     // /g (ou /groupe) et /d (ou /dire) changent de canal ; suivis d'un texte, ils l'envoient aussi.
     let channel = chatChannel;
     let body = text;
@@ -2577,7 +2656,7 @@ function Index() {
                 : "none",
             }}
           >
-            {bubbles[character.id] && <SpeechBubble text={bubbles[character.id]!.text} />}
+            {bubbles[character.id] && <SpeechBubble text={bubbles[character.id].text} />}
             {/* Le miroir (scaleX) est sur ce wrapper, séparé de l'<img> qui porte
                 l'animation d'oscillation de marche : l'animation CSS prend le
                 contrôle total de `transform` sur l'élément qu'elle anime, donc
@@ -2585,16 +2664,24 @@ function Index() {
                 le miroir tant que le personnage marchait (il ne redevenait
                 visible qu'à l'arrêt, une fois l'animation coupée). */}
             <div style={{ transform: facingRight ? "scaleX(-1)" : "none" }}>
-              <WornSprite
-                src={character.image_url}
-                alt={character.name}
-                weapon={wornWeapons[character.id]}
-                style={{
-                  transformOrigin: "50% 100%",
-                  animation: walking ? "auberge-walk 250ms linear infinite" : "none",
-                }}
-              />
+              <div style={emoteStyle(emotes[character.id])}>
+                <WornSprite
+                  src={character.image_url}
+                  alt={character.name}
+                  weapon={emotes[character.id] && EMOTES[emotes[character.id]!].hideWeapon ? undefined : wornWeapons[character.id]}
+                  className="pointer-events-auto block w-full"
+                  style={{
+                    cursor: CURSOR_INTERACT,
+                    transformOrigin: "50% 100%",
+                    animation: walking ? "auberge-walk 250ms linear infinite" : "none",
+                  }}
+                  onClick={(e) => { e.stopPropagation(); setEmoteMenuOpen((o) => !o); }}
+                />
+              </div>
             </div>
+            {emotes[character.id] && EMOTES[emotes[character.id]!].symbol && (
+              <div className="pointer-events-none absolute left-1/2 top-0 text-2xl" style={{ animation: "emote-symbol 1.6s ease-out infinite" }}>{EMOTES[emotes[character.id]!].symbol}</div>
+            )}
             {myPet && <PetSprite src={myPet} facingRight={facingRight} walking={walking} />}
             <NameTag name={character.name} away={selfAway} showName={SHOW_NAME_LABELS} />
           </div>
@@ -2620,15 +2707,16 @@ function Index() {
                   : "none",
               }}
             >
-              {bubbles[peer.characterId] && <SpeechBubble text={bubbles[peer.characterId]!.text} />}
+              {bubbles[peer.characterId] && <SpeechBubble text={bubbles[peer.characterId].text} />}
               <div style={{ transform: isFacingRight ? "scaleX(-1)" : "none" }}>
+               <div style={emoteStyle(emotes[peer.characterId])}>
                 {/* pointer-events-auto seulement sur l'image : le conteneur
                     reste pointer-events-none pour ne pas intercepter les
                     clics de déplacement destinés au sol derrière le pair. */}
                 <WornSprite
                   src={peer.image_url}
                   alt={peer.name}
-                  weapon={wornWeapons[peer.characterId]}
+                  weapon={emotes[peer.characterId] && EMOTES[emotes[peer.characterId]!].hideWeapon ? undefined : wornWeapons[peer.characterId]}
                   className="pointer-events-auto block w-full"
                   style={{
                     cursor: CURSOR_INTERACT,
@@ -2640,7 +2728,11 @@ function Index() {
                     setPeerMenu({ peerKey: key, peerName: peer.name, x: e.clientX, y: e.clientY });
                   }}
                 />
+               </div>
               </div>
+              {emotes[peer.characterId] && EMOTES[emotes[peer.characterId]!].symbol && (
+                <div className="pointer-events-none absolute left-1/2 top-0 text-2xl" style={{ animation: "emote-symbol 1.6s ease-out infinite" }}>{EMOTES[emotes[peer.characterId]!].symbol}</div>
+              )}
               {peer.pet && <PetSprite src={peer.pet} facingRight={isFacingRight} walking={isWalking} />}
               <NameTag name={peer.name} away={!!peer.away} showName={SHOW_NAME_LABELS} />
             </div>
@@ -2920,9 +3012,21 @@ function Index() {
               { key: "talents", title: "Talents", src: "/icons/target.png", onClick: () => setTalentsOpen(true) },
               { key: "groups", title: "Cherche un groupe", src: "/icons/group.png", onClick: () => setBoardOpen(true) },
             ] : []),
+            { key: "emotes", title: "Emotes (ou tape /emotes)", src: "/icons/emote.svg", onClick: () => setEmoteMenuOpen((o) => !o) },
           ];
           return (
             <div className="absolute bottom-2 left-1/2 z-30 flex -translate-x-1/2 items-end gap-2">
+              {emoteMenuOpen && (
+                <div className="absolute bottom-full left-1/2 mb-2 grid -translate-x-1/2 grid-cols-3 gap-1.5 rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-2 shadow-xl" style={{ fontFamily: "'Baloo 2', cursive" }} onClick={(e) => e.stopPropagation()}>
+                  {EMOTE_KEYS.map((k) => (
+                    <button key={k} type="button" disabled={walking} onClick={() => { sendEmote(k); setEmoteMenuOpen(false); }} className="flex w-20 flex-col items-center rounded-lg border border-[#7a4a22]/50 bg-white/40 px-1 py-1 text-xs font-bold text-[#3a2410] hover:bg-white/70 disabled:opacity-40" style={{ cursor: CURSOR_INTERACT }}>
+                      <span className="text-xl leading-none">{EMOTES[k].icon}</span>
+                      {EMOTES[k].label}
+                      <span className="text-[10px] font-normal opacity-60">/{EMOTES[k].commands[0]}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
               {items.map((it) => (
                 <button
                   key={it.key}
