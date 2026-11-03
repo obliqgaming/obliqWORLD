@@ -1,7 +1,7 @@
 // Inventaire v1 : les armes que je porte sur moi, équiper / ranger / jeter.
 // (Pas de changement d'arme en combat : on équipe au village.)
 import { uiSound } from "../lib/ui-sounds";
-import { Coin, Bag } from "./GameIcons";
+import { Coin, Bag, outlinedName } from "./GameIcons";
 import { AuthorLine } from "./AuthorLine";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { WornSprite } from "./WornSprite";
@@ -19,7 +19,7 @@ import { fetchMyBuild } from "../lib/expedition-combat";
 // Prototype : nom en blanc ; sinon couleur de la rareté (commune = vert).
 export function RarityName({ name, rarity, prototype }: { name: string; rarity: keyof typeof RARITY_INFO; prototype?: boolean }) {
   return (
-    <span className="rounded px-1.5 py-0.5 text-xs font-extrabold" style={{ background: "#2b1406", color: prototype ? "#f3f4f6" : RARITY_INFO[rarity].color }}>
+    <span className="px-1 text-xs font-extrabold" style={outlinedName(prototype ? "#f3f4f6" : RARITY_INFO[rarity].color)}>
       {name}
     </span>
   );
@@ -32,14 +32,14 @@ export function ItemDetails({ it }: { it: WeaponItem }) {
   return (
     <div className="text-[11px] leading-tight">
       <div className="opacity-90">
-        <b>{it.is_prototype ? "Prototype" : <span style={{ color: RARITY_INFO[st.rarity].color, background: "#2b1406", padding: "0 4px", borderRadius: 4 }}>{RARITY_INFO[st.rarity].label}</span>}</b> · {weaponKindLabel(it.weapon.weapon_type)} · <b>{bonusText(st.bonus)}</b> · durabilité <b>{it.durability}/{it.durability_max}</b>
+        <b>{it.is_prototype ? "Prototype" : <span style={outlinedName(RARITY_INFO[st.rarity].color)}>{RARITY_INFO[st.rarity].label}</span>}</b> · {weaponKindLabel(it.weapon.weapon_type)} · <b>{bonusText(st.bonus)}</b> · durabilité <b>{it.durability}/{it.durability_max}</b>
       </div>
       {eff && <div><b>{eff.name}</b> : <i>{eff.text}</i></div>}
       <AuthorLine userId={it.weapon.author_user_id} label="Dessinée par" />
       {it.is_prototype && (
         <div>
           Modèle{" "}
-          <b style={{ color: RARITY_INFO[it.weapon.rarity].color, background: "#2b1406", padding: "0 4px", borderRadius: 4 }}>{RARITY_INFO[it.weapon.rarity].label.toLowerCase()}</b>
+          <b style={outlinedName(RARITY_INFO[it.weapon.rarity].color)}>{RARITY_INFO[it.weapon.rarity].label.toLowerCase()}</b>
           {modelEff ? <> (<b>{modelEff.name}</b>)</> : null} : <i>les exemplaires qui ont cette puissance se gagnent en butin.</i>
         </div>
       )}
