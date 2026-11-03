@@ -55,10 +55,10 @@ function rgbToHex(r: number, g: number, b: number): string {
 
 function colorsMatch(data: Uint8ClampedArray, i: number, r: number, g: number, b: number, a: number, tolerance = 10): boolean {
   return (
-    Math.abs(data[i] - r) <= tolerance &&
-    Math.abs(data[i + 1] - g) <= tolerance &&
-    Math.abs(data[i + 2] - b) <= tolerance &&
-    Math.abs(data[i + 3] - a) <= tolerance
+    Math.abs(data[i]! - r) <= tolerance &&
+    Math.abs(data[i + 1]! - g) <= tolerance &&
+    Math.abs(data[i + 2]! - b) <= tolerance &&
+    Math.abs(data[i + 3]! - a) <= tolerance
   );
 }
 

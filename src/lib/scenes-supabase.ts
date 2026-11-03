@@ -210,10 +210,13 @@ export async function getAuthIdentity(): Promise<AuthIdentity> {
 export async function connectIdentityProvider(provider: "twitch" | "discord"): Promise<void> {
   if (!REQUIRE_PROVIDER_LOGIN) await ensureUserId();
   const { data } = await scenesClient.auth.getSession();
-  const redirectTo = window.location.href.split("#")[0];
+  const redirectTo = window.location.href.split("#")[0] ?? window.location.origin;
 
   if (data.session?.user?.is_anonymous) {
-    const { error } = await scenesClient.auth.linkIdentity({ provider, options: { redirectTo } });
+    // redirectTo est accepté à l'exécution par l'API de liaison, même si le
+    // typage local de linkIdentity ne le liste pas.
+    const linkOpts = { redirectTo } as { captchaToken?: string } & { redirectTo: string };
+    const { error } = await scenesClient.auth.linkIdentity({ provider, options: linkOpts });
     if (!error) return;
   }
 
@@ -985,8 +988,8 @@ export async function moveCharacterToScene(id: string, sceneId: string, position
 export function pointInPolygon(point: Point, polygon: Point[]): boolean {
   let inside = false;
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const xi = polygon[i].x, yi = polygon[i].y;
-    const xj = polygon[j].x, yj = polygon[j].y;
+    const xi = polygon[i]!.x, yi = polygon[i]!.y;
+    const xj = polygon[j]!.x, yj = polygon[j]!.y;
     const intersect =
       yi > point.y !== yj > point.y &&
       point.x < ((xj - xi) * (point.y - yi)) / (yj - yi) + xi;
