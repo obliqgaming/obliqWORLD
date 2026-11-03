@@ -4,7 +4,7 @@ import { uiSound } from "../lib/ui-sounds";
 import { Coin } from "./GameIcons";
 import { DrawingCanvas } from "./DrawingCanvas";
 import { RARITY_TIER, RevealModal } from "./RevealModal";
-import { RarityName } from "./InventoryPanel";
+import { RarityName, RarityPill } from "./InventoryPanel";
 import { RARITY_INFO, type Rarity } from "../lib/weapons";
 import { fetchMyGold } from "../lib/loot";
 import { shopCollect } from "../lib/shop";
@@ -68,7 +68,7 @@ export function FarmDraw({ onChanged }: { onChanged: () => void }) {
       {result && (
         <RevealModal tier={RARITY_TIER[result.rarity] ?? 1} title="Ton compagnon est validé !" onClose={() => setResult(null)}>
           <img src={result.image_url} alt="" className="mx-auto h-28 w-28 object-contain" />
-          <div className="mt-2 text-center"><RarityName name={result.name} rarity={result.rarity} /></div>
+          <div className="mt-2 text-center"><RarityName name={result.name} rarity={result.rarity} light /></div>
           <div className="mt-1 text-center text-sm">{RARITY_INFO[result.rarity].label} · {rules?.hp[result.rarity] ?? "?"} PV pour les acheteurs</div>
           <div className="mt-1 text-center text-xs opacity-80">Ton prototype est dans « Mes compagnons ».</div>
         </RevealModal>
@@ -130,7 +130,7 @@ export function FarmShop({ onChanged }: { onChanged: () => void }) {
         <img src={d.image_url} alt="" className="h-16 w-16 shrink-0 object-contain" />
         <div className="min-w-0 flex-1 text-xs">
           <RarityName name={d.name} rarity={d.rarity as Rarity} />
-          <div className="mt-0.5">{RARITY_INFO[d.rarity as Rarity].label} · {rules?.hp[d.rarity as Rarity] ?? "?"} PV</div>
+          <div className="mt-0.5"><RarityPill rarity={d.rarity as Rarity} /> · {rules?.hp[d.rarity as Rarity] ?? "?"} PV</div>
           <div className="opacity-70">{l.authorName ? `par ${l.authorName} · ` : ""}{sold ? "ÉPUISÉ (on peut en trouver en butin)" : `${l.stock_left}/${l.stock_total} en stock`}</div>
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <b>{l.price} <Coin /></b>

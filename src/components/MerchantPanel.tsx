@@ -1,6 +1,7 @@
 // Fenêtre du marchand : acheter potions et parchemin, revendre ses objets et ses armes (au quart).
 import { uiSound } from "../lib/ui-sounds";
-import { Coin, outlinedName } from "./GameIcons";
+import { Coin } from "./GameIcons";
+import { RarityName, RarityPill } from "./InventoryPanel";
 import { useEffect, useRef, useState } from "react";
 import { CONSUMABLE_INFO, MERCHANT_KINDS, fetchMyConsumables, type ConsumableStack } from "../lib/consumables";
 import { fetchMerchantSettings, merchantBuy, merchantSellConsumable, merchantSellWeapon, type MerchantSettings } from "../lib/merchant";
@@ -106,8 +107,8 @@ export function MerchantPanel({ onClose, onWeaponChanged }: { onClose: () => voi
                 <div key={it.id} className="flex items-center gap-2 rounded border border-[#7a4a22]/60 bg-white/40 p-2 text-sm">
                   <img src={it.weapon.image_url} alt="" className="h-12 w-9 shrink-0 object-contain" />
                   <div className="min-w-0 flex-1 truncate">
-                    <b className="px-1" style={outlinedName(it.is_prototype ? "#f3f4f6" : RARITY_INFO[it.weapon.rarity].color)}>{itemDisplayName(it)}</b>
-                    <span className="ml-1 text-xs opacity-70">{RARITY_INFO[it.weapon.rarity].label} · {it.durability}/{it.durability_max}</span>
+                    <RarityName name={itemDisplayName(it)} rarity={it.weapon.rarity} prototype={it.is_prototype} />
+                    <span className="ml-1 text-xs opacity-70"><RarityPill rarity={it.weapon.rarity} prototype={it.is_prototype} /> · {it.durability}/{it.durability_max}</span>
                   </div>
                   {v == null ? (
                     <span className="text-xs opacity-70">non rachetable</span>

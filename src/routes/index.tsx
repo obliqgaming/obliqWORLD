@@ -154,7 +154,7 @@ export const Route = createFileRoute("/")({
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=MedievalSharp&display=swap",
       },
     ],
   }),
@@ -3001,6 +3001,17 @@ function Index() {
           className="absolute right-5 top-16 z-30 h-2.5 w-2.5 rounded-full opacity-40 transition-opacity hover:opacity-90"
           style={{ background: presenceDebugOn ? "#9effa0" : "#fff3d6" }}
         />
+        {character && emoteMenuOpen && !activeCombatId && (
+          <div className="absolute bottom-16 left-1/2 z-40 grid w-max -translate-x-1/2 grid-cols-3 gap-1.5 rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-2 shadow-xl" style={{ fontFamily: "'Baloo 2', cursive" }} onClick={(e) => e.stopPropagation()}>
+            {EMOTE_KEYS.map((k) => (
+              <button key={k} type="button" disabled={walking} onClick={() => { sendEmote(k); setEmoteMenuOpen(false); }} className="flex w-24 flex-col items-center rounded-lg border border-[#7a4a22]/50 bg-white/40 px-1 py-1 text-xs font-bold text-[#3a2410] hover:bg-white/70 disabled:opacity-40" style={{ cursor: CURSOR_INTERACT }}>
+                <span className="text-xl leading-none">{EMOTES[k].icon}</span>
+                {EMOTES[k].label}
+                <span className="text-[10px] font-normal opacity-60">/{EMOTES[k].commands[0]}</span>
+              </button>
+            ))}
+          </div>
+        )}
         {/* Barre d'icônes du bas : toutes de la même taille, alignées et centrées. */}
         {character && !activeCombatId && (() => {
           const boxPx = inExpeditionScene ? 30 : Math.round(Math.min(60, Math.max(34, sceneBoxSize.width * 0.05)));   // suit la taille de la scène
@@ -3012,21 +3023,9 @@ function Index() {
               { key: "talents", title: "Talents", src: "/icons/target.png", onClick: () => setTalentsOpen(true) },
               { key: "groups", title: "Cherche un groupe", src: "/icons/group.png", onClick: () => setBoardOpen(true) },
             ] : []),
-            { key: "emotes", title: "Emotes (ou tape /emotes)", src: "/icons/emote.svg", onClick: () => setEmoteMenuOpen((o) => !o) },
           ];
           return (
             <div className="absolute bottom-2 left-1/2 z-30 flex -translate-x-1/2 items-end gap-2">
-              {emoteMenuOpen && (
-                <div className="absolute bottom-full left-1/2 mb-2 grid -translate-x-1/2 grid-cols-3 gap-1.5 rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-2 shadow-xl" style={{ fontFamily: "'Baloo 2', cursive" }} onClick={(e) => e.stopPropagation()}>
-                  {EMOTE_KEYS.map((k) => (
-                    <button key={k} type="button" disabled={walking} onClick={() => { sendEmote(k); setEmoteMenuOpen(false); }} className="flex w-20 flex-col items-center rounded-lg border border-[#7a4a22]/50 bg-white/40 px-1 py-1 text-xs font-bold text-[#3a2410] hover:bg-white/70 disabled:opacity-40" style={{ cursor: CURSOR_INTERACT }}>
-                      <span className="text-xl leading-none">{EMOTES[k].icon}</span>
-                      {EMOTES[k].label}
-                      <span className="text-[10px] font-normal opacity-60">/{EMOTES[k].commands[0]}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
               {items.map((it) => (
                 <button
                   key={it.key}

@@ -1,7 +1,7 @@
 // Inventaire v1 : les armes que je porte sur moi, équiper / ranger / jeter.
 // (Pas de changement d'arme en combat : on équipe au village.)
 import { uiSound } from "../lib/ui-sounds";
-import { Coin, Bag, outlinedName } from "./GameIcons";
+import { Coin, Bag, WEAPON_FONT } from "./GameIcons";
 import { AuthorLine } from "./AuthorLine";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { WornSprite } from "./WornSprite";
@@ -16,11 +16,19 @@ import { CONSUMABLE_INFO, fetchMyConsumables, type ConsumableStack } from "../li
 import type { ForgeCharacter } from "./ForgePanel";
 import { fetchMyBuild } from "../lib/expedition-combat";
 
-// Prototype : nom en blanc ; sinon couleur de la rareté (commune = vert).
-export function RarityName({ name, rarity, prototype }: { name: string; rarity: keyof typeof RARITY_INFO; prototype?: boolean }) {
+// Pastille de rareté (dite une seule fois) : fond coloré, texte foncé. Prototype = pastille blanche.
+export function Pill({ label, color }: { label: string; color: string }) {
+  return <span className="rounded px-1.5 py-px text-[10px] font-extrabold" style={{ background: color, color: "#2b1406", border: "1px solid rgba(43,20,6,.35)" }}>{label}</span>;
+}
+export function RarityPill({ rarity, prototype }: { rarity: keyof typeof RARITY_INFO; prototype?: boolean | undefined }) {
+  return prototype ? <Pill label="Prototype" color="#f3f4f6" /> : <Pill label={RARITY_INFO[rarity].label} color={RARITY_INFO[rarity].color} />;
+}
+// Nom d'arme : texte foncé en police médiévale ; `pill` ajoute la rareté à côté quand elle n'est pas écrite ailleurs.
+export function RarityName({ name, rarity, prototype, pill, light }: { name: string; rarity: keyof typeof RARITY_INFO; prototype?: boolean | undefined; pill?: boolean; light?: boolean }) {
   return (
-    <span className="px-1 text-xs font-extrabold" style={outlinedName(prototype ? "#f3f4f6" : RARITY_INFO[rarity].color)}>
-      {name}
+    <span>
+      <span className="text-sm font-bold" style={{ fontFamily: WEAPON_FONT, color: light ? "#fff3d6" : "#2b1406" }}>{name}</span>
+      {pill && <> <RarityPill rarity={rarity} prototype={prototype} /></>}
     </span>
   );
 }
@@ -32,13 +40,13 @@ export function ItemDetails({ it }: { it: WeaponItem }) {
   return (
     <div className="text-[11px] leading-tight">
       <div className="opacity-90">
-        <b>{it.is_prototype ? "Prototype" : <span style={outlinedName(RARITY_INFO[st.rarity].color)}>{RARITY_INFO[st.rarity].label}</span>}</b> · {weaponKindLabel(it.weapon.weapon_type)} · <b>{bonusText(st.bonus)}</b> · durabilité <b>{it.durability}/{it.durability_max}</b>
+        <RarityPill rarity={st.rarity} prototype={it.is_prototype} /> · {weaponKindLabel(it.weapon.weapon_type)} · <b>{bonusText(st.bonus)}</b> · durabilité <b>{it.durability}/{it.durability_max}</b>
       </div>
       {eff && <div><b>{eff.name}</b> : <i>{eff.text}</i></div>}
       <AuthorLine userId={it.weapon.author_user_id} label="Dessinée par" />
       {it.is_prototype && (
         <div>
-          <b>Modèle butin</b> : <span style={outlinedName(RARITY_INFO[it.weapon.rarity].color)}>{RARITY_INFO[it.weapon.rarity].label.toLowerCase()}</span>
+          <b>Modèle butin</b> : <RarityPill rarity={it.weapon.rarity} />
           {modelEff ? <i> ({modelEff.name.toLowerCase()})</i> : null}
         </div>
       )}

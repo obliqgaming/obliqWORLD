@@ -4,7 +4,8 @@ import { uiSound } from "../lib/ui-sounds";
 import { useEffect, useRef, useState } from "react";
 import { FarmDraw, FarmShop } from "./FarmDraw";
 import { RARITY_INFO } from "../lib/weapons";
-import { Coin, outlinedName } from "./GameIcons";
+import { Coin } from "./GameIcons";
+import { Pill } from "./InventoryPanel";
 import { shopCollect } from "../lib/shop";
 import { TIER_INFO, claimStarterCompanion, fetchCompanionRules, fetchCompanionShop, fetchMyCompanions, fetchStarterChoices, releaseCompanion, setActiveCompanion, type Companion, type StarterCompanion } from "../lib/companions";
 
@@ -116,9 +117,9 @@ export function FarmPanel({ onClose }: { onClose: () => void }) {
                 <img src={c.image_url} alt="" className="h-16 w-16 shrink-0 object-contain" style={resting ? { filter: "grayscale(1)", opacity: 0.6 } : undefined} />
                 <div className="min-w-0 flex-1 text-xs">
                   <div className="truncate">
-                    <span className="px-1 text-sm font-extrabold" style={outlinedName(c.is_prototype ? "#f3f4f6" : c.rarity ? RARITY_INFO[c.rarity].color : TIER_INFO[c.tier].color)}>{c.name}</span>
+                    <span className="text-sm font-extrabold">{c.name}</span>
                   </div>
-                  <div>{c.is_prototype ? "Prototype" : c.rarity ? RARITY_INFO[c.rarity].label : TIER_INFO[c.tier].label} · {c.hp}/{c.hp_max} PV</div>
+                  <div>{c.is_prototype ? <Pill label="Prototype" color="#f3f4f6" /> : c.rarity ? <Pill label={RARITY_INFO[c.rarity].label} color={RARITY_INFO[c.rarity].color} /> : <Pill label={TIER_INFO[c.tier].label} color={TIER_INFO[c.tier].color} />} · {c.hp}/{c.hp_max} PV</div>
                   {resting && <div className="font-bold text-[#7a3a0e]">💤 Se repose encore {c.rest_left} expédition{c.rest_left > 1 ? "s" : ""}</div>}
                   {provisional && <div className="font-bold text-[#7a3a0e]">À toi à la fin de l'expédition</div>}
                   {c.active && !resting && <div className="font-bold text-[#166534]">✔ T'accompagne</div>}

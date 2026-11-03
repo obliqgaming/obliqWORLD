@@ -25,7 +25,5 @@ export function PanelIcon({ src, size = "1.3em" }: { src: string; size?: string 
   return <img src={src} alt="" draggable={false} style={{ display: "inline-block", height: size, width: size, objectFit: "contain", verticalAlign: "-0.25em", marginRight: "0.35em" }} />;
 }
 
-/** Nom coloré avec un gros contour sombre (lisible sur le parchemin, sans fond). */
-export function outlinedName(color: string): React.CSSProperties {
-  return { color, WebkitTextStroke: "4px #2b1406", paintOrder: "stroke fill", strokeLinejoin: "round" } as React.CSSProperties;
-}
+/** Police des noms d'armes (légèrement médiévale). */
+export const WEAPON_FONT = "'MedievalSharp', 'Baloo 2', cursive";

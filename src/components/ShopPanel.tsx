@@ -4,7 +4,7 @@ import { Coin } from "./GameIcons";
 import { useEffect, useRef, useState } from "react";
 import { EFFECT_INFO, RARITY_INFO, bonusText, weaponFits, weaponKindLabel } from "../lib/weapons";
 import { fetchShop, shopBuy, shopCollect, shopSetPrice, type Listing, type PriceRange } from "../lib/shop";
-import { RarityName } from "./InventoryPanel";
+import { RarityName, RarityPill } from "./InventoryPanel";
 import type { Rarity } from "../lib/weapons";
 
 const BTN = "rounded-lg border-2 border-[#7a4a22] bg-[#7a4a22] px-3 py-1 text-xs font-bold text-[#fff3d6] hover:bg-[#5e3818] disabled:opacity-50";
@@ -67,7 +67,7 @@ export function ShopPanel({ gold, family, onGoldChange, onBought }: { gold: numb
         <img src={w.image_url} alt="" className="h-20 w-14 shrink-0 object-contain" />
         <div className="min-w-0 flex-1 text-xs">
           <RarityName name={w.name} rarity={w.rarity} />
-          <div className="mt-0.5">{RARITY_INFO[w.rarity].label} · {weaponKindLabel(w.weapon_type)} · {bonusText(w.bonus_damage)}</div>
+          <div className="mt-0.5"><RarityPill rarity={w.rarity} /> · {weaponKindLabel(w.weapon_type)} · {bonusText(w.bonus_damage)}</div>
           {w.effect_key && EFFECT_INFO[w.effect_key] && (
             <div><b>{EFFECT_INFO[w.effect_key]!.name}</b> : {EFFECT_INFO[w.effect_key]!.text}</div>
           )}

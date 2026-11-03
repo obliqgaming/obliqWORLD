@@ -17,7 +17,7 @@ export type EmoteDef = {
 };
 
 export const EMOTES: Record<EmoteKey, EmoteDef> = {
-  saut:    { label: "Saut",     commands: ["saut", "sauter"],      icon: "⤴️", ms: 1500, anim: "emote-saut",    iterations: "2", dur: "750ms" },
+  saut:    { label: "Saut",     commands: ["saut", "sauter"],      icon: "🦘", ms: 1500, anim: "emote-saut",    iterations: "2", dur: "750ms" },
   danse:   { label: "Danse",    commands: ["danse", "danser"],     icon: "💃", symbol: "🎵", ms: 4000, anim: "emote-danse",   iterations: "infinite", dur: "700ms" },
   rire:    { label: "Rire",     commands: ["rire", "rigole"],      icon: "😂", symbol: "😂", ms: 2500, anim: "emote-rire",    iterations: "infinite", dur: "260ms" },
   salut:   { label: "Salut",    commands: ["salut", "saluer"],     icon: "👋", symbol: "👋", ms: 1800, anim: "emote-salut",   iterations: "2", dur: "900ms" },
@@ -28,7 +28,8 @@ export const EMOTES: Record<EmoteKey, EmoteDef> = {
   dormir:  { label: "Dormir",   commands: ["dormir", "dodo"],      icon: "😴", symbol: "💤", ms: 60000, anim: "emote-dormir", iterations: "1", dur: "1.2s", hold: true, hideWeapon: true },
 };
 
-export const EMOTE_KEYS = Object.keys(EMOTES) as EmoteKey[];
+// Ordre du menu (3 par ligne).
+export const EMOTE_KEYS: EmoteKey[] = ["salut", "rire", "dormir", "peur", "colere", "triste", "saut", "danse", "tourner"];
 export const EMOTE_COOLDOWN_MS = 1500;
 
 export function emoteFromCommand(word: string): EmoteKey | null {

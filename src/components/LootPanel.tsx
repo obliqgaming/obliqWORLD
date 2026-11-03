@@ -99,8 +99,8 @@ export function LootPanel({
               {w && <img src={w.image_url} alt="" className="h-12 w-8 object-contain" />}
               {it.kind === "companion" && it.visual_asset_id && creatures[it.visual_asset_id] && <img src={creatures[it.visual_asset_id]} alt="" className="h-12 w-12 object-contain" />}
               <div className="min-w-0 flex-1">
-                {w ? <RarityName name={w.name} rarity={w.rarity} /> : it.kind === "companion" ? <span className="font-bold">🐾 Compagnon ({it.item_key === "large" ? "grand" : it.item_key === "medium" ? "moyen" : "petit"})</span> : <span className="font-bold">{it.item_key && CONSUMABLE_INFO[it.item_key as ConsumableKind] ? `${CONSUMABLE_INFO[it.item_key as ConsumableKind]!.icon} ${CONSUMABLE_INFO[it.item_key as ConsumableKind]!.name}` : "Objet"}</span>}
-                {w && <div className="text-[11px]">{RARITY_INFO[w.rarity].label} · {bonusText(w.bonus_damage)}{w.effect_key && EFFECT_INFO[w.effect_key] ? ` · ${EFFECT_INFO[w.effect_key]?.name}` : ""}</div>}
+                {w ? <RarityName name={w.name} rarity={w.rarity} pill /> : it.kind === "companion" ? <span className="font-bold">🐾 Compagnon ({it.item_key === "large" ? "grand" : it.item_key === "medium" ? "moyen" : "petit"})</span> : <span className="font-bold">{it.item_key && CONSUMABLE_INFO[it.item_key as ConsumableKind] ? `${CONSUMABLE_INFO[it.item_key as ConsumableKind]!.icon} ${CONSUMABLE_INFO[it.item_key as ConsumableKind]!.name}` : "Objet"}</span>}
+                {w && <div className="text-[11px]">{bonusText(w.bonus_damage)}{w.effect_key && EFFECT_INFO[w.effect_key] ? ` · ${EFFECT_INFO[w.effect_key]?.name}` : ""}</div>}
               </div>
               {it.status === "rolling" && <div className="text-xs font-bold tabular-nums">{left} s</div>}
             </div>
