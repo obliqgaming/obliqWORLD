@@ -58,7 +58,6 @@ export function FarmDraw({ onChanged }: { onChanged: () => void }) {
         <div className="font-extrabold">🎨 Dessine un compagnon : <b>{rules?.cost ?? 6} <Coin /></b>, <b>un par jour</b> <span className="font-semibold">· tu as <b>{gold}</b> <Coin /></span></div>
         <div className="mt-1">✨ Sa <b>rareté est tirée au sort</b> à la validation (plus elle est haute, plus il a de PV). Tu reçois tout de suite ton <b>prototype</b>.</div>
         <div>🌲 Il pourra aussi apparaître comme créature dans la forêt.</div>
-        <div className="mt-1.5 font-bold" style={{ color: "#92400e" }}>✋ Dessine-le de profil, sur fond transparent.</div>
       </div>
       <input value={name} maxLength={40} onChange={(e) => setName(e.target.value)} placeholder="Nom du compagnon" className="mt-2 w-full rounded border border-[#7a4a22] bg-white/70 px-2 py-1 text-sm" />
       <div className="mt-2">
