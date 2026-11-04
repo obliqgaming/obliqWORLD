@@ -59,7 +59,7 @@ export function AdminBalance() {
           <table className="w-full min-w-[56rem] border-collapse text-left">
             <thead className="text-xs uppercase text-neutral-400">
               <tr>
-                {["Type", "Joueurs", "Expéditions", "Revenues", "Anéanties", "En cours", "Combats gagnés (moy.)", "Boss atteint", "Boss vaincu", "Morts (moy.)", "Or du groupe (moy.)", "Or / joueur (moy.)", "PV des vivants (fin)"].map((h) => (
+                {["Type", "Joueurs", "Expéditions", "Revenues", "Anéanties", "En cours", "Combats gagnés (moy.)", "Chef-Patron atteint", "Chef-Patron vaincu", "Morts (moy.)", "Flouz du groupe (moy.)", "Flouz / joueur (moy.)", "Peps des vivants (fin)"].map((h) => (
                   <th key={h} className="border-b border-neutral-700 px-2 py-1 font-semibold">{h}</th>
                 ))}
               </tr>

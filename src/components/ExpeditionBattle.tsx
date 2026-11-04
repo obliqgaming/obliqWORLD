@@ -40,10 +40,10 @@ import { COMBAT_USABLE, CONSUMABLE_INFO, fetchMyConsumables, submitCombatItem, t
 import { playCombatSound, type CombatSound } from "../lib/combat-sounds";
 import { leaveScenePresence, scenesClient, type PresenceChannel } from "../lib/scenes-supabase";
 
-const ROLE_LABEL: Record<string, string> = { chef: "Chef de meute", boss: "Boss", add: "Invoqué", normal: "" };
+const ROLE_LABEL: Record<string, string> = { chef: "Chef de meute", boss: "Chef-Patron", add: "Invoqué", normal: "" };
 
 const EVENT_MS = 1050; // durée d'une action rejouée
-const LAND_MS = 380; // instant où le coup touche (PV qui bougent, bruit)
+const LAND_MS = 380; // instant où le coup touche (peps qui bougent, bruit)
 
 function pnum(p: GamePower, k: string): number | undefined {
   const v = p.params?.[k];
@@ -396,9 +396,9 @@ export function ExpeditionBattle({
       return d !== null ? `≈ ${d} dégâts` : "";
     }
     const heal = pnum(p, "heal");
-    if (heal !== undefined) return `+${Math.max(1, Math.round(heal * pvScale))} PV`;
+    if (heal !== undefined) return `+${Math.max(1, Math.round(heal * pvScale))} peps`;
     const pmGain = pnum(p, "pm_gain");
-    if (pmGain !== undefined) return `+${Math.round(pmGain * pmScale)} PM`;
+    if (pmGain !== undefined) return `+${Math.round(pmGain * pmScale)} jus`;
     if (pnum(p, "survive_at") !== undefined) return "évite la mort";
     if (pnum(p, "redirect_single_target") !== undefined || p.params?.["redirect_single_target"] === true) {
       const d = dmgVs(1);
@@ -435,10 +435,10 @@ export function ExpeditionBattle({
     if (prm["acts_first"] === true) t.push("agit en premier");
     const nh = pnum(p, "next_hit_mult");
     if (nh !== undefined) t.push(`prochaine attaque du monstre −${Math.round((1 - nh) * 100)} %`);
-    if (pnum(p, "pm_return_ratio") !== undefined) t.push("rend des PM");
+    if (pnum(p, "pm_return_ratio") !== undefined) t.push("rend du jus");
     if (prm["cancel_if_hit"] === true) t.push("annulée si tu es touché");
     const bp = pnum(p, "bonus_per_20pct_missing");
-    if (bp !== undefined) t.push(`+${Math.round(bp * 100)} % dégâts par 20 % de PV perdus · ${pnum(p, "turns") ?? 3} tours`);
+    if (bp !== undefined) t.push(`+${Math.round(bp * 100)} % dégâts par 20 % de peps perdus · ${pnum(p, "turns") ?? 3} tours`);
     if (prm["stack"] === true) t.push("cumulable");
     if (isSelfOnly(p)) t.push("sur toi");
     return t.join(" · ");
@@ -588,13 +588,13 @@ export function ExpeditionBattle({
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-black/20" />
 
       <div className="absolute left-1/2 top-4 -translate-x-1/2 rounded-full bg-black/60 px-4 py-1 text-xs font-bold uppercase tracking-widest text-[#fff3d6]">
-        {combat?.is_boss ? "Combat de boss" : "Combat"} · tour {turn}
+        {combat?.is_boss ? "Combat de Chef-Patron" : "Combat"} · tour {turn}
         {active && !replaying && secondsLeft !== null ? ` · ${secondsLeft} s` : ""}
       </div>
 
       {active && combat?.aoe_warning && !replaying && (
         <div className="absolute left-1/2 top-14 z-30 -translate-x-1/2 rounded-lg border-2 border-[#f87171] bg-[#4a0d0d]/95 px-4 py-1.5 text-sm font-bold text-[#fff3d6]">
-          ⚠ Le boss prépare une attaque de zone : elle touchera tout le groupe à la fin de ce tour !
+          ⚠ Le Chef-Patron prépare une attaque de zone : elle touchera tout le groupe à la fin de ce tour !
         </div>
       )}
 
@@ -727,7 +727,7 @@ export function ExpeditionBattle({
                   </span>
                 </div>
                 <HpBar current={hp} max={a.hpMax} />
-                {a.pmMax ? <div className="mt-0.5 text-[10px] font-bold text-[#93c5fd]">PM {a.pmCurrent ?? 0}/{a.pmMax}</div> : null}
+                {a.pmMax ? <div className="mt-0.5 text-[10px] font-bold text-[#93c5fd]">Jus {a.pmCurrent ?? 0}/{a.pmMax}</div> : null}
                 {a.companion ? <div className="text-[10px] font-bold text-[#fcd34d]">🐾 {a.companion.name} {a.companion.hp}/{a.companion.hp_max}</div> : null}
               </div>
             </div>
@@ -834,7 +834,7 @@ export function ExpeditionBattle({
                       {prev && <div className="mt-0.5 font-bold text-[#92400e]">{prev}</div>}
                       {tags && <div className="mt-0.5 text-[10px] opacity-85">{tags}</div>}
                       <div className="mt-1 text-[10px] font-bold">
-                        {b.cd > 0 ? `Recharge : ${b.cd} tour${b.cd > 1 ? "s" : ""}` : b.cost > 0 ? `${b.cost} PM${noPm ? " (insuffisant)" : ""}` : "Gratuit"}
+                        {b.cd > 0 ? `Recharge : ${b.cd} tour${b.cd > 1 ? "s" : ""}` : b.cost > 0 ? `${b.cost} jus${noPm ? " (insuffisant)" : ""}` : "Gratuit"}
                       </div>
                     </div>
                   </div>
@@ -897,7 +897,7 @@ export function ExpeditionBattle({
             <div className="mt-1 text-sm">
               {combat!.status === "victory"
                 ? combat!.is_boss
-                  ? "Le boss est vaincu : l'expédition est réussie, vous rentrez avec le butin."
+                  ? "Le Chef-Patron est vaincu : l'expédition est réussie, vous rentrez avec le butin."
                   : "Les monstres sont vaincus. L'expédition continue."
                 : "Plus personne ne tient debout : l'expédition est terminée."}
             </div>

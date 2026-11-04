@@ -34,7 +34,7 @@ export function AdminBackup() {
   return (
     <div className="mx-auto max-w-2xl space-y-3 p-4 text-sm text-neutral-100">
       <p>
-        Télécharge un fichier avec le contenu des tables importantes (scènes, personnages, dessins, armes, boutique, compagnons, or, réglages, rencontres, signalements).
+        Télécharge un fichier avec le contenu des tables importantes (scènes, personnages, dessins, armes, boutique, compagnons, flouz, réglages, rencontres, signalements).
         Fais-le avant chaque grosse mise à jour et avant d'inviter du monde. Garde les fichiers hors de ton ordinateur de jeu (cloud, clé USB).
       </p>
       <p className="text-neutral-400">

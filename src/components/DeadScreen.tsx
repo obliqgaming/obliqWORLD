@@ -12,7 +12,7 @@ export function DeadScreen({ name, cause, summary, busy, error, onNewCharacter }
           </div>
         )}
         <p className="mt-2 text-sm">Son esprit rejoint la forêt. Un jour, quelqu'un le croisera peut-être sous la forme d'un monstre… et pourra même le capturer pour en faire un compagnon.</p>
-        <p className="mt-2 text-sm">Tout ce qu'il possédait est perdu. Tu repars de zéro, avec un peu d'or et un compagnon à choisir.</p>
+        <p className="mt-2 text-sm">Tout ce qu'il possédait est perdu. Tu repars de zéro, avec un peu de flouz et un compagnon à choisir.</p>
         <p className="mt-2 text-sm">Il est temps de dessiner un nouveau personnage.</p>
         <button type="button" disabled={busy} onClick={onNewCharacter} className="mt-4 rounded-lg border-2 border-[#166534] bg-[#16a34a] px-5 py-2 font-extrabold text-white disabled:opacity-50">
           {busy ? "…" : "Dessiner un nouveau personnage"}

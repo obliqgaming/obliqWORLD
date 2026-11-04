@@ -172,7 +172,7 @@ export const PLACEHOLDER_EVENTS: PlaceholderEvent[] = [
   {
     id: "boss-final",
     kind: "combat",
-    typeLabel: "Boss final",
+    typeLabel: "Chef-Patron final",
     risk: "eleve",
     situation: "Au bout du sentier, quelque chose d'immense vous attendait depuis longtemps.",
     choices: [

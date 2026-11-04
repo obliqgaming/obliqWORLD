@@ -63,11 +63,11 @@ export function CampPanel({ expeditionId, characterId, members }: { expeditionId
   return (
     <div className="absolute right-2 top-14 z-30 w-[min(19rem,46%)] rounded-lg border-2 border-[#7a4a22] bg-[#f1dfb6]/95 p-3 text-[#3a2410] shadow-xl" style={{ fontFamily: "'Baloo 2', cursive" }} onClick={(e) => e.stopPropagation()}>
       <div className="text-base font-extrabold">🔥 Feu de camp</div>
-      <div className="text-xs leading-snug">Un moment de répit. Boire une potion ne coûte aucun tour. <b>Une ration par personne</b>, <b>un festin pour tout le groupe</b>. Quand tout le monde est prêt, votez pour reprendre la route.</div>
+      <div className="text-xs leading-snug">Un moment de répit. Boire une potion ne coûte aucun tour. <b>Un casse-croûte par personne</b>, <b>un festin pour tout le groupe</b>. Quand tout le monde est prêt, votez pour reprendre la route.</div>
       <div className="mt-2 space-y-0.5 text-xs">
         {members.filter((m) => !m.gone).map((m) => (
           <div key={m.characterId} className={m.pv <= 0 ? "opacity-60" : ""}>
-            <b>{m.name}</b> · {m.pv <= 0 ? "à terre" : `${m.pv}/${m.pvMax} PV`}{m.pv > 0 && m.pmMax > 0 ? ` · ${m.pm}/${m.pmMax} PM` : ""}
+            <b>{m.name}</b> · {m.pv <= 0 ? "à terre" : `${m.pv}/${m.pvMax} peps`}{m.pv > 0 && m.pmMax > 0 ? ` · ${m.pm}/${m.pmMax} jus` : ""}
           </div>
         ))}
       </div>
@@ -82,7 +82,7 @@ export function CampPanel({ expeditionId, characterId, members }: { expeditionId
               (k === "ration" && ateRation) ||
               (k === "festin" && feastDone) ||
               (k === "larme_vie" && fallen.length === 0);
-            const note = k === "ration" && ateRation ? "déjà mangée" : k === "festin" && feastDone ? "déjà fait" : k === "larme_vie" && fallen.length === 0 ? "personne à ressusciter" : "";
+            const note = k === "ration" && ateRation ? "déjà mangé" : k === "festin" && feastDone ? "déjà fait" : k === "larme_vie" && fallen.length === 0 ? "personne à ressusciter" : "";
             return (
               <div key={k} className="rounded border border-[#7a4a22]/50 bg-white/40 p-1.5 text-xs">
                 <div><b>{info.icon} {info.name}</b> ×{count(k)} {note && <i className="opacity-70">({note})</i>}</div>

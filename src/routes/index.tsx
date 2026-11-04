@@ -359,7 +359,7 @@ function Index() {
       window.setTimeout(() => setGoldFloats((f) => f.filter((g) => g.key !== key)), 1800);
     };
     claimDailyGold(h.id)
-      .then((n) => { uiSound("coin"); push(`+${n} or`, true); })
+      .then((n) => { uiSound("coin"); push(`+${n} flouz`, true); })
       .catch((e: any) => push(e?.message?.includes("daily_gold_claim") ? "Pas encore activé" : "Déjà ramassé", false));
   };
   const [inventoryOpen, setInventoryOpen] = useState(false);
@@ -2840,7 +2840,7 @@ function Index() {
                 isSelfReady={selfReady && mine}
                 readyCount={mine ? readyCount : 0}
                 totalCount={groupIds.length}
-                label={portal.route === "long" ? `Expédition longue · niv. ${longMinLevel}` : scenePortals.length > 1 ? "Expédition courte" : undefined}
+                label={portal.route === "long" ? `Grand Safari Sylvestre · niv. ${longMinLevel}` : scenePortals.length > 1 ? "P'tite balade dans la forêt" : undefined}
                 onClick={() => walkThen(portal.position, () => void handleTogglePortal(portal))}
               />
             );
@@ -3037,7 +3037,7 @@ function Index() {
             { key: "bag", title: "Inventaire", src: "/icons/bag.svg", onClick: () => setInventoryOpen(true) },
             ...(!inExpeditionScene ? [
               { key: "talents", title: "Talents", src: "/icons/target.png", onClick: () => setTalentsOpen(true) },
-              { key: "groups", title: "Cherche un groupe", src: "/icons/group.png", onClick: () => setBoardOpen(true) },
+              { key: "groups", title: "Le Panneau des Aventuriers", src: "/icons/group.png", onClick: () => setBoardOpen(true) },
             ] : []),
           ];
           return (

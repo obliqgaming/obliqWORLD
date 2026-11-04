@@ -489,7 +489,7 @@ function AdminPage() {
     setPlacingPortal(null);
     if (!scene) return;
     const existing = expPortals.find((x) => x.route === route);
-    const nom = route === "long" ? "Portail d'expédition LONGUE" : "Portail d'expédition courte";
+    const nom = route === "long" ? "Portail du Grand Safari Sylvestre" : "Portail de la P'tite balade dans la forêt";
     try {
       if (existing) {
         await updateExpeditionPortalPosition(existing.id, p);
@@ -504,7 +504,7 @@ function AdminPage() {
       console.error(err);
       setExitStatus(
         route === "long"
-          ? "Erreur avec le portail d'expédition longue — as-tu lancé le SQL 040 ? (F12 pour le détail)"
+          ? "Erreur avec le portail du Grand Safari Sylvestre — as-tu lancé le SQL 040 ? (F12 pour le détail)"
           : "Erreur avec le portail d'expédition — regarde la console (F12).",
       );
     }
@@ -1211,7 +1211,7 @@ function AdminPage() {
             {expPortals.map((pt) => (
               <div
                 key={pt.id}
-                title={pt.route === "long" ? "Portail d'expédition longue" : "Portail d'expédition courte"}
+                title={pt.route === "long" ? "Portail du Grand Safari Sylvestre" : "Portail de la P'tite balade dans la forêt"}
                 className="pointer-events-none absolute flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 text-sm"
                 style={{
                   left: `${pt.position.x}%`,

@@ -1,5 +1,6 @@
 import { REQUIRE_PROVIDER_LOGIN } from "./alpha-config";
 import { createClient, type RealtimeChannel } from "@supabase/supabase-js";
+import { vocabText } from "./vocab";
 
 const SCENES_SUPABASE_URL = "https://xbesddgqhvwcyjnoxtaz.supabase.co";
 const SCENES_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_gfJOIX_L5Iq1y-4vMFKAHA_x4tCyoXB";
@@ -29,7 +30,29 @@ export function setPresenceDebugEnabled(enabled: boolean): void {
   }
 }
 
+// Les messages d'erreur écrits dans la base (« Il te faut 6 or », « Pas assez de PM »…) passent par le vocabulaire du jeu.
+const vocabFetch: typeof fetch = async (input, init) => {
+  const res = await fetch(input, init);
+  if (res.ok) return res;
+  try {
+    if (!(res.headers.get("content-type") ?? "").includes("json")) return res;
+    const body = await res.clone().json();
+    if (body && typeof body === "object" && typeof (body as { message?: unknown }).message === "string") {
+      const message = vocabText((body as { message: string }).message);
+      if (message !== (body as { message: string }).message) {
+        const headers = new Headers(res.headers);
+        headers.delete("content-length");
+        return new Response(JSON.stringify({ ...(body as object), message }), { status: res.status, statusText: res.statusText, headers });
+      }
+    }
+  } catch {
+    // corps illisible : on rend la réponse telle quelle
+  }
+  return res;
+};
+
 export const scenesClient = createClient(SCENES_SUPABASE_URL, SCENES_SUPABASE_PUBLISHABLE_KEY, {
+  global: { fetch: vocabFetch },
   auth: {
     persistSession: isBrowser,
     autoRefreshToken: isBrowser,

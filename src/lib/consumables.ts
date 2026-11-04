@@ -4,13 +4,13 @@ import { scenesClient, ensureUserId } from "./scenes-supabase";
 export type ConsumableKind = "potion_soin" | "potion_mana" | "potion_resistance" | "parchemin_degats" | "ration" | "festin" | "larme_vie";
 
 export const CONSUMABLE_INFO: Record<ConsumableKind, { name: string; icon: string; text: string }> = {
-  potion_soin: { name: "Potion de soin", icon: "🧪", text: "Rend 20 % des PV max (toi ou un allié)." },
-  potion_mana: { name: "Potion de mana", icon: "💧", text: "Rend 20 % des PM max." },
-  potion_resistance: { name: "Potion de résistance", icon: "🛡", text: "Dégâts subis réduits de moitié pendant 2 tours." },
+  potion_soin: { name: "Potion de peps", icon: "🧪", text: "Rend 25 % de tes points de peps max (toi ou un allié)." },
+  potion_mana: { name: "Potion de jus", icon: "💧", text: "Rend 25 % de tes points de jus max." },
+  potion_resistance: { name: "Fiole de caillou", icon: "🏺", text: "Dégâts subis réduits de moitié pendant 2 tours." },
   parchemin_degats: { name: "Parchemin de force", icon: "📜", text: "+1 dégât pendant 3 tours." },
-  ration: { name: "Ration", icon: "🍖", text: "Au feu de camp : rend 50 % des PV et PM max. Une seule par personne." },
-  festin: { name: "Festin", icon: "🍲", text: "Au feu de camp : rend 80 % des PV et PM max à TOUT le groupe. Un seul par camp." },
-  larme_vie: { name: "Larme de vie", icon: "💧", text: "Au feu de camp : ressuscite un allié tombé dans cette expédition (50 % de ses PV)." },
+  ration: { name: "Casse-croûte", icon: "🍖", text: "Au feu de camp : rend 55 % des points de peps et de jus max. Un seul par personne." },
+  festin: { name: "Festin", icon: "🍲", text: "Au feu de camp : rend 85 % des points de peps et de jus max à TOUT le groupe. Un seul par camp." },
+  larme_vie: { name: "Larme de vie", icon: "💧", text: "Au feu de camp : ressuscite un allié tombé dans cette expédition (50 % de ses points de peps)." },
 };
 /** Ce qui peut être utilisé PENDANT un combat (le reste ne sert qu'au feu de camp). */
 export const COMBAT_USABLE: ConsumableKind[] = ["potion_soin", "potion_mana", "potion_resistance", "parchemin_degats"];

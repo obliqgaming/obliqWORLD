@@ -23,22 +23,22 @@ export const RARITY_INFO: Record<Rarity, { label: string; color: string; chance:
 };
 export const EFFECT_INFO: Record<string, { name: string; text: string }> = {
   // Inhabituelle
-  entrainant: { name: "Entraînant", text: "+1 PM récupéré à chaque attaque de base" },
+  entrainant: { name: "Entraînant", text: "+1 jus récupéré à chaque attaque de base" },
   vif: { name: "Vif", text: "+2 Vitesse" },
   robuste: { name: "Robuste", text: "+1 Défense" },
   // Rare
   saignement: { name: "Saignement", text: "l'attaque de base empoisonne la cible (1 dégât par tour, 2 tours)" },
-  siphon: { name: "Siphon", text: "+1 PV à chaque attaque de base" },
-  concentre: { name: "Concentré", text: "tes pouvoirs coûtent 1 PM de moins" },
+  siphon: { name: "Siphon", text: "+1 peps à chaque attaque de base" },
+  concentre: { name: "Concentré", text: "tes pouvoirs coûtent 1 jus de moins" },
   perforant: { name: "Perforant", text: "ignore 5 points de Défense de la cible" },
   // Épique
   frappe_lourde: { name: "Frappe lourde", text: "25 % de chance de doubler les dégâts" },
-  eclat: { name: "Éclat", text: "+50 % de dégâts sur une cible sous la moitié de ses PV" },
+  eclat: { name: "Éclat", text: "+50 % de dégâts sur une cible sous la moitié de ses peps" },
   garde: { name: "Garde", text: "−1 dégât sur les coups de 3 dégâts ou plus que tu reçois" },
   frenesie: { name: "Frénésie", text: "−1 tour de recharge sur ton pouvoir le plus long" },
   // Légendaire
   second_coup: { name: "Second coup", text: "20 % de chance de frapper deux fois" },
-  execution: { name: "Exécution", text: "dégâts doublés sur une cible sous 25 % de PV" },
+  execution: { name: "Exécution", text: "dégâts doublés sur une cible sous 25 % de peps" },
   vol_de_vie: { name: "Vol de vie", text: "tu soignes la moitié des dégâts infligés" },
   echo: { name: "Écho", text: "ton premier pouvoir de chaque combat ne coûte rien et n'a pas de recharge" },
 };

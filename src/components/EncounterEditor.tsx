@@ -82,7 +82,7 @@ export function EncounterEditor({ onClose }: { onClose: () => void }) {
     setBusy(true);
     try {
       const n = await collectEncounterGold();
-      setMsg(n > 0 ? `+${n} or récupéré${n > 1 ? "s" : ""} dans ta boîte aux lettres.` : "Rien à récupérer pour l'instant.");
+      setMsg(n > 0 ? `+${n} flouz récupéré${n > 1 ? "s" : ""} dans ta boîte aux lettres.` : "Rien à récupérer pour l'instant.");
       await reload();
     } catch (e: any) {
       setMsg(e?.message ?? "Erreur");
@@ -119,20 +119,20 @@ export function EncounterEditor({ onClose }: { onClose: () => void }) {
             <div className="mt-2 space-y-1 text-sm">
               <div>🎲 Tu <b>tires au hasard</b> un type de rencontre et un niveau de risque.</div>
               <div>✍ Tu écris <b>la situation</b> et <b>les deux issues</b>.</div>
-              <div><Coin /> Chaque fois que des aventuriers la jouent, <b>tu gagnes de l'or</b> <i>(dans ta boîte aux lettres)</i>.</div>
+              <div><Coin /> Chaque fois que des aventuriers la jouent, <b>tu gagnes du flouz</b> <i>(dans ta boîte aux lettres)</i>.</div>
             </div>
             <div className="mt-2 rounded border border-[#b98a54] bg-[#f6e8c4] p-2 text-xs italic">
               Une écriture trop fainéante ou incongrue sera rejetée.
             </div>
             <button type="button" disabled={busy || gold < cost} onClick={() => void draw()} className="mt-3 rounded-lg border-2 border-[#166534] bg-[#16a34a] px-4 py-1.5 text-sm font-extrabold text-white disabled:opacity-50">
-              🎲 Tirer une rencontre ({cost} or)
+              🎲 Tirer une rencontre ({cost} flouz)
             </button>
-            <span className="ml-2 text-xs font-bold">Tu as {gold} or</span>
+            <span className="ml-2 text-xs font-bold">{gold > 0 ? `Tu as ${gold} flouz` : "T'as pas de flouz"}</span>
 
             <div className="mt-4 rounded border-2 border-[#b98a54] bg-[#f6e8c4] p-2">
               <div className="text-xs font-extrabold uppercase tracking-wide">📬 Boîte aux lettres</div>
               <div className="mt-1 text-sm">
-                {pending > 0 ? <>Tes rencontres t'ont rapporté <b>{pending} or</b>.</> : "Rien à récupérer pour l'instant."}
+                {pending > 0 ? <>Tes rencontres t'ont rapporté <b>{pending} flouz</b>.</> : "Rien à récupérer pour l'instant."}
               </div>
               {pending > 0 && (
                 <button type="button" disabled={busy} onClick={() => void collect()} className="mt-1 rounded border-2 border-[#92400e] bg-[#f59e0b] px-3 py-0.5 text-xs font-extrabold">Récupérer</button>
@@ -165,8 +165,8 @@ export function EncounterEditor({ onClose }: { onClose: () => void }) {
               Une écriture trop fainéante ou incongrue sera rejetée.
             </div>
             {field("La situation", sit, setSit, ex.situation)}
-            {field("✅ SI LE GROUPE RÉUSSIT (aucune perte de PV)", ok, setOk, ex.success, "ok")}
-            {field("❌ SI LE GROUPE ÉCHOUE (le groupe perd des PV)", ko, setKo, ex.failure, "ko")}
+            {field("✅ SI LE GROUPE RÉUSSIT (aucune perte de peps)", ok, setOk, ex.success, "ok")}
+            {field("❌ SI LE GROUPE ÉCHOUE (le groupe perd du peps)", ko, setKo, ex.failure, "ko")}
             {draft.step_type !== "epreuve" ? (
               <label className="mt-2 block text-xs font-bold">
                 En cas d'échec, les dégâts sont…

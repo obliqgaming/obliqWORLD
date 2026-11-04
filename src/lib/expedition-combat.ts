@@ -2,6 +2,7 @@
 // choix de l'axe, issue des événements (SQL 006 à 009). Tout est écrit par des
 // fonctions serveur : le navigateur ne fait que lire et envoyer ses choix.
 import { scenesClient, type PresenceChannel } from "./scenes-supabase";
+import { vocabText } from "./vocab";
 
 // ---------- Données de réglage (lecture seule) ----------
 export type GameAxis = {
@@ -46,7 +47,7 @@ export async function fetchGamePowers(): Promise<GamePower[]> {
   if (powersCache) return powersCache;
   const { data, error } = await scenesClient.from("game_powers").select("*").order("unlock_level");
   if (error) throw error;
-  powersCache = (data ?? []) as GamePower[];
+  powersCache = ((data ?? []) as GamePower[]).map((p) => ({ ...p, name: vocabText(p.name), description: vocabText(p.description) }));
   return powersCache;
 }
 
@@ -227,9 +228,9 @@ export async function fetchCombatSnapshot(combatId: string): Promise<CombatSnaps
   if (!c.data) return null;
   return {
     combat: c.data as Combat,
-    enemies: (e.data ?? []) as CombatEnemyRow[],
+    enemies: ((e.data ?? []) as CombatEnemyRow[]).map((en) => ({ ...en, name: vocabText(en.name) })),
     players: (p.data ?? []) as CombatPlayerRow[],
-    log: (l.data ?? []) as CombatLogRow[],
+    log: ((l.data ?? []) as CombatLogRow[]).map((row) => ({ ...row, text: vocabText(row.text) })),
   };
 }
 

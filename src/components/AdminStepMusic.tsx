@@ -7,7 +7,7 @@ const TYPES = [
   { key: "music_narrative", label: "📖 Étape narrative (rencontre, camp…)" },
   { key: "music_combat", label: "⚔ Combat" },
   { key: "music_danger", label: "⚠ Danger (danger imminent, épreuve)" },
-  { key: "music_boss", label: "👑 Boss et mini-boss" },
+  { key: "music_boss", label: "👑 Chef-Patron et mini Chef-Patron" },
 ] as const;
 type Key = (typeof TYPES)[number]["key"];
 

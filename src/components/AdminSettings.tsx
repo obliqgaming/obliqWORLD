@@ -7,7 +7,7 @@ import { scenesClient } from "../lib/scenes-supabase";
 type Setting = { key: string; value: number; note: string };
 
 const GROUPS: [string, string][] = [
-  ["loot_", "Butin (or, armes de monstres, dés)"],
+  ["loot_", "Butin (flouz, armes de monstres, dés)"],
   ["weapon_", "Armes (durabilité…)"],
   ["forge_", "Forge"],
   ["combat_", "Combat"],
