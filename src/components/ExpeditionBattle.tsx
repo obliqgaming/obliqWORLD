@@ -54,6 +54,23 @@ function isSelfOnly(p: GamePower): boolean {
 }
 const ALLY_TARGET_KEYS = new Set(["interposition", "benediction", "purification"]);   // se lancent sur un allié choisi
 const NO_TARGET_KEYS = new Set(["cri_de_guerre", "bouclier_sacre", "soin_groupe"]);      // touchent tout le groupe
+// Type d'un pouvoir (une icône par type, voir public/icons/powers) : sert à ranger les compétences dans la barre d'action.
+export type PowerType = "attaque" | "magie" | "soin" | "soutien";
+const POWER_TYPE_INFO: Record<PowerType, { label: string; color: string }> = {
+  attaque: { label: "Attaque", color: "#b91c1c" },
+  magie: { label: "Magie", color: "#7e22ce" },
+  soin: { label: "Soin", color: "#15803d" },
+  soutien: { label: "Soutien", color: "#0f766e" },
+};
+export function powerType(p: GamePower | null, magicFamily: boolean): PowerType {
+  if (!p) return magicFamily ? "magie" : "attaque";
+  const prm = p.params ?? {};
+  if (prm["heal"] !== undefined || prm["survive_at"] !== undefined) return "soin";
+    const magic = p.family === "magie" || p.axis_key === "mage" || p.axis_key === "pretre";
+  if (prm["damage_mult"] !== undefined || prm["dot_mult"] !== undefined || prm["charge_turns"] !== undefined) return magic ? "magie" : "attaque";
+  return "soutien";
+}
+
 function isAllyPower(p: GamePower): boolean {
   const prm = p.params;
   if (ALLY_TARGET_KEYS.has(p.power_key)) return true;
@@ -359,6 +376,10 @@ export function ExpeditionBattle({
   const myAxisKey = build ? (build.axis_key ?? (build.family === "melee" ? "apprenti_melee" : "apprenti_magie")) : null;
   const myAxis = axes.find((a) => a.axis_key === myAxisKey) ?? null;
   const baseAttackName = myAxis?.base_attack_name ?? "Attaque";
+  const magicFamily = build?.family === "magie";
+  const tiles = [{ key: null as string | null, p: null as GamePower | null, name: baseAttackName, cost: 0, cd: 0, desc: "Attaque de base (gratuite)" }].concat(
+    myPowers.map((p) => ({ key: p.power_key as string | null, p: p as GamePower | null, name: p.name, cost: p.cost_pm, cd: myCooldowns[p.power_key] ?? 0, desc: p.description })),
+  );
   const pvScale = settings["pv_scale"] ?? 1;
   const pmScale = settings["pm_scale"] ?? 1;
   const targetEnemyRow = (snap?.enemies ?? []).find((e) => e.id === targetEnemy) ?? aliveEnemies[0] ?? null;
@@ -456,6 +477,24 @@ export function ExpeditionBattle({
       setError(msg);
     }
   };
+
+  // Raccourcis clavier 1–9 : une touche = une compétence (ignorés quand on écrit dans le tchat).
+  useEffect(() => {
+    if (!active || myDead || replaying) return;
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const n = Number(e.key);
+      if (!Number.isInteger(n) || n < 1 || n > 9) return;
+      const b = tiles[n - 1];
+      if (!b || b.cd > 0 || (me?.pmCurrent ?? 0) < b.cost) return;
+      void send(b.key);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, myDead, replaying, tiles, me?.pmCurrent, targetEnemy, targetAlly, turn]);
 
   const enemySlots = (snap?.enemies ?? []).slice(0, ENEMY_SLOTS.length);
   // Dessins choisis par le serveur : on charge ceux qu'on n'a pas encore.
@@ -753,57 +792,54 @@ export function ExpeditionBattle({
           </div>
           {error && !replaying && <div className="rounded bg-[#4a0d0d]/90 px-2 py-0.5 text-[11px] font-bold text-[#fca5a5]">{error}</div>}
           {!myDead && !replaying && (
-            <div className="flex flex-wrap justify-center gap-2 rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6]/95 p-2 shadow-lg">
-              {[{ key: null as string | null, p: null as GamePower | null, name: baseAttackName, cost: 0, cd: 0, desc: "Attaque de base (gratuite)" }]
-                .concat(
-                  myPowers.map((p) => ({
-                    key: p.power_key as string | null,
-                    p: p as GamePower | null,
-                    name: p.name,
-                    cost: p.cost_pm,
-                    cd: myCooldowns[p.power_key] ?? 0,
-                    desc: p.description,
-                  })),
-                )
-                .map((b) => {
-                  const noPm = (me?.pmCurrent ?? 0) < b.cost;
-                  const disabled = b.cd > 0 || noPm;
-                  const activeSel = iAmReady && selectedPower === b.key;
-                  const prev = previewOf(b.p);
-                  const tags = effectTags(b.p);
-                  return (
-                    <div key={b.key ?? "base"} className="group relative">
-                      <button
-                        type="button"
-                        disabled={disabled}
-                        onClick={() => void send(b.key)}
-                        className="min-w-28 rounded-lg px-3 py-1.5 text-left text-sm font-bold text-[#3a2410] transition-colors hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-55"
-                        style={{
-                          fontFamily: "'Baloo 2', cursive",
-                          border: activeSel ? "2px solid #047857" : disabled ? "1px solid #b98a54" : "2px solid #c98a00",
-                          background: activeSel ? "#d1fae5" : disabled ? "rgba(255,255,255,0.3)" : "#fff1b8",
-                        }}
-                      >
-                        <div className="text-[13px] font-extrabold">{b.name}{activeSel ? " ✔" : ""}</div>
-                        {prev && <div className="text-[11px] font-bold text-[#92400e]">{prev}</div>}
-                        {tags && <div className="max-w-40 text-[10px] font-normal leading-tight opacity-85">{tags}</div>}
-                        <div className="mt-0.5 flex flex-wrap gap-1 text-[10px] font-bold">
-                          {b.cd > 0 ? (
-                            <span className="rounded bg-[#e5e7eb] px-1.5 py-px text-[#374151]">Recharge {b.cd} t.</span>
-                          ) : b.cost > 0 ? (
-                            <span className="rounded px-1.5 py-px" style={{ background: noPm ? "#fecaca" : "#dbeafe", color: noPm ? "#b91c1c" : "#1d4ed8" }}>{b.cost} PM{noPm ? " (insuffisant)" : ""}</span>
-                          ) : (
-                            <span className="rounded bg-[#e5e7eb] px-1.5 py-px text-[#374151]">Gratuit</span>
-                          )}
-                        </div>
-                      </button>
-                      <div className="pointer-events-none absolute bottom-full left-1/2 z-40 mb-1 hidden w-52 -translate-x-1/2 rounded-lg border-2 border-[#7a4a22] bg-[#f1dfb6] p-2 text-[11px] leading-tight text-[#3a2410] shadow-xl group-hover:block" style={{ fontFamily: "'Baloo 2', cursive" }}>
-                        <div className="text-[13px] font-extrabold">{b.name}</div>
-                        <div className="mt-0.5 opacity-90">{b.desc}</div>
+            <div className="flex max-w-[44rem] flex-wrap justify-center gap-1.5 rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6]/95 p-2 shadow-lg">
+              {tiles.map((b, i) => {
+                const type = powerType(b.p, magicFamily);
+                const info = POWER_TYPE_INFO[type];
+                const noPm = (me?.pmCurrent ?? 0) < b.cost;
+                const disabled = b.cd > 0 || noPm;
+                const activeSel = iAmReady && selectedPower === b.key;
+                const prev = previewOf(b.p);
+                const tags = effectTags(b.p);
+                return (
+                  <div key={b.key ?? "base"} className="group relative">
+                    <button
+                      type="button"
+                      disabled={disabled}
+                      onClick={() => void send(b.key)}
+                      aria-label={b.name}
+                      className="relative flex h-[72px] w-[72px] flex-col items-center justify-between rounded-lg px-1 pb-1 pt-1 transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed"
+                      style={{
+                        border: `3px solid ${activeSel ? "#047857" : info.color}`,
+                        background: activeSel ? "#d1fae5" : "#fff1b8",
+                        opacity: disabled ? 0.5 : 1,
+                        filter: disabled ? "grayscale(0.6)" : undefined,
+                      }}
+                    >
+                      <img src={`/icons/powers/${type}.webp`} alt="" width={36} height={36} className="h-9 w-9 object-contain" draggable={false} />
+                      <span className="w-full truncate text-center text-[10px] font-extrabold leading-none text-[#3a2410]" style={{ fontFamily: "'Baloo 2', cursive" }}>{b.name}</span>
+                      {i < 9 && <span className="absolute left-0.5 top-0 text-[9px] font-black text-[#3a2410]/60">{i + 1}</span>}
+                      {b.cost > 0 && (
+                        <span className="absolute -right-1.5 -top-1.5 rounded-full px-1.5 text-[10px] font-black text-white" style={{ background: noPm ? "#b91c1c" : "#1d4ed8" }}>{b.cost}</span>
+                      )}
+                      {b.cd > 0 && (
+                        <span className="absolute inset-0 flex items-center justify-center rounded-md bg-black/55 text-lg font-black text-white">{b.cd}</span>
+                      )}
+                      {activeSel && <span className="absolute -bottom-1.5 -right-1.5 rounded-full bg-[#047857] px-1 text-[10px] font-black text-white">✔</span>}
+                    </button>
+                    <div className="pointer-events-none absolute bottom-full left-1/2 z-40 mb-1 hidden w-56 -translate-x-1/2 rounded-lg border-2 border-[#7a4a22] bg-[#f1dfb6] p-2 text-[11px] leading-tight text-[#3a2410] shadow-xl group-hover:block" style={{ fontFamily: "'Baloo 2', cursive" }}>
+                      <div className="text-[13px] font-extrabold">{b.name}</div>
+                      <div className="text-[10px] font-bold uppercase tracking-wide" style={{ color: info.color }}>{info.label}</div>
+                      <div className="mt-0.5 opacity-90">{b.desc}</div>
+                      {prev && <div className="mt-0.5 font-bold text-[#92400e]">{prev}</div>}
+                      {tags && <div className="mt-0.5 text-[10px] opacity-85">{tags}</div>}
+                      <div className="mt-1 text-[10px] font-bold">
+                        {b.cd > 0 ? `Recharge : ${b.cd} tour${b.cd > 1 ? "s" : ""}` : b.cost > 0 ? `${b.cost} PM${noPm ? " (insuffisant)" : ""}` : "Gratuit"}
                       </div>
                     </div>
-                  );
-                })}
+                  </div>
+                );
+              })}
               <button
                 type="button"
                 disabled={stacks.length === 0}
@@ -812,11 +848,11 @@ export function ExpeditionBattle({
                   setItemsOpen((o) => !o);
                   setItemKind(null);
                 }}
-                className="min-w-28 rounded-lg px-3 py-1.5 text-left text-sm font-bold text-[#3a2410] hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-55"
-                style={{ fontFamily: "'Baloo 2', cursive", border: "2px solid #c98a00", background: "#fff1b8" }}
+                className="flex h-[72px] w-[72px] flex-col items-center justify-between rounded-lg px-1 pb-1 pt-1 text-[#3a2410] hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+                style={{ fontFamily: "'Baloo 2', cursive", border: "3px solid #92400e", background: "#fff1b8" }}
               >
-                <div className="text-[13px] font-extrabold"><Bag /> Objets</div>
-                <div className="mt-0.5 text-[10px] font-normal">{stacks.length === 0 ? "aucun objet" : "prend ton tour"}</div>
+                <img src="/icons/powers/objets.webp" alt="" width={36} height={36} className="h-9 w-9 object-contain" draggable={false} />
+                <span className="text-[10px] font-extrabold leading-none">Objets</span>
               </button>
             </div>
           )}
