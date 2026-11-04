@@ -68,8 +68,8 @@ export function FarmDraw({ onChanged }: { onChanged: () => void }) {
       {result && (
         <RevealModal tier={RARITY_TIER[result.rarity] ?? 1} title="Ton compagnon est validé !" onClose={() => setResult(null)}>
           <img src={result.image_url} alt="" className="mx-auto h-28 w-28 object-contain" />
-          <div className="mt-2 text-center"><RarityName name={result.name} rarity={result.rarity} light /></div>
-          <div className="mt-1 text-center text-sm">{RARITY_INFO[result.rarity].label} · {rules?.hp[result.rarity] ?? "?"} PV pour les acheteurs</div>
+          <div className="mt-2 text-center"><RarityName name={result.name} rarity={result.rarity} pill /></div>
+          <div className="mt-1 text-center text-sm">{rules?.hp[result.rarity] ?? "?"} PV pour les acheteurs</div>
           <div className="mt-1 text-center text-xs opacity-80">Ton prototype est dans « Mes compagnons ».</div>
         </RevealModal>
       )}

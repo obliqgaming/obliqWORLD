@@ -1,5 +1,6 @@
 // Petits panneaux autour de l'expédition : résultat d'un événement, bandeau de
 // fin d'expédition, choix de l'axe au niveau 3.
+import { Typewriter } from "./Typewriter";
 import type { GameAxis, GamePower } from "../lib/expedition-combat";
 import { useEffect } from "react";
 import { uiSound } from "../lib/ui-sounds";
@@ -60,7 +61,7 @@ export function OutcomePanel({
       ) : (
         <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-[#7a4a22]">Résultat du vote</div>
       )}
-      <div className="text-sm font-semibold leading-snug">{outcome.text}</div>
+      <Typewriter key={outcome.stepIndex} text={outcome.text} className="text-sm font-semibold leading-snug" />
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs font-bold">
         {nar ? (
           nar.hits.length > 0 ? (

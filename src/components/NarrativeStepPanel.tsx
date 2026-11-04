@@ -2,6 +2,7 @@
 //  - classique : « En avant ! » / « Retraite ! »
 //  - danger imminent : on désigne qui protéger (soi compris) ou on choisit « Se sacrifier »
 //  - épreuve : « Voter pour… » (menu des joueurs) ou « Retraite ! »
+import { Typewriter } from "./Typewriter";
 import { useEffect, useState } from "react";
 import type { NarrativeEvent } from "../lib/narrative";
 import { AuthorLine } from "./AuthorLine";
@@ -70,7 +71,7 @@ export function NarrativeStepPanel({
           {RISK_LABEL[event.risk_level]}
         </span>
       </div>
-      <div className="mt-3 whitespace-pre-line text-sm font-semibold leading-snug">{event.situation_text}</div>
+      <Typewriter text={event.situation_text ?? ""} className="mt-3 whitespace-pre-line text-sm font-semibold leading-snug" />
       <AuthorLine userId={event.author_user_id} label="Rencontre écrite par" className="mt-1 text-[10px] italic opacity-60" />
 
       {t === "danger_imminent" && (

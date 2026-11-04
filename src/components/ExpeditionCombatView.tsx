@@ -12,6 +12,7 @@
 // Pour l'instant : mise en page + données réelles (groupe, PV de
 // character_build), mais pas encore de moteur — les actions se sélectionnent
 // sans rien résoudre, l'ennemi est un mannequin d'entraînement.
+import { Typewriter } from "./Typewriter";
 import { useEffect, useState } from "react";
 
 export type CombatAlly = {
@@ -289,7 +290,7 @@ export function ExpeditionCombatView({
             <div className="mb-1 flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-[#7a4a22]">
               <span>{event.typeLabel}</span>
             </div>
-            <div className="font-semibold">{event.situation}</div>
+            <Typewriter text={event.situation} className="font-semibold" />
           </div>
 
           {/* Choix + votes : bas centre */}

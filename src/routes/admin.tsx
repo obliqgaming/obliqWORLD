@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
+import { scenesClient } from "../lib/scenes-supabase";
 import {
   connectIdentityProvider,
   createExpeditionPortal,
@@ -124,8 +125,37 @@ function AdminGate() {
 }
 
 // Deux onglets : décors (scènes, portails, lieux) et personnages.
+// Pastille rouge « nouveau » sur un onglet : entrées arrivées depuis ta dernière visite de cet onglet.
+const NEW_TABLES: Record<string, string> = { characters: "characters", weapons: "weapons", events: "community_events", requests: "player_requests", companions: "companion_designs" };
+const seenKey = (tab: string) => `obliq_admin_seen_${tab}`;
+function readSeen(tab: string): string | null { try { return localStorage.getItem(seenKey(tab)); } catch { return null; } }
+function writeSeen(tab: string) { try { localStorage.setItem(seenKey(tab), new Date().toISOString()); } catch { /* ignore */ } }
+function NewDot({ n }: { n: number | undefined }) {
+  if (!n) return null;
+  return <span className="ml-1.5 inline-block min-w-[16px] rounded-full bg-red-600 px-1 text-center text-[10px] font-bold leading-4 text-white">{n > 9 ? "9+" : n}</span>;
+}
+
 function AdminTabs() {
+  const [newCounts, setNewCounts] = useState<Record<string, number>>({});
+  useEffect(() => {
+    void (async () => {
+      const out: Record<string, number> = {};
+      for (const [tab, table] of Object.entries(NEW_TABLES)) {
+        const since = readSeen(tab);
+        if (!since) { writeSeen(tab); continue; } // première visite : on ne signale pas tout l'historique
+        const { count, error } = await scenesClient.from(table).select("id", { count: "exact", head: true }).gt("created_at", since);
+        if (!error && count) out[tab] = count;
+      }
+      setNewCounts(out);
+    })();
+  }, []);
   const [tab, setTab] = useState<"scenes" | "characters" | "weapons" | "settings" | "events" | "requests" | "creatures" | "pets" | "companions" | "backup">("scenes");
+  useEffect(() => {
+    if (tab in NEW_TABLES) {
+      writeSeen(tab);
+      setNewCounts((c) => (c[tab] ? { ...c, [tab]: 0 } : c));
+    }
+  }, [tab]);
   return (
     <div className="min-h-screen bg-[#1a0f07]">
       <div className="flex gap-2 bg-neutral-950 px-4 py-2 text-sm text-white">
@@ -133,19 +163,19 @@ function AdminTabs() {
           Scènes
         </button>
         <button type="button" onClick={() => setTab("characters")} className={`rounded px-3 py-1 font-semibold ${tab === "characters" ? "bg-amber-600" : "bg-neutral-800"}`}>
-          Personnages
+          Personnages<NewDot n={newCounts["characters"]} />
         </button>
         <button type="button" onClick={() => setTab("weapons")} className={`rounded px-3 py-1 font-semibold ${tab === "weapons" ? "bg-amber-600" : "bg-neutral-800"}`}>
-          Armes
+          Armes<NewDot n={newCounts["weapons"]} />
         </button>
         <button type="button" onClick={() => setTab("settings")} className={`rounded px-3 py-1 font-semibold ${tab === "settings" ? "bg-amber-600" : "bg-neutral-800"}`}>
           Réglages
         </button>
         <button type="button" onClick={() => setTab("events")} className={`rounded px-3 py-1 font-semibold ${tab === "events" ? "bg-amber-600" : "bg-neutral-800"}`}>
-          Rencontres
+          Rencontres<NewDot n={newCounts["events"]} />
         </button>
         <button type="button" onClick={() => setTab("requests")} className={`rounded px-3 py-1 font-semibold ${tab === "requests" ? "bg-amber-600" : "bg-neutral-800"}`}>
-          Signalements
+          Signalements<NewDot n={newCounts["requests"]} />
         </button>
         <button type="button" onClick={() => setTab("creatures")} className={`rounded px-3 py-1 font-semibold ${tab === "creatures" ? "bg-amber-600" : "bg-neutral-800"}`}>
           Créatures
@@ -154,7 +184,7 @@ function AdminTabs() {
           Pets
         </button>
         <button type="button" onClick={() => setTab("companions")} className={`rounded px-3 py-1 font-semibold ${tab === "companions" ? "bg-amber-600" : "bg-neutral-800"}`}>
-          Compagnons
+          Compagnons<NewDot n={newCounts["companions"]} />
         </button>
         <button type="button" onClick={() => setTab("backup")} className={`rounded px-3 py-1 font-semibold ${tab === "backup" ? "bg-amber-600" : "bg-neutral-800"}`}>
           Sauvegarde

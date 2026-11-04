@@ -194,8 +194,7 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
         {result && !revealDone && (
           <RevealModal tier={RARITY_TIER[result.rarity] ?? 1} title="Ton arme est forgée !" onClose={() => setRevealDone(true)}>
             <img src={result.image_url} alt="" className="mx-auto my-2 h-24 object-contain" />
-            <RarityName name={result.name} rarity={result.rarity} light />
-            <div className="mt-1 text-sm font-extrabold">{RARITY_INFO[result.rarity].label}</div>
+            <RarityName name={result.name} rarity={result.rarity} pill />
           </RevealModal>
         )}
         {result && revealDone && (

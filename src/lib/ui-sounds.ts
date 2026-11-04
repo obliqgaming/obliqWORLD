@@ -57,7 +57,7 @@ function sparkle(c: AudioContext, t0: number, dur: number, gain: number) {
 // Notes (Hz) d'une gamme majeure pour les arpèges.
 const N = { c5: 523, d5: 587, e5: 659, g5: 784, a5: 880, c6: 1047, e6: 1319, g6: 1568, c7: 2093 };
 
-export type UiSound = "click" | "ok" | "coin" | "error" | "success" | "fail" | "drum";
+export type UiSound = "click" | "ok" | "coin" | "error" | "success" | "fail" | "drum" | "tick";
 
 export function uiSound(kind: UiSound) {
   if (muted || vol <= 0) return;
@@ -87,6 +87,9 @@ export function uiSound(kind: UiSound) {
       break;
     case "fail":
       [392, 349, 311, 262].forEach((f, i) => note(c, t + i * 0.17, f, 0.4, v, "triangle", f * 0.97));
+      break;
+    case "tick": // plume qui gratte : très discret
+      note(c, t, 1500 + Math.random() * 500, 0.018, v * 0.12, "square", 1100);
       break;
     case "drum":
       note(c, t, 120, 0.25, v * 1.2, "sine", 50);
