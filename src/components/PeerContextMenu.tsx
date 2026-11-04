@@ -66,7 +66,7 @@ export function PeerContextMenu({
         }}
         className="block w-full px-3 py-1.5 text-left hover:bg-[#7a4a22]/40"
       >
-        Inviter dans le groupe
+        👥 Inviter
       </button>
       {onTrade && (
         <button

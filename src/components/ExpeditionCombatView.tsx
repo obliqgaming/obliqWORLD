@@ -185,7 +185,7 @@ export function ExpeditionCombatView({
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-black/20" />
 
       {/* Tour */}
-      <div className="absolute left-1/2 top-4 -translate-x-1/2 rounded-full bg-black/60 px-4 py-1 text-xs font-bold uppercase tracking-widest text-[#fff3d6]">
+      <div className="absolute left-1/2 top-4 -translate-x-1/2 rounded-full bg-black/60 px-4 py-1 text-center text-xs font-bold uppercase tracking-widest text-[#fff3d6]">
         {phase === "combat" ? `Événement ${eventNumber} · Combat · tour ${turn}` : `Événement ${eventNumber}`}
         {progress !== undefined && (
           <div className="mx-auto mt-1 h-1.5 w-40 overflow-hidden rounded-full bg-white/25">

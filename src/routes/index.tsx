@@ -190,8 +190,8 @@ const autoNameColor = (id: string) => {
   return NAME_COLORS[h % NAME_COLORS.length]!;
 };
 const CHAT_COLOR_KEY = "obliqworld-chat-color";
-// Profondeur : plus un personnage est bas à l'écran, plus il est « proche » donc devant (de 20 à 29, sous les fenêtres).
-const depthZ = (y: number) => 20 + Math.max(0, Math.min(9, Math.floor(y / 10)));
+// Le plus bas à l'écran est devant. Reste sous 20 : les écrans plein cadre (expédition) passent par-dessus les personnages du lieu.
+const depthZ = (y: number) => 14 + Math.max(0, Math.min(5, Math.floor(y / 17)));
 const GROUP_CHAT_COLOR = "#7dd3fc"; // canal /g (groupe) ; le canal /d (dire) garde la couleur habituelle
 const mergeChat = (a: ChatMessage[], b: ChatMessage[]): ChatMessage[] => {
   const out = [...a];
@@ -1275,7 +1275,7 @@ function Index() {
   const chatSceneRef = useRef<string | null>(null);
   useEffect(() => {
     // (déclaré AVANT l'effet de changement de scène : au changement, la référence n'a pas encore bougé, donc on n'écrase rien)
-    if (chatSceneRef.current !== scene.id) return;
+    if (chatSceneRef.current !== scene.id || isExpeditionSceneName(scene.name)) return; // le tchat d'une expédition ne se garde pas
     chatCache.set(scene.id, chatLog);
     try {
       sessionStorage.setItem(`obliqworld-chat-${scene.id}`, JSON.stringify(chatLog.slice(-CHAT_LOG_SIZE)));
@@ -1284,8 +1284,8 @@ function Index() {
     }
   }, [chatLog, scene.id]);
   useEffect(() => {
-    let restored: ChatMessage[] = chatCache.get(scene.id) ?? [];
-    if (restored.length === 0) {
+    let restored: ChatMessage[] = isExpeditionSceneName(scene.name) ? [] : (chatCache.get(scene.id) ?? []);
+    if (restored.length === 0 && !isExpeditionSceneName(scene.name)) {
       try {
         const raw = sessionStorage.getItem(`obliqworld-chat-${scene.id}`);
         if (raw) restored = JSON.parse(raw) as ChatMessage[];
@@ -1303,12 +1303,15 @@ function Index() {
     if (!character) return;
     let cancelled = false;
     const sid = scene.id;
-    void fetchChatHistory(sid, party?.id ?? null, CHAT_LOG_SIZE)
+    // En expédition : seulement ce qui s'est dit depuis le début de CETTE expédition.
+    const inExp = isExpeditionSceneName(scene.name);
+    if (inExp && !activeExpedition) return;
+    void fetchChatHistory(sid, party?.id ?? null, CHAT_LOG_SIZE, inExp ? (activeExpedition?.started_at ?? activeExpedition?.created_at ?? null) : null)
       .then((h) => { if (!cancelled && chatSceneRef.current === sid) setChatLog((cur) => mergeChat(h, cur)); })
       .catch(() => {});
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scene.id, party?.id, character?.id]);
+  }, [scene.id, party?.id, character?.id, activeExpedition?.id]);
 
   // Canal du groupe : suit le groupe partout (même en expédition).
   useEffect(() => {
@@ -1502,7 +1505,18 @@ function Index() {
 
   const currentEvent = eventForStep(activeExpedition?.route, stepIndex, activeExpedition?.id);
   const expeditionPhase = currentEvent.kind;
-  const participantCount = Math.max(1, party ? partyMembers.filter((m) => m.status === "joined").length : 1);
+  // Ceux qui doivent voter : les membres vivants et encore dans l'expédition (un mort qui regarde n'est pas attendu).
+  const participantCount = Math.max(
+    1,
+    party
+      ? partyMembers.filter((m) => {
+          if (m.status !== "joined") return false;
+          const st = runStats.find((r) => r.character_id === m.character_id);
+          return !st || ((st.pv_current ?? 1) > 0 && !st.left_expedition_at);
+        }).length
+      : 1,
+  );
+  const [voteTick, setVoteTick] = useState(0); // +1 quand MON vote est bien enregistré côté serveur (relance la résolution)
   const myVote = character ? (stepVotes.find((v) => v.character_id === character.id)?.choice_key ?? null) : null;
 
   // Étape courante : on la crée/retrouve, on lit les votes puis on écoute en
@@ -1576,7 +1590,7 @@ function Index() {
       if (timer) window.clearTimeout(timer);
       if (retryTimer) window.clearTimeout(retryTimer);
     };
-  }, [runStep?.id, stepVotes.length, participantCount]);
+  }, [runStep?.id, stepVotes.length, participantCount, voteTick]);
 
   // Fin d'expédition (vote « Rentrer maintenant » gagnant) : retour à l'auberge.
   useEffect(() => {
@@ -1626,6 +1640,7 @@ function Index() {
     ]);
     try {
       await castStepVote(stepId, character.id, choiceKey);
+      setVoteTick((n) => n + 1);
     } catch (e) {
       console.error("Cast vote failed", e);
       try {
