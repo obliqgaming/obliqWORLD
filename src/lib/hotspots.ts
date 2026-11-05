@@ -105,23 +105,23 @@ export async function deleteSceneHotspot(id: string): Promise<void> {
 }
 
 // ---- Apparence des lieux (SQL 083) : image + taille (+ miroir) modifiables dans /admin ----
-export type HotspotStyle = { kind: string; image_url: string | null; width_pct: number; flip: boolean };
+export type HotspotStyle = { kind: string; image_url: string | null; width_pct: number; flip: boolean; npc_name: string | null };
 
 // Valeurs d'origine : marchent même si le SQL 083 n'est pas encore lancé.
 export const DEFAULT_HOTSPOT_STYLES: Record<string, HotspotStyle> = {
-  forge: { kind: "forge", image_url: "/hotspots/marteau-manchot.webp", width_pct: 9, flip: false },
-  step_editor: { kind: "step_editor", image_url: "/hotspots/perroquete.webp", width_pct: 9, flip: false },
-  farm: { kind: "farm", image_url: "/hotspots/bouc-emissaire.webp", width_pct: 9, flip: false },
-  merchant: { kind: "merchant", image_url: "/hotspots/ecuroeil.webp", width_pct: 9, flip: false },
-  quests: { kind: "quests", image_url: "/hotspots/morsale.webp", width_pct: 9, flip: false },
+  forge: { kind: "forge", npc_name: "Manchoc", image_url: "/hotspots/marteau-manchot.webp", width_pct: 9, flip: false },
+  step_editor: { kind: "step_editor", npc_name: "Plumobec", image_url: "/hotspots/perroquete.webp", width_pct: 9, flip: false },
+  farm: { kind: "farm", npc_name: "Bourrebouc", image_url: "/hotspots/bouc-emissaire.webp", width_pct: 9, flip: false },
+  merchant: { kind: "merchant", npc_name: "Aspiflouz", image_url: "/hotspots/ecuroeil.webp", width_pct: 9, flip: false },
+  quests: { kind: "quests", npc_name: "Morsoif", image_url: "/hotspots/morsale.webp", width_pct: 9, flip: false },
 };
 
 export async function fetchHotspotStyles(): Promise<Record<string, HotspotStyle>> {
   const out: Record<string, HotspotStyle> = { ...DEFAULT_HOTSPOT_STYLES };
   try {
-    const { data } = await scenesClient.from("hotspot_styles").select("kind, image_url, width_pct, flip");
+    const { data } = await scenesClient.from("hotspot_styles").select("*");
     for (const r of data ?? []) {
-      out[(r as any).kind] = { kind: (r as any).kind, image_url: (r as any).image_url ?? DEFAULT_HOTSPOT_STYLES[(r as any).kind]?.image_url ?? null, width_pct: Number((r as any).width_pct) || 9, flip: !!(r as any).flip };
+      out[(r as any).kind] = { kind: (r as any).kind, image_url: (r as any).image_url ?? DEFAULT_HOTSPOT_STYLES[(r as any).kind]?.image_url ?? null, width_pct: Number((r as any).width_pct) || 9, flip: !!(r as any).flip, npc_name: (r as any).npc_name ?? DEFAULT_HOTSPOT_STYLES[(r as any).kind]?.npc_name ?? null };
     }
   } catch {
     /* table absente : valeurs d'origine */
@@ -146,7 +146,7 @@ export function useHotspotStyles(): Record<string, HotspotStyle> {
 
 export async function saveHotspotStyle(st: HotspotStyle): Promise<void> {
   const { error } = await scenesClient.from("hotspot_styles").upsert(
-    { kind: st.kind, image_url: st.image_url, width_pct: Math.min(40, Math.max(2, st.width_pct)), flip: st.flip },
+    { kind: st.kind, image_url: st.image_url, width_pct: Math.min(40, Math.max(2, st.width_pct)), flip: st.flip, npc_name: st.npc_name?.trim() || null },
     { onConflict: "kind" },
   );
   if (error) throw error;

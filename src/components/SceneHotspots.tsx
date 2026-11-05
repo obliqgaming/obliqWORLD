@@ -31,6 +31,14 @@ export function HotspotMarker({ hotspot, onClick }: { hotspot: SceneHotspot; onC
         className="pointer-events-auto absolute -translate-x-1/2 -translate-y-full"
         style={{ left: `${hotspot.position.x}%`, top: `${hotspot.position.y}%`, width: `${st.width_pct}%`, cursor: CURSOR_INTERACT, zIndex: 13 + Math.max(0, Math.min(5, Math.floor(hotspot.position.y / 17))) }}
       >
+        {st.npc_name && (
+          <span
+            className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 whitespace-nowrap text-sm font-extrabold"
+            style={{ color: "#fcd34d", textShadow: "0 1px 3px #000, 0 0 6px rgba(0,0,0,0.8)", fontFamily: "'Baloo 2', cursive" }}
+          >
+            {st.npc_name}
+          </span>
+        )}
         <span
           className="obw-breathe block"
           style={{ animationDuration: `${3.2 + (seed % 14) / 10}s`, animationDelay: `-${(seed % 37) / 10}s` }}

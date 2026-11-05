@@ -35,6 +35,15 @@ export function HotspotStyleEditor() {
             {st.image_url && <img src={st.image_url} alt="" className="h-14 w-14 object-contain" style={{ transform: st.flip ? "scaleX(-1)" : undefined }} />}
             <div className="min-w-[10rem] flex-1 font-semibold">{k.label}</div>
             <label className="flex items-center gap-1 text-xs">
+              Nom
+              <input
+                value={st.npc_name ?? ""}
+                onChange={(e) => setStyles((o) => ({ ...o, [k.kind]: { ...st, npc_name: e.target.value } }))}
+                onBlur={() => void save(st)}
+                className="w-28 rounded bg-neutral-800 px-1 py-0.5"
+              />
+            </label>
+            <label className="flex items-center gap-1 text-xs">
               Taille
               <input
                 type="number"
