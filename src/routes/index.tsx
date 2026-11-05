@@ -122,6 +122,7 @@ import { openNarrativeStep, fetchNarrativeEvent, type NarrativeEvent } from "../
 import { NarrativeStepPanel } from "../components/NarrativeStepPanel";
 import { HotspotMarker, HotspotPanel } from "../components/SceneHotspots";
 import { LoadingScreen } from "../components/LoadingScreen";
+import { useNpcSpeech } from "../lib/npc-lines";
 import { shouldMirror, useImageFlips } from "../lib/image-flips";
 import { InspectPanel } from "../components/InspectPanel";
 import { WornSprite } from "../components/WornSprite";
@@ -371,6 +372,7 @@ function Index() {
   const [longMinLevel, setLongMinLevel] = useState(5); // réglage long_expedition_min_level (SQL 040), pour l'étiquette du portail
   // Lieux interactifs de la scène (forgeron, éditeur d'étapes…), posés depuis /admin.
   const [hotspots, setHotspots] = useState<SceneHotspot[]>([]);
+  const npcSpeech = useNpcSpeech(hotspots.filter((h) => !!hotspotStyles?.[h.kind]?.npc_name).map((h) => ({ id: h.id, kind: h.kind })));
   const [openHotspot, setOpenHotspot] = useState<SceneHotspot | null>(null);
   // Texte « +1 or » qui monte et s'efface au-dessus du tas ramassé (plus de fenêtre OK).
   const [goldFloats, setGoldFloats] = useState<{ key: number; x: number; y: number; text: string; ok: boolean }[]>([]);
@@ -2892,7 +2894,7 @@ function Index() {
         )}
 
         {character && !inExpeditionScene && hotspots.filter((h) => h.kind !== "board" && !claimedGold.has(h.id)).map((h) => (
-          <HotspotMarker key={h.id} hotspot={h} onClick={() => walkThen(h.position, () => (h.kind.startsWith("gold") ? collectGold(h) : setOpenHotspot(h)), !!hotspotStyles?.[h.kind]?.image_url)} />
+          <HotspotMarker key={h.id} hotspot={h} bubble={npcSpeech[h.id]} onClick={() => walkThen(h.position, () => (h.kind.startsWith("gold") ? collectGold(h) : setOpenHotspot(h)), !!hotspotStyles?.[h.kind]?.image_url)} />
         ))}
         {goldFloats.map((g) => (
           <div key={g.key} className="obw-gold-float pointer-events-none absolute z-40 -translate-x-1/2 text-xl font-extrabold" style={{ left: `${g.x}%`, top: `${g.y}%`, color: g.ok ? "#fde68a" : "#fca5a5", textShadow: "0 2px 4px #000, 0 0 8px rgba(0,0,0,0.6)" }}>

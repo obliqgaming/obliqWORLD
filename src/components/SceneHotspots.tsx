@@ -13,7 +13,7 @@ import { MerchantPanel } from "./MerchantPanel";
 import { FarmPanel } from "./FarmPanel";
 import { QuestPanel } from "./QuestPanel";
 
-export function HotspotMarker({ hotspot, onClick }: { hotspot: SceneHotspot; onClick: () => void }) {
+export function HotspotMarker({ hotspot, onClick, bubble }: { hotspot: SceneHotspot; onClick: () => void; bubble?: string | undefined }) {
   const info = hotspotInfo(hotspot.kind);
   const styles = useHotspotStyles();
   if (!styles && hotspotInfo(hotspot.kind).kind in { forge: 1, step_editor: 1, farm: 1, merchant: 1, quests: 1 }) return null; // réglages pas encore chargés : pas de saut de taille
@@ -30,14 +30,24 @@ export function HotspotMarker({ hotspot, onClick }: { hotspot: SceneHotspot; onC
         }}
         title={hotspot.label ?? info.label}
         className="pointer-events-auto absolute -translate-x-1/2 -translate-y-full"
-        style={{ left: `${hotspot.position.x}%`, top: `${hotspot.position.y}%`, width: `${st.width_pct}%`, cursor: CURSOR_INTERACT, zIndex: 13 + Math.max(0, Math.min(5, Math.floor(hotspot.position.y / 17))) }}
+        style={{ left: `${hotspot.position.x}%`, top: `${hotspot.position.y}%`, width: `${st.width_pct}%`, cursor: CURSOR_INTERACT, zIndex: bubble ? 36 : 13 + Math.max(0, Math.min(5, Math.floor(hotspot.position.y / 17))) }}
       >
-        {st.npc_name && (
-          <span
-            className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 whitespace-nowrap text-sm font-extrabold"
-            style={{ color: "#fcd34d", textShadow: "0 1px 3px #000, 0 0 6px rgba(0,0,0,0.8)", fontFamily: "'Baloo 2', cursive" }}
-          >
-            {st.npc_name}
+        {(st.npc_name || bubble) && (
+          <span className="pointer-events-none absolute bottom-full left-1/2 flex -translate-x-1/2 flex-col items-center" style={{ fontFamily: "'Baloo 2', cursive" }}>
+            {bubble && (
+              <span
+                className="relative mb-1 block w-max max-w-[220px] rounded-xl border border-[#6d4fb3]/70 bg-[#ece4ff] px-3 py-1.5 text-center text-sm font-semibold text-[#2a1a5e] shadow-md"
+                style={{ whiteSpace: "normal" }}
+              >
+                {bubble}
+                <span className="absolute left-1/2 top-full h-0 w-0 -translate-x-1/2 border-x-8 border-t-8 border-x-transparent" style={{ borderTopColor: "#ece4ff" }} />
+              </span>
+            )}
+            {st.npc_name && (
+              <span className="whitespace-nowrap text-sm font-extrabold" style={{ color: "#fcd34d", textShadow: "0 1px 3px #000, 0 0 6px rgba(0,0,0,0.8)" }}>
+                {st.npc_name}
+              </span>
+            )}
           </span>
         )}
         <span

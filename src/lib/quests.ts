@@ -30,3 +30,9 @@ export async function claimQuest(): Promise<BoosterResult> {
   if (error) throw error;
   return data as BoosterResult;
 }
+
+export async function abandonQuest(): Promise<void> {
+  const { error } = await scenesClient.rpc("quest_abandon");
+  if (error) throw new Error(error.message.includes("quest_abandon") ? "Lance d'abord le SQL 087 dans Supabase." : error.message);
+  window.dispatchEvent(new Event("obliq-quest-changed"));
+}
