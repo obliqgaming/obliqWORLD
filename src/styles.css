@@ -196,3 +196,8 @@
 @keyframes emote-tourner { 0% { transform: perspective(700px) rotateY(0deg); } 100% { transform: perspective(700px) rotateY(720deg); } }
 @keyframes emote-dormir { 0% { transform: translateX(0) rotate(0deg); } 100% { transform: translateX(-35%) rotate(82deg); } }
 @keyframes emote-symbol { 0% { opacity: 0; transform: translate(-50%, 0) scale(.6); } 20% { opacity: 1; transform: translate(-50%, -6px) scale(1); } 100% { opacity: 0; transform: translate(-50%, -28px) scale(1.1); } }
+
+/* Respiration très discrète des lieux en personnages (durée et départ différents pour chacun). */
+@keyframes obw-breathe { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.008, 1.018); } }
+.obw-breathe { transform-origin: 50% 100%; animation: obw-breathe 3.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .obw-breathe { animation: none; } }

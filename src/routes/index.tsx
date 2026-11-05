@@ -130,7 +130,7 @@ import { ClassNameModal, TalentPanel } from "../components/TalentPanel";
 import { fetchWornWeapons, type WornWeapon } from "../lib/weapons";
 import { setUiAudio, uiSound } from "../lib/ui-sounds";
 import { JINGLE_FAIL, JINGLE_SUCCESS, parseMusicList, startJingle } from "../lib/jingle";
-import { claimDailyGold, fetchSceneHotspots, useClaimedGoldToday, type SceneHotspot } from "../lib/hotspots";
+import { claimDailyGold, fetchSceneHotspots, useClaimedGoldToday, useHotspotStyles, type SceneHotspot } from "../lib/hotspots";
 import { PartyInvitePopup } from "../components/PartyInvitePopup";
 import { PartyPanel } from "../components/PartyPanel";
 import { PeerContextMenu } from "../components/PeerContextMenu";
@@ -344,6 +344,7 @@ function Index() {
   // ---------- Portail d'expédition (§5, revu le 2026-10-14) ----------
   useArrowCursorReady();
   const claimedGold = useClaimedGoldToday();
+  const hotspotStyles = useHotspotStyles();
   const [inspectId, setInspectId] = useState<string | null>(null); // recharge l'affichage quand la flèche-curseur des portails est prête
   const [scenePortals, setScenePortals] = useState<ExpeditionPortal[]>([]);
   const [longMinLevel, setLongMinLevel] = useState(5); // réglage long_expedition_min_level (SQL 040), pour l'étiquette du portail
@@ -2464,12 +2465,14 @@ function Index() {
   // Marche jusqu'à un endroit PUIS fait l'action (portail, forgeron…) : rien ne s'active de loin.
   // Marche vers un lieu cliquable (portail, forgeron, tas d'or…) mais s'arrête À PROXIMITÉ au lieu de marcher dessus
   // (ex. un tas d'or posé sur le comptoir : on s'en approche sans monter dessus). Distance d'approche ≈ 6 % de la largeur de la scène.
-  const walkThen = (position: Point, action: () => void) => {
+  // front = lieu en personnage (image) : on s'arrête DEVANT lui (plus bas à l'écran), avec une marge plus grande.
+  const walkThen = (position: Point, action: () => void, front = false) => {
     if (!character || !sceneRef.current) return;
     const rect = sceneRef.current.getBoundingClientRect();
     const origin = walking && charSpriteRef.current ? currentSpritePercent(charSpriteRef.current, rect) : pos;
-    const reach = rect.width * 0.06;
-    if (distanceInPx(rect, origin, position) <= reach) {
+    const reach = rect.width * (front ? 0.07 : 0.06);
+    const alreadyThere = front ? distanceInPx(rect, origin, position) <= reach * 1.6 && origin.y >= position.y : distanceInPx(rect, origin, position) <= reach;
+    if (alreadyThere) {
       if (walkTimer.current) window.clearTimeout(walkTimer.current);
       walkQueueRef.current = [];
       action();
@@ -2482,9 +2485,10 @@ function Index() {
     // Candidats : un anneau autour du lieu (rayon croissant) ; on garde celui qui est marchable et le plus proche de nous.
     let best: Point | null = null;
     let bestDist = Infinity;
-    for (const k of [0.5, 0.8, 1.2, 2]) {
+    for (const k of front ? [0.7, 1, 1.5, 2.2] : [0.5, 0.8, 1.2, 2]) {
       for (let i = 0; i < 24; i++) {
         const a = (i / 24) * Math.PI * 2;
+        if (front && Math.sin(a) < 0.5) continue; // seulement l'arc du bas = devant le lieu
         const cand = {
           x: position.x + ((Math.cos(a) * reach * k) / rect.width) * 100,
           y: position.y + ((Math.sin(a) * reach * k) / rect.height) * 100,
@@ -2813,7 +2817,7 @@ function Index() {
         )}
 
         {character && !inExpeditionScene && hotspots.filter((h) => h.kind !== "board" && !claimedGold.has(h.id)).map((h) => (
-          <HotspotMarker key={h.id} hotspot={h} onClick={() => walkThen(h.position, () => (h.kind.startsWith("gold") ? collectGold(h) : setOpenHotspot(h)))} />
+          <HotspotMarker key={h.id} hotspot={h} onClick={() => walkThen(h.position, () => (h.kind.startsWith("gold") ? collectGold(h) : setOpenHotspot(h)), !!hotspotStyles[h.kind]?.image_url)} />
         ))}
         {goldFloats.map((g) => (
           <div key={g.key} className="obw-gold-float pointer-events-none absolute z-40 -translate-x-1/2 text-xl font-extrabold" style={{ left: `${g.x}%`, top: `${g.y}%`, color: g.ok ? "#fde68a" : "#fca5a5", textShadow: "0 2px 4px #000, 0 0 8px rgba(0,0,0,0.6)" }}>

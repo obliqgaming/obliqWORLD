@@ -17,6 +17,7 @@ export function HotspotMarker({ hotspot, onClick }: { hotspot: SceneHotspot; onC
   const info = hotspotInfo(hotspot.kind);
   const styles = useHotspotStyles();
   const st = styles[hotspot.kind];
+  const seed = [...hotspot.id].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7); // décale la respiration de chaque lieu
   if (st?.image_url) {
     // Lieu en image (personnage) : le point posé dans /admin = ses pieds, la largeur est un % de la scène.
     return (
@@ -27,16 +28,21 @@ export function HotspotMarker({ hotspot, onClick }: { hotspot: SceneHotspot; onC
           onClick();
         }}
         title={hotspot.label ?? info.label}
-        className="pointer-events-auto absolute z-20 -translate-x-1/2 -translate-y-full"
-        style={{ left: `${hotspot.position.x}%`, top: `${hotspot.position.y}%`, width: `${st.width_pct}%`, cursor: CURSOR_INTERACT }}
+        className="pointer-events-auto absolute -translate-x-1/2 -translate-y-full"
+        style={{ left: `${hotspot.position.x}%`, top: `${hotspot.position.y}%`, width: `${st.width_pct}%`, cursor: CURSOR_INTERACT, zIndex: 13 + Math.max(0, Math.min(5, Math.floor(hotspot.position.y / 17))) }}
       >
-        <img
-          src={st.image_url}
-          alt={info.label}
-          draggable={false}
-          className="block w-full transition-transform hover:scale-105"
-          style={{ transform: st.flip ? "scaleX(-1)" : undefined, filter: "drop-shadow(0 3px 4px rgba(0,0,0,0.45))" }}
-        />
+        <span
+          className="obw-breathe block"
+          style={{ animationDuration: `${3.2 + (seed % 14) / 10}s`, animationDelay: `-${(seed % 37) / 10}s` }}
+        >
+          <img
+            src={st.image_url}
+            alt={info.label}
+            draggable={false}
+            className="block w-full transition-transform hover:scale-105"
+            style={{ transform: st.flip ? "scaleX(-1)" : undefined, filter: "drop-shadow(0 3px 4px rgba(0,0,0,0.45))" }}
+          />
+        </span>
       </button>
     );
   }
