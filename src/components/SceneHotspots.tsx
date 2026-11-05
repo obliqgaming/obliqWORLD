@@ -5,7 +5,7 @@ import { GroupBoard } from "./GroupBoard";
 import { uiSound } from "../lib/ui-sounds";
 import { Coin, HotspotGlyph } from "./GameIcons";
 import { CURSOR_INTERACT } from "../lib/cursors";
-import { claimDailyGold, hotspotInfo, type SceneHotspot } from "../lib/hotspots";
+import { claimDailyGold, hotspotInfo, useHotspotStyles, type SceneHotspot } from "../lib/hotspots";
 import { useEffect, useState } from "react";
 import { ForgePanel, type ForgeCharacter } from "./ForgePanel";
 import { EncounterEditor } from "./EncounterEditor";
@@ -15,6 +15,31 @@ import { QuestPanel } from "./QuestPanel";
 
 export function HotspotMarker({ hotspot, onClick }: { hotspot: SceneHotspot; onClick: () => void }) {
   const info = hotspotInfo(hotspot.kind);
+  const styles = useHotspotStyles();
+  const st = styles[hotspot.kind];
+  if (st?.image_url) {
+    // Lieu en image (personnage) : le point posé dans /admin = ses pieds, la largeur est un % de la scène.
+    return (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick();
+        }}
+        title={hotspot.label ?? info.label}
+        className="pointer-events-auto absolute z-20 -translate-x-1/2 -translate-y-full"
+        style={{ left: `${hotspot.position.x}%`, top: `${hotspot.position.y}%`, width: `${st.width_pct}%`, cursor: CURSOR_INTERACT }}
+      >
+        <img
+          src={st.image_url}
+          alt={info.label}
+          draggable={false}
+          className="block w-full transition-transform hover:scale-105"
+          style={{ transform: st.flip ? "scaleX(-1)" : undefined, filter: "drop-shadow(0 3px 4px rgba(0,0,0,0.45))" }}
+        />
+      </button>
+    );
+  }
   return (
     <button
       type="button"

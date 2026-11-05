@@ -38,6 +38,7 @@ import { AdminRequests } from "../components/AdminRequests";
 import { AdminCreatures } from "../components/AdminCreatures";
 import { joinMusicList, parseMusicList } from "../lib/jingle";
 import { HotspotGlyph } from "../components/GameIcons";
+import { HotspotStyleEditor } from "../components/HotspotStyleEditor";
 import { AdminPets } from "../components/AdminPets";
 import { AdminCompanions } from "../components/AdminCompanions";
 import { AdminStepMusic } from "../components/AdminStepMusic";
@@ -1100,6 +1101,7 @@ function AdminPage() {
         </div>
       )}
 
+      <HotspotStyleEditor />
       {status && <p className="mb-3 text-sm">{status}</p>}
       {exitStatus && <p className="mb-3 text-sm">{exitStatus}</p>}
 

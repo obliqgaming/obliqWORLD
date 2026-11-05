@@ -103,3 +103,60 @@ export async function deleteSceneHotspot(id: string): Promise<void> {
   const { error } = await scenesClient.from("scene_hotspots").delete().eq("id", id);
   if (error) throw error;
 }
+
+// ---- Apparence des lieux (SQL 083) : image + taille (+ miroir) modifiables dans /admin ----
+export type HotspotStyle = { kind: string; image_url: string | null; width_pct: number; flip: boolean };
+
+// Valeurs d'origine : marchent même si le SQL 083 n'est pas encore lancé.
+export const DEFAULT_HOTSPOT_STYLES: Record<string, HotspotStyle> = {
+  forge: { kind: "forge", image_url: "/hotspots/marteau-manchot.webp", width_pct: 9, flip: false },
+  step_editor: { kind: "step_editor", image_url: "/hotspots/perroquete.webp", width_pct: 9, flip: false },
+  farm: { kind: "farm", image_url: "/hotspots/bouc-emissaire.webp", width_pct: 9, flip: false },
+  merchant: { kind: "merchant", image_url: "/hotspots/ecuroeil.webp", width_pct: 9, flip: false },
+  quests: { kind: "quests", image_url: "/hotspots/morsale.webp", width_pct: 9, flip: false },
+};
+
+export async function fetchHotspotStyles(): Promise<Record<string, HotspotStyle>> {
+  const out: Record<string, HotspotStyle> = { ...DEFAULT_HOTSPOT_STYLES };
+  try {
+    const { data } = await scenesClient.from("hotspot_styles").select("kind, image_url, width_pct, flip");
+    for (const r of data ?? []) {
+      out[(r as any).kind] = { kind: (r as any).kind, image_url: (r as any).image_url ?? DEFAULT_HOTSPOT_STYLES[(r as any).kind]?.image_url ?? null, width_pct: Number((r as any).width_pct) || 9, flip: !!(r as any).flip };
+    }
+  } catch {
+    /* table absente : valeurs d'origine */
+  }
+  return out;
+}
+
+export function useHotspotStyles(): Record<string, HotspotStyle> {
+  const [styles, setStyles] = useState<Record<string, HotspotStyle>>(DEFAULT_HOTSPOT_STYLES);
+  useEffect(() => {
+    let alive = true;
+    const load = () => void fetchHotspotStyles().then((s) => alive && setStyles(s));
+    load();
+    window.addEventListener("obliq-hotspot-styles", load);
+    return () => {
+      alive = false;
+      window.removeEventListener("obliq-hotspot-styles", load);
+    };
+  }, []);
+  return styles;
+}
+
+export async function saveHotspotStyle(st: HotspotStyle): Promise<void> {
+  const { error } = await scenesClient.from("hotspot_styles").upsert(
+    { kind: st.kind, image_url: st.image_url, width_pct: Math.min(40, Math.max(2, st.width_pct)), flip: st.flip },
+    { onConflict: "kind" },
+  );
+  if (error) throw error;
+  window.dispatchEvent(new Event("obliq-hotspot-styles"));
+}
+
+export async function uploadHotspotImage(kind: string, file: File): Promise<string> {
+  const ext = file.name.split(".").pop()?.toLowerCase() || "png";
+  const name = `hotspot_${kind}_${Date.now()}.${ext}`;
+  const { error } = await scenesClient.storage.from("scenes").upload(name, file, { contentType: file.type || "image/png", upsert: false });
+  if (error) throw error;
+  return scenesClient.storage.from("scenes").getPublicUrl(name).data.publicUrl;
+}
