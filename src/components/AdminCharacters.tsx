@@ -1,6 +1,9 @@
 // Onglet « Personnages » de /admin : liste des personnages existants avec
 // quelques outils (ressusciter, ancrage de la main, niveau / axe).
 import { useEffect, useRef, useState } from "react";
+import { FlipToggle } from "./FlipToggle";
+import { WornSprite } from "./WornSprite";
+import { scenesClient } from "../lib/scenes-supabase";
 import {
   adminDeleteCharacter,
   adminResurrect,
@@ -84,6 +87,7 @@ export function AdminCharacters() {
                 <td className="p-1">{c.hand_anchor ? `x ${c.hand_anchor.x} · y ${c.hand_anchor.y}` : <span className="text-amber-400">non placée</span>}</td>
                 <td className="p-1">
                   <div className="flex flex-wrap gap-1">
+                    {c.image_url && <FlipToggle imageUrl={c.image_url} />}
                     {c.is_alive === false && (
                       <button type="button" className="rounded bg-emerald-700 px-2 py-0.5 text-xs" onClick={() => void run(`${c.name} ressuscité`, () => adminResurrect(c.id))}>
                         Ressusciter
@@ -176,22 +180,63 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
   );
 }
 
-// Glisse le repère sur le dessin du personnage, puis enregistre.
-export function AnchorEditor({ character, onClose, onSave }: { character: AdminCharacter; onClose: () => void; onSave: (p: Point | null) => void }) {
+// Glisse le repère sur le dessin du personnage, puis enregistre. Une arme test (au choix) est dessinée dans la main
+// pour voir le rendu ; pour les créatures (rotatable), on règle aussi la rotation des armes qu'elles tiennent.
+export function AnchorEditor({ character, onClose, onSave, rotatable = false }: { character: AdminCharacter; onClose: () => void; onSave: (p: Point | null) => void; rotatable?: boolean }) {
   const [p, setP] = useState<Point>(character.hand_anchor ?? { x: 66.7, y: 66.7 });
+  const [rot, setRot] = useState<number>(character.hand_anchor?.rot ?? 0);
   const [drag, setDrag] = useState(false);
   const box = useRef<HTMLDivElement | null>(null);
+  const [weapons, setWeapons] = useState<{ id: string; name: string; image_url: string; grip_anchor: Point; width: number; height: number }[]>([]);
+  const [wid, setWid] = useState<string>("");
+  useEffect(() => {
+    void scenesClient
+      .from("weapons")
+      .select("id, name, image_url, grip_anchor, width, height")
+      .eq("hidden", false)
+      .order("name")
+      .limit(200)
+      .then(({ data }) => {
+        const list = (data ?? []) as any[];
+        setWeapons(list);
+        const fav = list.find((w) => /b[eé]n[eé]t[eè]me/i.test(w.name)) ?? list[0];
+        if (fav) setWid(fav.id);
+      });
+  }, []);
+  const testW = weapons.find((w) => w.id === wid);
   const move = (e: React.PointerEvent) => {
     if (!box.current) return;
     const r = box.current.getBoundingClientRect();
-    setP({
+    setP((cur) => ({
+      ...cur,
       x: Math.round(Math.min(100, Math.max(0, ((e.clientX - r.left) / r.width) * 100)) * 10) / 10,
       y: Math.round(Math.min(100, Math.max(0, ((e.clientY - r.top) / r.height) * 100)) * 10) / 10,
-    });
+    }));
   };
+  const result = (): Point => (rotatable ? { x: p.x, y: p.y, rot } : { x: p.x, y: p.y });
   return (
     <Modal title={`Ancrage de la main — ${character.name}`} onClose={onClose}>
       <p className="mb-2 text-xs text-neutral-400">Clique ou glisse sur le dessin : le point est l'endroit où une arme sera tenue.</p>
+      <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
+        <label className="flex items-center gap-1">
+          Arme test
+          <select value={wid} onChange={(e) => setWid(e.target.value)} className="rounded bg-neutral-800 px-1 py-0.5">
+            <option value="">(aucune)</option>
+            {weapons.map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        {rotatable && (
+          <label className="flex items-center gap-1">
+            Rotation
+            <input type="range" min={-180} max={180} step={1} value={rot} onChange={(e) => setRot(Number(e.target.value))} />
+            <input type="number" min={-180} max={180} value={rot} onChange={(e) => setRot(Math.max(-180, Math.min(180, Number(e.target.value) || 0)))} className="w-16 rounded bg-neutral-800 px-1 py-0.5 text-right" />°
+          </label>
+        )}
+      </div>
       <div
         ref={box}
         className="relative mx-auto aspect-square w-full max-w-[420px] touch-none select-none overflow-hidden rounded border border-neutral-700"
@@ -204,12 +249,21 @@ export function AnchorEditor({ character, onClose, onSave }: { character: AdminC
         onPointerMove={(e) => drag && move(e)}
         onPointerUp={() => setDrag(false)}
       >
-        {character.image_url && <img src={character.image_url} alt="" draggable={false} className="absolute inset-0 h-full w-full object-contain" />}
-        <div className="pointer-events-none absolute h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-red-500/80" style={{ left: `${p.x}%`, top: `${p.y}%` }} />
+        {character.image_url && (
+          <div className="absolute inset-0">
+            <WornSprite
+              src={character.image_url}
+              alt=""
+              weapon={testW ? { imageUrl: testW.image_url, grip: testW.grip_anchor, width: testW.width, height: testW.height, hand: p, rot: rotatable ? rot : 0 } : null}
+              className="block w-full"
+            />
+          </div>
+        )}
+        <div className="pointer-events-none absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-red-500/80" style={{ left: `${p.x}%`, top: `${p.y}%` }} />
       </div>
-      <div className="mt-2 text-xs">x {p.x} · y {p.y}</div>
+      <div className="mt-2 text-xs">x {p.x} · y {p.y}{rotatable ? ` · rotation ${rot}°` : ""}</div>
       <div className="mt-3 flex gap-2">
-        <button type="button" className="rounded bg-emerald-700 px-3 py-1 text-sm" onClick={() => onSave(p)}>
+        <button type="button" className="rounded bg-emerald-700 px-3 py-1 text-sm" onClick={() => onSave(result())}>
           Enregistrer
         </button>
         {character.hand_anchor && (

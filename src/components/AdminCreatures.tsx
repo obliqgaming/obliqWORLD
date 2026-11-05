@@ -1,6 +1,7 @@
 // Onglet « Créatures » de /admin : renommer les créatures de la forêt (Wild), les personnages morts devenus monstres
 // et, avec eux, les compagnons obtenus (SQL 039).
 import { useEffect, useState } from "react";
+import { FlipToggle } from "./FlipToggle";
 import { scenesClient, type Point } from "../lib/scenes-supabase";
 import { adminSetHandAnchor, type AdminCharacter } from "../lib/admin-characters";
 import { AnchorEditor } from "./AdminCharacters";
@@ -140,6 +141,7 @@ export function AdminCreatures() {
                   </button>
                 </td>
                 <td className="flex gap-1 p-1">
+                  <FlipToggle imageUrl={c.image_url} />
                   <button type="button" disabled={busy === c.id} onClick={() => void retire(c)} className="rounded bg-red-800 px-3 py-1 font-semibold disabled:opacity-40">Retirer</button>
                   <button type="button" disabled={busy === c.id || (edits[c.id] ?? c.name).trim() === c.name} onClick={() => void save(c)} className="rounded bg-emerald-700 px-3 py-1 font-semibold disabled:opacity-40">
                     Renommer
@@ -154,6 +156,7 @@ export function AdminCreatures() {
         <AnchorEditor
           character={{ id: anchorFor.id, name: anchorFor.name, visual_asset_id: anchorFor.id, image_url: anchorFor.image_url, hand_anchor: anchorFor.hand_anchor, family: null, level: null, xp: null, axis_key: null, is_alive: null, death_cause: null } satisfies AdminCharacter}
           onClose={() => setAnchorFor(null)}
+          rotatable
           onSave={(p) => void saveAnchor(anchorFor, p)}
         />
       )}

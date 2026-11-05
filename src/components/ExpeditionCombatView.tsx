@@ -13,6 +13,7 @@
 // character_build), mais pas encore de moteur — les actions se sélectionnent
 // sans rien résoudre, l'ennemi est un mannequin d'entraînement.
 import { Typewriter } from "./Typewriter";
+import { shouldMirror, useImageFlips } from "../lib/image-flips";
 import { useEffect, useState } from "react";
 
 export type CombatAlly = {
@@ -163,6 +164,7 @@ export function ExpeditionCombatView({
   /** Personnages qui traversent l'écran vers la droite (après le « OK » du résultat). */
   walkOutIds?: string[];
 }) {
+  const flips = useImageFlips();
   // Compte à rebours purement local (aucun appel serveur).
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -206,7 +208,7 @@ export function ExpeditionCombatView({
             style={{ left: leaving ? "118%" : `${slot.x}%`, top: `${slot.y}%`, height: "26%", transform: "translate(-50%, -100%)", zIndex: Math.round(slot.y), transition: leaving ? "left 1600ms linear" : undefined }}
           >
             <style>{`@keyframes obw-walk{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(6deg)}}`}</style>
-            <div style={{ transform: "scaleX(-1)", height: "100%" }}>
+            <div style={{ transform: shouldMirror(flips, a.imageUrl, true) ? "scaleX(-1)" : "none", height: "100%" }}>
               <img
                 src={a.imageUrl}
                 alt={a.name}
@@ -216,7 +218,7 @@ export function ExpeditionCombatView({
               />
             </div>
             {a.companion && !dead && (
-              <img src={a.companion.image_url} alt="" draggable={false} className="pointer-events-none absolute bottom-0 -right-[38%] block h-1/2 w-auto object-contain drop-shadow-[0_3px_4px_rgba(0,0,0,0.5)]" style={{ transform: "scaleX(-1)", transformOrigin: "50% 100%", animation: leaving ? "obw-walk 250ms linear infinite" : undefined }} />
+              <img src={a.companion.image_url} alt="" draggable={false} className="pointer-events-none absolute bottom-0 -right-[38%] block h-1/2 w-auto object-contain drop-shadow-[0_3px_4px_rgba(0,0,0,0.5)]" style={{ transform: shouldMirror(flips, a.companion.image_url, true) ? "scaleX(-1)" : "none", transformOrigin: "50% 100%", animation: leaving ? "obw-walk 250ms linear infinite" : undefined }} />
             )}
             <div
               className="absolute left-1/2 top-full mt-0.5 -translate-x-1/2 whitespace-nowrap text-[11px] font-bold text-[#fff3d6]"
@@ -247,7 +249,7 @@ export function ExpeditionCombatView({
             </div>
             <div className="h-full" style={{ filter: dead ? "grayscale(1) brightness(0.5)" : undefined }}>
               {en.imageUrl ? (
-                <img src={en.imageUrl} alt={en.name} draggable={false} className="h-full w-auto object-contain" />
+                <img src={en.imageUrl} alt={en.name} draggable={false} className="h-full w-auto object-contain" style={{ transform: shouldMirror(flips, en.imageUrl, false) ? "scaleX(-1)" : "none" }} />
               ) : (
                 <PlaceholderEnemy />
               )}

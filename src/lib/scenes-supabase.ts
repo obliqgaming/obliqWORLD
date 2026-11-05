@@ -60,7 +60,7 @@ export const scenesClient = createClient(SCENES_SUPABASE_URL, SCENES_SUPABASE_PU
   },
 });
 
-export type Point = { x: number; y: number };
+export type Point = { x: number; y: number; rot?: number }; // rot : rotation (degrés) des armes tenues, seulement pour les ancrages de créatures
 export type DisplayPoint = { x: number; y: number; rot: number; size: number };
 
 // Calibration de la taille du personnage selon sa profondeur dans le décor :

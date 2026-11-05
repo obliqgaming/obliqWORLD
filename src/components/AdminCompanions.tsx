@@ -1,5 +1,6 @@
 // Onglet « Compagnons » de /admin : modération des compagnons dessinés par les joueurs (SQL 048).
 import { useEffect, useState } from "react";
+import { FlipToggle } from "./FlipToggle";
 import { scenesClient } from "../lib/scenes-supabase";
 import { fetchAuthorNames } from "../lib/authors";
 
@@ -50,6 +51,7 @@ export function AdminCompanions() {
               <div className="truncate font-bold">{r.name} {r.hidden && <span className="text-amber-300">(masqué)</span>}</div>
               <div className="opacity-70">{r.rarity} · par {names[r.author_user_id] ?? r.author_user_id.slice(0, 8)} · {new Date(r.created_at).toLocaleDateString("fr-FR")}</div>
               <div className="mt-1 flex gap-2">
+                <FlipToggle imageUrl={r.image_url} />
                 <button type="button" disabled={busy === r.id} className="rounded bg-neutral-700 px-2 py-1 hover:bg-neutral-600" onClick={() => void run(r.id, scenesClient.rpc("admin_companion_design_hide", { p_design_id: r.id, p_hidden: !r.hidden }), r.hidden ? "Réaffiché." : "Masqué.")}>{r.hidden ? "Réafficher" : "Masquer"}</button>
                 <button type="button" disabled={busy === r.id} className="rounded bg-red-800 px-2 py-1 hover:bg-red-700" onClick={() => { if (window.confirm(`Supprimer « ${r.name} » pour de bon ?`)) void run(r.id, scenesClient.rpc("admin_companion_design_delete", { p_design_id: r.id }), "Supprimé."); }}>Supprimer</button>
               </div>

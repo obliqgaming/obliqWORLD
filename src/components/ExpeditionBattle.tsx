@@ -32,6 +32,7 @@ import {
   type MyBuild,
 } from "../lib/expedition-combat";
 import { WornSprite } from "./WornSprite";
+import { shouldMirror, useImageFlips } from "../lib/image-flips";
 import { DEFAULT_HAND, fetchWeaponsById, fetchWornWeapons, type WornWeapon } from "../lib/weapons";
 import { CURSOR_INTERACT } from "../lib/cursors";
 import { LootPanel } from "./LootPanel";
@@ -158,6 +159,7 @@ export function ExpeditionBattle({
   /** Appelé quand le joueur ferme le panneau de fin de combat. */
   onFinished: () => void;
 }) {
+  const flips = useImageFlips();
   const [snap, setSnap] = useState<CombatSnapshot | null>(null);
   const [build, setBuild] = useState<MyBuild | null>(null);
   const [powers, setPowers] = useState<GamePower[]>([]);
@@ -635,7 +637,7 @@ export function ExpeditionBattle({
               </div>
             )}
             <div className={fx === "act" ? "obw-act-r h-full" : fx === "hit" ? "obw-hit h-full" : fx === "heal" ? "obw-heal h-full" : "h-full"}>
-              <div style={{ transform: "scaleX(-1)", height: "100%" }}>
+              <div style={{ transform: shouldMirror(flips, a.imageUrl, true) ? "scaleX(-1)" : "none", height: "100%" }}>
                 <WornSprite
                   fit="height"
                   src={a.imageUrl}
@@ -647,7 +649,7 @@ export function ExpeditionBattle({
               </div>
             </div>
             {a.companion && !dead && (
-              <img src={a.companion.image_url} alt="" draggable={false} className="pointer-events-none absolute bottom-0 -right-[38%] block h-1/2 w-auto object-contain drop-shadow-[0_3px_4px_rgba(0,0,0,0.5)]" style={{ transform: "scaleX(-1)" }} />
+              <img src={a.companion.image_url} alt="" draggable={false} className="pointer-events-none absolute bottom-0 -right-[38%] block h-1/2 w-auto object-contain drop-shadow-[0_3px_4px_rgba(0,0,0,0.5)]" style={{ transform: shouldMirror(flips, a.companion?.image_url, true) ? "scaleX(-1)" : "none" }} />
             )}
             <div className="absolute left-1/2 top-full mt-0.5 -translate-x-1/2 whitespace-nowrap text-[11px] font-bold text-[#fff3d6]" style={{ textShadow: "0 1px 3px #000" }}>
               {a.name}
@@ -664,7 +666,7 @@ export function ExpeditionBattle({
         const entry = (en.visual_asset_id ? monsterAssets[en.visual_asset_id] : null) ?? pickEnemyEntry(pool, en.id);
         const img = entry?.imageUrl ?? null;
         const mw = en.weapon_id ? weaponPool[en.weapon_id] ?? null : null;
-        const mWeapon: WornWeapon | null = mw ? { ...mw, hand: entry?.handAnchor ?? DEFAULT_HAND } : null;
+        const mWeapon: WornWeapon | null = mw ? { ...mw, hand: entry?.handAnchor ?? DEFAULT_HAND, rot: entry?.handAnchor?.rot ?? 0 } : null;
         const selected = targetEnemy === en.id;
         const target = en.announced_target_id ? allies.find((a) => a.characterId === en.announced_target_id) : null;
         const fx = fxFor("e", en.id);
@@ -700,7 +702,7 @@ export function ExpeditionBattle({
             )}
             <div className={fx === "act" ? "obw-act-l h-full" : fx === "hit" ? "obw-hit h-full" : fx === "heal" ? "obw-heal h-full" : "h-full"}>
               <div className="h-full" style={{ filter: dead ? "grayscale(1) brightness(0.5)" : undefined, outline: selected && !dead ? "2px dashed #fbbf24" : undefined, outlineOffset: 2 }}>
-                {img ? <WornSprite fit="height" src={img} alt={en.name} weapon={mWeapon} className="block h-full w-auto object-contain" /> : <PlaceholderEnemy />}
+                {img ? <div className="h-full" style={{ transform: shouldMirror(flips, img, false) ? "scaleX(-1)" : "none" }}><WornSprite fit="height" src={img} alt={en.name} weapon={mWeapon} className="block h-full w-auto object-contain" /></div> : <PlaceholderEnemy />}
               </div>
             </div>
           </div>

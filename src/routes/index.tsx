@@ -122,6 +122,7 @@ import { openNarrativeStep, fetchNarrativeEvent, type NarrativeEvent } from "../
 import { NarrativeStepPanel } from "../components/NarrativeStepPanel";
 import { HotspotMarker, HotspotPanel } from "../components/SceneHotspots";
 import { LoadingScreen } from "../components/LoadingScreen";
+import { shouldMirror, useImageFlips } from "../lib/image-flips";
 import { InspectPanel } from "../components/InspectPanel";
 import { WornSprite } from "../components/WornSprite";
 import { EMOTES, EMOTE_KEYS, EMOTE_COOLDOWN_MS, emoteFromCommand, emoteStyle, type EmoteKey } from "../lib/emotes";
@@ -193,6 +194,11 @@ const autoNameColor = (id: string) => {
 const CHAT_COLOR_KEY = "obliqworld-chat-color";
 // Le plus bas à l'écran est devant. Reste sous 20 : les écrans plein cadre (expédition) passent par-dessus les personnages du lieu.
 const depthZ = (y: number) => 14 + Math.max(0, Math.min(5, Math.floor(y / 17)));
+const CHAT_EXPIRE_MS = 2 * 60 * 60 * 1000; // sans nouveau message pendant 2 h, le tchat s'efface
+const expireChat = (log: ChatMessage[]): ChatMessage[] => {
+  const last = log[log.length - 1];
+  return last && Date.now() - last.ts > CHAT_EXPIRE_MS ? [] : log;
+};
 const GROUP_CHAT_COLOR = "#7dd3fc"; // canal /g (groupe) ; le canal /d (dire) garde la couleur habituelle
 const mergeChat = (a: ChatMessage[], b: ChatMessage[]): ChatMessage[] => {
   const out = [...a];
@@ -283,16 +289,19 @@ function Index() {
   const [character, setCharacter] = useState<Character | null>(null);
   const [checkingCharacter, setCheckingCharacter] = useState(true);
   // Écran de chargement : tant que la scène de reconnexion, son image et ses lieux ne sont pas prêts.
+  const imageFlips = useImageFlips();
   const [restoring, setRestoring] = useState(true);
   const restoreStartedRef = useRef(false);
   const [hotspotsLoaded, setHotspotsLoaded] = useState(false);
   const [veilTimeout, setVeilTimeout] = useState(false);
-  const sceneIdForVeil = scene.id;
+  const [booted, setBooted] = useState(false);
   useEffect(() => {
-    setVeilTimeout(false);
     const t = window.setTimeout(() => setVeilTimeout(true), 8000); // sécurité : le voile ne reste jamais bloqué
     return () => window.clearTimeout(t);
-  }, [sceneIdForVeil]);
+  }, []);
+  // Fondu entre deux scènes (changement de scène, téléportation) : noir qui monte, on change, puis redescend quand tout est prêt.
+  const [fadeOut, setFadeOut] = useState(false);
+  const sceneReadyRef = useRef(false);
   // Message affiché si le chargement ou la création de personnage échoue
   // (session invitée impossible, réseau, etc.) — avant, ces échecs n'étaient
   // visibles que dans la console, donnant l'impression d'un écran qui ne
@@ -490,6 +499,11 @@ function Index() {
       if (chatIdleTimer.current) window.clearTimeout(chatIdleTimer.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const t = window.setInterval(() => setChatLog((log) => (log.length ? expireChat(log) : log)), 60_000);
+    return () => window.clearInterval(t);
   }, []);
 
   const walkTimer = useRef<number | null>(null);
@@ -1316,7 +1330,7 @@ function Index() {
       }
     }
     chatSceneRef.current = scene.id;
-    setChatLog(restored);
+    setChatLog(expireChat(restored));
     setChatInput("");
   }, [scene.id]);
 
@@ -1329,7 +1343,7 @@ function Index() {
     const inExp = isExpeditionSceneName(scene.name);
     if (inExp && !activeExpedition) return;
     void fetchChatHistory(sid, party?.id ?? null, CHAT_LOG_SIZE, inExp ? (activeExpedition?.started_at ?? activeExpedition?.created_at ?? null) : null)
-      .then((h) => { if (!cancelled && chatSceneRef.current === sid) setChatLog((cur) => mergeChat(h, cur)); })
+      .then((h) => { if (!cancelled && chatSceneRef.current === sid) setChatLog((cur) => expireChat(mergeChat(h, cur))); })
       .catch(() => {});
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2421,13 +2435,24 @@ function Index() {
   };
 
   // ---------- Changement de scène (appelé une fois la marche jusqu'à la sortie terminée) ----------
+  const sleepMs = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms));
+  // Après le changement : on attend que la nouvelle image et ses lieux soient prêts, puis le noir redescend.
+  const settleFade = async () => {
+    const t0 = Date.now();
+    await sleepMs(140);
+    while (!sceneReadyRef.current && Date.now() - t0 < 3000) await sleepMs(70);
+    setFadeOut(false);
+  };
   const changeScene = async (exit: SceneExit) => {
     if (!character) return;
+    setFadeOut(true);
+    const fadeDone = sleepMs(200);
     try {
       const [newScene, newExits] = await Promise.all([
         fetchScene(exit.to_scene_id),
         fetchSceneExits(exit.to_scene_id),
-      ]);
+        fadeDone,
+      ]).then(([a, b]) => [a, b] as const);
       const reverse = newExits.find((x) => x.to_scene_id === scene.id);
       const arrival = reverse ? reverse.position : { x: 50, y: 70 };
 
@@ -2444,17 +2469,27 @@ function Index() {
       setCharacter(updated);
       characterRef.current = updated;
 
+      void settleFade();
       await moveCharacterToScene(character.id, newScene.id, arrival);
       trackPresence(arrival, 0, false);
     } catch (err) {
       console.error("Scene change failed", err);
+      setFadeOut(false);
     }
   };
 
   // Téléporte le personnage dans une scène (sans passer par une sortie).
   const teleportToScene = async (newScene: Scene, arrival: Point) => {
     if (!character) return;
-    const newExits = await fetchSceneExits(newScene.id);
+    setFadeOut(true);
+    const fadeDone = sleepMs(200);
+    let newExits: Awaited<ReturnType<typeof fetchSceneExits>>;
+    try {
+      [newExits] = await Promise.all([fetchSceneExits(newScene.id), fadeDone]);
+    } catch (e) {
+      setFadeOut(false);
+      throw e;
+    }
     stepMusicRef.current = null;
     if (!isExpeditionSceneName(newScene.name)) playMusic(newScene.music_url, true);
     setScene(newScene);
@@ -2465,6 +2500,7 @@ function Index() {
     const updated = { ...character, scene_id: newScene.id, position: arrival };
     setCharacter(updated);
     characterRef.current = updated;
+    void settleFade();
     await moveCharacterToScene(character.id, newScene.id, arrival);
     trackPresence(arrival, 0, false);
   };
@@ -2592,6 +2628,11 @@ function Index() {
     markActive();
   };
 
+  sceneReadyRef.current = !restoring && !!imgNatural && hotspotsLoaded && !!hotspotStyles;
+  useEffect(() => {
+    if (!booted && sceneReadyRef.current) setBooted(true);
+  });
+
   if (checkingCharacter) {
     return (
       <div className="relative h-screen w-screen bg-black">
@@ -2637,7 +2678,11 @@ function Index() {
 
   return (
     <div className="relative flex h-screen w-screen items-center justify-center overflow-hidden bg-black">
-      <LoadingScreen visible={!veilTimeout && (restoring || !imgNatural || !hotspotsLoaded || !hotspotStyles)} />
+      <LoadingScreen visible={!booted && !veilTimeout} />
+      <div
+        className="pointer-events-none absolute inset-0 z-[55] bg-black"
+        style={{ opacity: fadeOut ? 1 : 0, transition: fadeOut ? "opacity 200ms ease-in" : "opacity 320ms ease-out" }}
+      />
       <div
         ref={sceneRef}
         onClick={handleSceneClick}
@@ -2712,7 +2757,7 @@ function Index() {
                 mettre les deux transforms sur la même balise faisait disparaître
                 le miroir tant que le personnage marchait (il ne redevenait
                 visible qu'à l'arrêt, une fois l'animation coupée). */}
-            <div style={{ transform: facingRight ? "scaleX(-1)" : "none" }}>
+            <div style={{ transform: shouldMirror(imageFlips, character.image_url, facingRight) ? "scaleX(-1)" : "none" }}>
               <div style={emoteStyle(emotes[character.id])}>
                 <WornSprite
                   src={character.image_url}
@@ -2757,7 +2802,7 @@ function Index() {
               }}
             >
               {bubbles[peer.characterId] && <SpeechBubble text={bubbles[peer.characterId].text} />}
-              <div style={{ transform: isFacingRight ? "scaleX(-1)" : "none" }}>
+              <div style={{ transform: shouldMirror(imageFlips, peer.image_url, isFacingRight) ? "scaleX(-1)" : "none" }}>
                <div style={emoteStyle(emotes[peer.characterId])}>
                 {/* pointer-events-auto seulement sur l'image : le conteneur
                     reste pointer-events-none pour ne pas intercepter les

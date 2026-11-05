@@ -1,5 +1,6 @@
 // Onglet « Pets » de /admin : compagnons de départ (SQL 043-044). Renommer, changer la taille, retirer, ajouter.
 import { useEffect, useState } from "react";
+import { FlipToggle } from "./FlipToggle";
 import { scenesClient } from "../lib/scenes-supabase";
 
 type Pet = { id: string; name: string; image_url: string; tier: "small" | "medium" | "large" };
@@ -63,7 +64,8 @@ export function AdminPets() {
                       {Object.entries(TIERS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                     </select>
                   </td>
-                  <td className="p-1">
+                  <td className="flex gap-1 p-1">
+                    <FlipToggle imageUrl={p.image_url} />
                     <button type="button" disabled={busy === p.id} onClick={() => window.confirm(`Retirer « ${p.name} » de la liste de départ ?`) && void run(p.id, () => scenesClient.rpc("admin_pet_delete", { p_id: p.id }), "✔ Retiré de la liste")} className="rounded bg-red-800 px-3 py-1 font-semibold disabled:opacity-40">Retirer</button>
                   </td>
                 </tr>

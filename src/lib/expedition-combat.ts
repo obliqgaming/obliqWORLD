@@ -297,7 +297,7 @@ export function subscribeToRunStats(expeditionId: string, onChange: () => void):
 // Images d'ennemis : les dessins des personnages existants, choisis de façon
 // DÉTERMINISTE à partir de l'identifiant de l'ennemi, pour que tout le groupe
 // voie le même monstre. (Provisoire, en attendant de vrais dessins d'ennemis.)
-export type EnemyImage = { name: string; imageUrl: string; handAnchor: { x: number; y: number } | null };
+export type EnemyImage = { name: string; imageUrl: string; handAnchor: { x: number; y: number; rot?: number } | null };
 
 export async function fetchEnemyImagePool(excludeCharacterIds: string[]): Promise<EnemyImage[]> {
   const { data, error } = await scenesClient
@@ -308,7 +308,7 @@ export async function fetchEnemyImagePool(excludeCharacterIds: string[]): Promis
   if (error) throw error;
   return (data ?? [])
     .filter((r: any) => !excludeCharacterIds.includes(r.id) && r.visual_assets?.image_url)
-    .map((r: any) => ({ name: r.name as string, imageUrl: r.visual_assets.image_url as string, handAnchor: (r.visual_assets.hand_anchor ?? null) as { x: number; y: number } | null }));
+    .map((r: any) => ({ name: r.name as string, imageUrl: r.visual_assets.image_url as string, handAnchor: (r.visual_assets.hand_anchor ?? null) as { x: number; y: number; rot?: number } | null }));
 }
 
 // Dessins des monstres choisis par le serveur (SQL 026) : id du dessin -> image et position de la main.
@@ -318,7 +318,7 @@ export async function fetchMonsterAssets(ids: string[]): Promise<Record<string, 
   const { data, error } = await scenesClient.from("visual_assets").select("id, name, image_url, hand_anchor").in("id", ids);
   if (error) throw error;
   for (const r of (data ?? []) as any[]) {
-    out[r.id] = { name: r.name as string, imageUrl: r.image_url as string, handAnchor: (r.hand_anchor ?? null) as { x: number; y: number } | null };
+    out[r.id] = { name: r.name as string, imageUrl: r.image_url as string, handAnchor: (r.hand_anchor ?? null) as { x: number; y: number; rot?: number } | null };
   }
   return out;
 }

@@ -54,6 +54,12 @@ export async function adminDeleteCharacter(characterId: string): Promise<void> {
 }
 
 export async function adminSetHandAnchor(visualAssetId: string, p: Point | null): Promise<void> {
+  if (p && typeof p.rot === "number") {
+    // Créatures : main + rotation des armes (SQL 086)
+    const r = await scenesClient.rpc("admin_set_hand_pose", { p_visual_asset_id: visualAssetId, p_x: p.x, p_y: p.y, p_rot: p.rot });
+    if (r.error) throw new Error(r.error.message.includes("admin_set_hand_pose") ? "Lance d'abord le SQL 086 dans Supabase." : r.error.message);
+    return;
+  }
   const { error } = await scenesClient.rpc("admin_set_hand_anchor", {
     p_visual_asset_id: visualAssetId,
     p_x: p ? p.x : null,

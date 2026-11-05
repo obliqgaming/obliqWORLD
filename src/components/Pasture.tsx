@@ -2,6 +2,7 @@
 // se promènent à petits pas dans la zone dessinée dans /admin. Purement visuel : aucun temps réel, aucune base.
 // Chaque animal a son propre rythme (pas de synchronisation) : immobile quelques secondes, puis quelques pas.
 import { useEffect, useRef, useState } from "react";
+import { shouldMirror, useImageFlips } from "../lib/image-flips";
 import { computeDepthScale, pointInPolygon, type DepthScale, type Point } from "../lib/scenes-supabase";
 import { fetchPastureAnimals, type PastureAnimal } from "../lib/companions";
 
@@ -43,6 +44,7 @@ function Animal({
     reg.current[animal.key] = p;
     return p;
   });
+  const flips = useImageFlips();
   const [facingRight, setFacingRight] = useState(false);
   const [ms, setMs] = useState(0);
   const zoneKey = JSON.stringify(zone);
@@ -98,7 +100,7 @@ function Animal({
           </div>
         </div>
       )}
-      <div style={{ transform: facingRight ? "scaleX(-1)" : "none" }}>
+      <div style={{ transform: shouldMirror(flips, animal.image_url, facingRight) ? "scaleX(-1)" : "none" }}>
         <img
           src={animal.image_url}
           alt={animal.name}

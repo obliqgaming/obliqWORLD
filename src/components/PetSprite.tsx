@@ -1,12 +1,15 @@
 // Compagnon qui marche devant son maître, deux fois plus petit. À placer DANS le conteneur du personnage :
 // il suit donc exactement ses déplacements et l'échelle de profondeur de la scène.
+import { shouldMirror, useImageFlips } from "../lib/image-flips";
+
 export function PetSprite({ src, facingRight, walking }: { src: string; facingRight: boolean; walking: boolean }) {
+  const flips = useImageFlips();
   return (
     <div
       className="pointer-events-none absolute bottom-0"
       style={{ width: "50%", left: facingRight ? "88%" : "-38%", transition: "left 250ms ease-out" }}
     >
-      <div style={{ transform: facingRight ? "scaleX(-1)" : "none" }}>
+      <div style={{ transform: shouldMirror(flips, src, facingRight) ? "scaleX(-1)" : "none" }}>
         <img
           src={src}
           alt=""
