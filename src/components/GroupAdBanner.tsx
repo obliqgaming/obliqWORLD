@@ -28,7 +28,7 @@ export function GroupAdBanner({ onOpen }: { onOpen: () => void }) {
       onClick={(e) => { e.stopPropagation(); onOpen(); }}
       className="absolute left-1/2 top-3 z-30 -translate-x-1/2 animate-pulse rounded-full border-2 border-[#7a4a22] bg-[#f1dfb6]/95 px-4 py-1 text-sm font-extrabold text-[#3a2410] shadow-lg hover:animate-none hover:bg-[#f6e8c4]"
       style={{ fontFamily: "'Baloo 2', cursive" }}
-      title="Ouvrir le tableau « cherche un groupe »"
+      title="Ouvrir le Panneau des Aventuriers"
     >
       📋 Un groupe est en formation !{count > 1 ? ` (${count} annonces)` : ""}
     </button>

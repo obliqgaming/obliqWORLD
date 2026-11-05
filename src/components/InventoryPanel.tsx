@@ -130,7 +130,7 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
     <div className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto parchment-scroll bg-black/55 p-2" onClick={(e) => e.stopPropagation()} style={{ fontFamily: "'Baloo 2', cursive" }}>
       <div className="max-h-full w-[min(46rem,98%)] overflow-y-auto parchment-scroll rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-4 text-[#3a2410] shadow-xl">
         <div className="flex items-center justify-between">
-          <div className="text-xl font-extrabold"><Bag /> Inventaire <span className="ml-2 text-sm text-[#92400e]"><Coin /> {gold} or</span></div>
+          <div className="text-xl font-extrabold"><Bag /> Inventaire <span className="ml-2 text-sm text-[#92400e]"><Coin /> {gold > 0 ? `${gold} flouz` : "pas de flouz"}</span></div>
           <button type="button" onClick={onClose} className="rounded border border-[#7a4a22] px-3 py-0.5 text-xs font-bold hover:bg-[#7a4a22]/15">Fermer</button>
         </div>
         {!character ? (
@@ -192,7 +192,7 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
                   </div>
                 </div>
               )}
-              {items.length === 0 && <div className="text-sm">Aucune arme sur toi. Va voir le forgeron !</div>}
+              {items.length === 0 && <div className="text-sm">Aucune arme sur toi. Va voir à la Forge du Manchot !</div>}
               {items.map((it) => (
                 <div key={it.id} className={`flex items-center gap-2 rounded border p-1.5 ${it.id === shownId ? "border-[#7a4a22] bg-white/70" : "border-[#7a4a22]/50 bg-white/40"}`}>
                   <img src={it.weapon.image_url} alt="" className="h-10 w-12 shrink-0 object-contain" />

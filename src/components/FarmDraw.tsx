@@ -56,19 +56,19 @@ export function FarmDraw({ onChanged }: { onChanged: () => void }) {
     <div className="mt-3">
       <div className="rounded-lg bg-white/35 p-2.5 text-sm leading-snug">
         <div className="font-extrabold">🎨 Dessine un compagnon : <b>{rules?.cost ?? 6} <Coin /></b>, <b>un par jour</b> <span className="font-semibold">· tu as <b>{gold}</b> <Coin /></span></div>
-        <div className="mt-1">✨ Sa <b>rareté est tirée au sort</b> à la validation (plus elle est haute, plus il a de PV). Tu reçois tout de suite ton <b>prototype</b>.</div>
+        <div className="mt-1">✨ Sa <b>rareté est tirée au sort</b> à la validation (plus elle est haute, plus il a de peps). Tu reçois tout de suite ton <b>prototype</b>.</div>
         <div>🌲 Il pourra aussi apparaître comme créature dans la forêt.</div>
       </div>
       <input value={name} maxLength={40} onChange={(e) => setName(e.target.value)} placeholder="Nom du compagnon" className="mt-2 w-full rounded border border-[#7a4a22] bg-white/70 px-2 py-1 text-sm" />
       <div className="mt-2">
-        <DrawingCanvas width={COMPANION_W} height={COMPANION_H} noAnchor exportLabel={`Valider (${rules?.cost ?? 6} or)`} exporting={busy} onExport={(b) => void handleExport(b)} />
+        <DrawingCanvas width={COMPANION_W} height={COMPANION_H} noAnchor exportLabel={`Valider (${rules?.cost ?? 6} flouz)`} exporting={busy} onExport={(b) => void handleExport(b)} />
       </div>
       {msg && <div className="mt-2 text-xs font-bold text-[#92400e]">{msg}</div>}
       {result && (
         <RevealModal tier={RARITY_TIER[result.rarity] ?? 1} title="Ton compagnon est validé !" onClose={() => setResult(null)}>
           <img src={result.image_url} alt="" className="mx-auto h-28 w-28 object-contain" />
           <div className="mt-2 text-center"><RarityName name={result.name} rarity={result.rarity} pill /></div>
-          <div className="mt-1 text-center text-sm">{rules?.hp[result.rarity] ?? "?"} PV pour les acheteurs</div>
+          <div className="mt-1 text-center text-sm">{rules?.hp[result.rarity] ?? "?"} peps pour les acheteurs</div>
           <div className="mt-1 text-center text-xs opacity-80">Ton prototype est dans « Mes compagnons ».</div>
         </RevealModal>
       )}
@@ -129,11 +129,11 @@ export function FarmShop({ onChanged }: { onChanged: () => void }) {
         <img src={d.image_url} alt="" className="h-16 w-16 shrink-0 object-contain" />
         <div className="min-w-0 flex-1 text-xs">
           <RarityName name={d.name} rarity={d.rarity as Rarity} />
-          <div className="mt-0.5"><RarityPill rarity={d.rarity as Rarity} /> · {rules?.hp[d.rarity as Rarity] ?? "?"} PV</div>
+          <div className="mt-0.5"><RarityPill rarity={d.rarity as Rarity} /> · {rules?.hp[d.rarity as Rarity] ?? "?"} peps</div>
           <div className="opacity-70">{l.authorName ? `par ${l.authorName} · ` : ""}{sold ? "ÉPUISÉ (on peut en trouver en butin)" : `${l.stock_left}/${l.stock_total} en stock`}</div>
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <b>{l.price} <Coin /></b>
-            {!l.mine && <button type="button" disabled={busy || sold || gold < l.price} className={BTN} onClick={() => void act(() => companionShopBuy(l.design_id), `✔ « ${d.name} » est à la ferme.`)}>Acheter</button>}
+            {!l.mine && <button type="button" disabled={busy || sold || gold < l.price} className={BTN} onClick={() => void act(() => companionShopBuy(l.design_id), `✔ « ${d.name} » est à la Ferme des Jetés en Pâture.`)}>Acheter</button>}
             {l.mine && range && (
               <>
                 <input type="number" min={range.min} max={range.max} value={prices[l.design_id] ?? String(l.price)} onChange={(e) => setPrices((p) => ({ ...p, [l.design_id]: e.target.value }))} className="w-16 rounded border border-[#7a4a22] bg-white/70 px-1 py-0.5" />
@@ -157,7 +157,7 @@ export function FarmShop({ onChanged }: { onChanged: () => void }) {
       {pending > 0 && (
         <div className="mt-2 flex items-center gap-2 rounded border border-[#7a4a22] bg-[#fde7c8] p-2 text-sm font-bold">
           📬 Tes ventes t'ont rapporté {pending} <Coin />
-          <button type="button" disabled={busy} className={BTN} onClick={() => void act(async () => { await shopCollect(); }, "✔ Or récupéré.")}>Récupérer</button>
+          <button type="button" disabled={busy} className={BTN} onClick={() => void act(async () => { await shopCollect(); }, "✔ Flouz récupéré.")}>Récupérer</button>
         </div>
       )}
       {msg && <div className="mt-2 text-xs font-bold text-[#92400e]">{msg}</div>}

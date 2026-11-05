@@ -97,7 +97,7 @@ function GoldPanel({ hotspotId, onClose }: { hotspotId: string; onClose: () => v
   useEffect(() => {
     let alive = true;
     claimDailyGold(hotspotId)
-      .then((n) => { uiSound("coin"); if (alive) setRes({ ok: true, text: `+${n} or ramassé !` }); })
+      .then((n) => { uiSound("coin"); if (alive) setRes({ ok: true, text: `+${n} flouz ramassé !` }); })
       .catch((e: any) => alive && setRes({ ok: false, text: e?.message?.includes("daily_gold_claim") ? "Cet endroit n'est pas encore activé (SQL 032)." : (e?.message ?? "Impossible de ramasser.") }));
     return () => {
       alive = false;

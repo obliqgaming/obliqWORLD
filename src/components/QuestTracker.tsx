@@ -25,14 +25,14 @@ export function QuestTracker({ sceneId, refreshKey }: { sceneId: string; refresh
   const wrap = "pointer-events-none absolute left-5 top-14 z-30 max-w-[15rem] rounded-lg px-2.5 py-1.5 text-xs shadow-lg";
   if (!mine || !q) {
     if (data.quests.length === 0) return null;
-    return <div className={`${wrap} bg-black/45 text-[#fff3d6]`} style={FONT}>📜 Une quête du jour t'attend</div>;
+    return <div className={`${wrap} bg-black/45 text-[#fff3d6]`} style={FONT}>📜 Un boulot du jour t'attend</div>;
   }
   const ready = mine.progress >= q.goal;
   if (ready) {
     return (
       <div className={`${wrap} animate-pulse border-2 border-[#fbbf24] bg-[#78350f]/90 text-[#fef3c7]`} style={FONT}>
-        <div className="font-extrabold">✨ Quête accomplie !</div>
-        <div>🎁 Ta récompense t'attend au tableau des quêtes.</div>
+        <div className="font-extrabold">✨ Boulot accompli !</div>
+        <div>🎁 Ta récompense t'attend au Boulot du Jour.</div>
       </div>
     );
   }

@@ -16,7 +16,7 @@ export function WeaponDisplay({ points, boxWidth }: { points: DisplayPoint[]; bo
     void fetchDisplayWeapons(n)
       .then((l) => {
         if (cancelled) return;
-        console.info(`[Armes exposées] ${n} point(s) posé(s), ${l.length} arme(s) tirée(s) parmi celles en stock chez le forgeron.`);
+        console.info(`[Armes exposées] ${n} point(s) posé(s), ${l.length} arme(s) tirée(s) parmi celles en stock à la Forge du Manchot.`);
         setWeapons(l);
       })
       .catch((e) => console.warn("[Armes exposées] lecture de la boutique impossible :", e));
@@ -43,7 +43,7 @@ export function WeaponDisplay({ points, boxWidth }: { points: DisplayPoint[]; bo
                   <span className="mr-1 inline-block h-2 w-2 rounded-full align-middle" style={{ background: w.color }} />
                   {w.line}
                 </div>
-                <div className="text-[11px] font-bold leading-tight text-[#5e3818]">{w.price} or · en vente chez le forgeron</div>
+                <div className="text-[11px] font-bold leading-tight text-[#5e3818]">{w.price} flouz · en vente à la Forge du Manchot</div>
               </div>
             )}
             <img

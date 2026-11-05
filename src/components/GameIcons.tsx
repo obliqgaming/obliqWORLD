@@ -1,7 +1,7 @@
 import type React from "react";
 // Petites icônes du jeu (SVG de Lils dans public/icons) : pièce d'or, sac à dos, parchemin de quêtes.
 export function Coin({ size = "1.05em" }: { size?: string }) {
-  return <img src="/icons/coin.svg" alt="or" draggable={false} style={{ display: "inline-block", height: size, width: size, verticalAlign: "-0.15em" }} />;
+  return <img src="/icons/coin.svg" alt="flouz" draggable={false} style={{ display: "inline-block", height: size, width: size, verticalAlign: "-0.15em" }} />;
 }
 
 export function Bag({ size = "1.1em" }: { size?: string }) {

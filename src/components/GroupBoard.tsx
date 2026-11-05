@@ -10,7 +10,7 @@ import {
 const FONT = { fontFamily: "'Baloo 2', cursive" };
 const BTN = "rounded-lg border-2 border-[#7a4a22] bg-[#7a4a22] px-3 py-1 text-xs font-bold text-[#fff3d6] hover:bg-[#5e3818] disabled:opacity-50";
 const BTN2 = "rounded-lg border-2 border-[#7a4a22] px-3 py-1 text-xs font-bold text-[#5e3818] hover:bg-[#7a4a22]/15 disabled:opacity-50";
-const ROUTE = { court: "Expédition courte", long: "Expédition longue" } as const;
+const ROUTE = { court: "P'tite balade dans la forêt", long: "Grand Safari Sylvestre" } as const;
 
 const toLocalInput = (d: Date) => {
   const p = (n: number) => String(n).padStart(2, "0");
@@ -61,7 +61,7 @@ export function GroupBoard({ character, onClose, onInvite }: { character: { id: 
     <div className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/55 p-2" style={FONT} onClick={(e) => e.stopPropagation()}>
       <div className="max-h-full w-[min(40rem,98%)] overflow-y-auto parchment-scroll rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-4 text-[#3a2410] shadow-xl">
         <div className="flex items-center justify-between">
-          <div className="text-xl font-extrabold"><PanelIcon src="/icons/group.png" />Groupes</div>
+          <div className="text-xl font-extrabold"><PanelIcon src="/icons/group.png" />Le Panneau des Aventuriers</div>
           <button type="button" className={BTN2} onClick={onClose}>Fermer</button>
         </div>
         <div className="mt-2 flex gap-2">

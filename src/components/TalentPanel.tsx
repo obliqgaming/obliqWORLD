@@ -141,7 +141,7 @@ export function TalentPanel({ characterId, onClose }: { characterId: string; onC
         <div className="mt-0.5 opacity-85">{t.description}</div>
         {p && (
           <div className="mt-1 flex flex-wrap gap-1 text-[10px] font-bold">
-            <span className="rounded bg-[#dbeafe] px-1.5 py-px text-[#1d4ed8]">{p.cost_pm ? `${p.cost_pm} PM` : "0 PM"}</span>
+            <span className="rounded bg-[#dbeafe] px-1.5 py-px text-[#1d4ed8]">{p.cost_pm ? `${p.cost_pm} jus` : "0 jus"}</span>
             {p.recharge ? <span className="rounded bg-[#e5e7eb] px-1.5 py-px text-[#374151]">Recharge {p.recharge} t.</span> : null}
           </div>
         )}
@@ -246,12 +246,12 @@ export function TalentPanel({ characterId, onClose }: { characterId: string; onC
               <div className="text-[11px]">
                 {confirmReset ? (
                   <span>
-                    Réinitialiser coûte <b>{resetCost} or</b>.{" "}
+                    Réinitialiser coûte <b>{resetCost} flouz</b>.{" "}
                     <button type="button" disabled={busy} className={BTN} onClick={() => void reset()}>Confirmer</button>{" "}
                     <button type="button" className="text-xs underline" onClick={() => setConfirmReset(false)}>Annuler</button>
                   </span>
                 ) : (
-                  keys.length > 0 && <button type="button" className="text-xs font-bold underline" onClick={() => setConfirmReset(true)}>Réinitialiser mes talents ({resetCost} or)</button>
+                  keys.length > 0 && <button type="button" className="text-xs font-bold underline" onClick={() => setConfirmReset(true)}>Réinitialiser mes talents ({resetCost} flouz)</button>
                 )}
               </div>
               <button type="button" className={BTN} onClick={onClose}>Fermer</button>

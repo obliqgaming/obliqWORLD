@@ -48,7 +48,7 @@ export function MerchantPanel({ onClose, onWeaponChanged }: { onClose: () => voi
       onWeaponChanged();
     } catch (e: any) {
       uiSound("error");
-      setMsg(e?.message?.includes("merchant_") && e?.message?.includes("function") ? "Le marchand n'est pas encore activé (SQL 030)." : (e?.message ?? "Erreur"));
+      setMsg(e?.message?.includes("merchant_") && e?.message?.includes("function") ? "L'Épicerie Grâce n'est pas encore activé (SQL 030)." : (e?.message ?? "Erreur"));
     } finally {
       lock.current = false;
       setBusy(false);
@@ -64,7 +64,7 @@ export function MerchantPanel({ onClose, onWeaponChanged }: { onClose: () => voi
     <div className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto parchment-scroll bg-black/55 p-2" onClick={(e) => e.stopPropagation()} style={{ fontFamily: "'Baloo 2', cursive" }}>
       <div className="max-h-full w-[min(40rem,98%)] overflow-y-auto parchment-scroll rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-4 text-[#3a2410] shadow-xl">
         <div className="flex items-center justify-between">
-          <div className="text-xl font-extrabold">🛍 Marchand <span className="ml-2 text-sm text-[#92400e]">tu as {gold} <Coin /></span></div>
+          <div className="text-xl font-extrabold">🛍 L'Épicerie Grâce <span className="ml-2 text-sm text-[#92400e]">tu as {gold} <Coin /></span></div>
           <button type="button" onClick={onClose} className="rounded border border-[#7a4a22] px-3 py-0.5 text-xs font-bold hover:bg-[#7a4a22]/15">Fermer</button>
         </div>
         <div className="mt-2 flex gap-2">
@@ -93,7 +93,7 @@ export function MerchantPanel({ onClose, onWeaponChanged }: { onClose: () => voi
           </div>
         ) : (
           <div className="mt-3 space-y-2">
-            <div className="space-y-1 text-sm leading-snug"><div>💱 Le marchand rachète <b>tout au quart</b> du prix.</div><div>⚔ Les armes valent selon leur <b>rareté</b> et leur <b>durabilité restante</b>.</div><div><i>Un prototype ne se revend pas.</i></div></div>
+            <div className="space-y-1 text-sm leading-snug"><div>💱 L'Épicerie Grâce rachète <b>tout au quart</b> du prix.</div><div>⚔ Les armes valent selon leur <b>rareté</b> et leur <b>durabilité restante</b>.</div><div><i>Un prototype ne se revend pas.</i></div></div>
             {MERCHANT_KINDS.filter((k) => count(k) > 0).map((k) => (
               <div key={k} className="flex items-center gap-2 rounded border border-[#7a4a22]/60 bg-white/40 p-2 text-sm">
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center text-xl leading-none">{CONSUMABLE_INFO[k].icon}</span>

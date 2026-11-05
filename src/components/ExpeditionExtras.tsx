@@ -39,10 +39,10 @@ export function OutcomePanel({
   const pts = myPvMax && outcome.pvLossPct !== 0 ? Math.max(1, Math.round((myPvMax * Math.abs(outcome.pvLossPct)) / 100)) : 0;
   const pv =
     outcome.pvLossPct > 0
-      ? { label: pts ? `Tu perds ${pts} PV` : "Le groupe perd des PV", color: "#b91c1c" }
+      ? { label: pts ? `Tu perds ${pts} peps` : "Le groupe perd du peps", color: "#b91c1c" }
       : outcome.pvLossPct < 0
-        ? { label: pts ? `Tu récupères ${pts} PV` : "Le groupe récupère des PV", color: "#047857" }
-        : { label: "Aucune perte de PV", color: "#5e3818" };
+        ? { label: pts ? `Tu récupères ${pts} peps` : "Le groupe récupère du peps", color: "#047857" }
+        : { label: "Aucune perte de peps", color: "#5e3818" };
   const nar = outcome.narrative;
   // Petit son de réussite ou d'échec à l'apparition du résultat d'une rencontre.
   useEffect(() => {
@@ -66,10 +66,10 @@ export function OutcomePanel({
         {nar ? (
           nar.hits.length > 0 ? (
             nar.hits.map((h) => (
-              <span key={h.name} style={{ color: "#b91c1c" }}>{h.name} perd {h.lost} PV</span>
+              <span key={h.name} style={{ color: "#b91c1c" }}>{h.name} perd {h.lost} peps</span>
             ))
           ) : (
-            <span style={{ color: "#5e3818" }}>Aucune perte de PV</span>
+            <span style={{ color: "#5e3818" }}>Aucune perte de peps</span>
           )
         ) : (
           <span style={{ color: pv.color }}>{pv.label}</span>
@@ -128,7 +128,7 @@ export function AxisChoiceModal({
               <div key={a.axis_key} className="flex flex-col rounded-lg border border-[#7a4a22]/60 bg-white/40 p-3">
                 <div className="text-lg font-extrabold">{a.name}</div>
                 <div className="text-[11px] font-bold opacity-80">
-                  PV {a.pv} · PM {a.pm} · Force {a.force} · Défense {a.defense} · Vitesse {a.speed}
+                  Peps {a.pv} · Jus {a.pm} · Force {a.force} · Défense {a.defense} · Vitesse {a.speed}
                 </div>
                 <div className="mt-1 text-xs">Attaque de base : <b>{a.base_attack_name}</b></div>
                 {ps.map((p) => (

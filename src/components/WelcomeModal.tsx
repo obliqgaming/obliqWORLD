@@ -10,12 +10,12 @@ export function WelcomeModal({ name, onClose }: { name: string; onClose: () => v
         <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm">
           <li>Clique sur un autre joueur pour l'inviter dans ton groupe.</li>
           <li>Synchronise-toi avec ton groupe et partez en expédition dans la forêt.</li>
-          <li>La forge te permet de dessiner une arme : si les gens l'achètent, ça te rapporte de l'or.</li>
-          <li>L'éditeur d'étapes te permet d'écrire des épreuves qui te rapporteront de l'or.</li>
+          <li>La forge te permet de dessiner une arme : si les gens l'achètent, ça te rapporte du flouz.</li>
+          <li>L'éditeur d'étapes te permet d'écrire des épreuves qui te rapporteront du flouz.</li>
         </ul>
         <div className="mt-3 space-y-1 text-sm">
           <div className="font-extrabold">C'est une version de test.</div>
-          <div>Des choses sont encore absentes <i>(les quêtes, par exemple)</i> et l'équilibrage est provisoire.</div>
+          <div>Des choses sont encore absentes <i>(le Boulot du Jour, par exemple)</i> et l'équilibrage est provisoire.</div>
           <div>🐞 Utilise ce bouton pour <b>signaler tout problème</b> !</div>
         </div>
         <button type="button" onClick={onClose} className="mt-4 rounded-lg border-2 border-[#166534] bg-[#16a34a] px-5 py-1.5 text-sm font-extrabold text-white">

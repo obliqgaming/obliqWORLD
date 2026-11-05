@@ -16,7 +16,7 @@ function PrivacyPage() {
         <h2 className="text-lg font-bold">Ce que nous gardons</h2>
         <ul className="list-disc space-y-1 pl-5">
           <li>Ton identifiant de compte et, si tu te connectes avec Twitch ou Discord, ton pseudo et ton avatar.</li>
-          <li>Ton personnage, ses statistiques, son or, ses armes et objets, tes parties (groupes, expéditions, votes).</li>
+          <li>Ton personnage, ses statistiques, son flouz, ses armes et objets, tes parties (groupes, expéditions, votes).</li>
           <li>Les dessins que tu envoies (personnage, armes) et les textes que tu écris (nom du personnage, rencontres, signalements). <b>Ils sont visibles des autres joueurs dans le jeu.</b></li>
           <li>Tes signalements de bugs (texte, et l'expédition ou l'étape en cours si elles existent).</li>
         </ul>

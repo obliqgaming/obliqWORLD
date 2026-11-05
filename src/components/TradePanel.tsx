@@ -214,7 +214,7 @@ export function TradePanel({ state, onClose }: { state: TradeState; onClose: () 
                 <button key={c.id} type="button" disabled={busy || mine.length >= SLOTS} onClick={() => void act(() => tradeAddItem(t.id, "companion", c.id))}
                   className="flex items-center gap-2 rounded border border-[#b98a54] bg-[#f6e8c4] p-1.5 text-left text-xs hover:bg-[#ecd9a8] disabled:opacity-50">
                   <img src={c.image_url} alt="" className="h-9 w-9 shrink-0 object-contain" />
-                  <span className="min-w-0"><b className="block truncate">{c.name}</b><span style={{ color: "#5e3818" }}>{TIER_INFO[c.tier].label} · {c.hp_max} PV</span></span>
+                  <span className="min-w-0"><b className="block truncate">{c.name}</b><span style={{ color: "#5e3818" }}>{TIER_INFO[c.tier].label} · {c.hp_max} peps</span></span>
                 </button>
               ))}
               {tab === "items" && stacks.filter((s) => !offeredKinds.has(s.kind)).map((s) => {

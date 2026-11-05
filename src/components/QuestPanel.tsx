@@ -30,7 +30,7 @@ export function BoosterView({ r }: { r: BoosterResult }) {
 }
 
 function BoosterInner({ r }: { r: BoosterResult }) {
-  if (r.type === "gold") return <div className="text-lg font-extrabold"><Coin /> {r.amount} pièces d'or !</div>;
+  if (r.type === "gold") return <div className="text-lg font-extrabold"><Coin /> {r.amount} flouz !</div>;
   if (r.type === "potion" || r.type === "parchemin") {
     const info = CONSUMABLE_INFO[r.kind as ConsumableKind];
     return <div className="text-lg font-extrabold">{info?.icon} {info?.name ?? r.kind}</div>;
@@ -49,7 +49,7 @@ function BoosterInner({ r }: { r: BoosterResult }) {
     <div className="flex flex-col items-center gap-1">
       <img src={r.image_url} alt="" className="h-16 object-contain" />
       <div className="text-lg font-extrabold">🐾 {r.name}</div>
-      <div className="text-xs"><i>Nouveau compagnon ({TIER_INFO[r.tier as keyof typeof TIER_INFO]?.label ?? r.tier}) — à la ferme</i></div>
+      <div className="text-xs"><i>Nouveau compagnon ({TIER_INFO[r.tier as keyof typeof TIER_INFO]?.label ?? r.tier}) — à la Ferme des Jetés en Pâture</i></div>
     </div>
   );
 }
@@ -66,7 +66,7 @@ export function QuestPanel({ onClose }: { onClose: () => void }) {
     try {
       setData(await fetchQuests());
     } catch (e: any) {
-      setMsg(e?.message?.includes("game_quests") ? "Les quêtes ne sont pas encore activées (SQL 041)." : (e?.message ?? "Erreur"));
+      setMsg(e?.message?.includes("game_quests") ? "Le Boulot du Jour n'est pas encore activé (SQL 041)." : (e?.message ?? "Erreur"));
       setData({ quests: [], mine: null });
     }
   };
@@ -104,13 +104,13 @@ export function QuestPanel({ onClose }: { onClose: () => void }) {
     <div className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto parchment-scroll bg-black/55 p-2" onClick={(e) => e.stopPropagation()} style={{ fontFamily: "'Baloo 2', cursive" }}>
       <div className="max-h-full w-[min(34rem,98%)] overflow-y-auto parchment-scroll rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-4 text-[#3a2410] shadow-xl">
         <div className="flex items-center justify-between">
-          <div className="text-xl font-extrabold"><QuestIcon /> Quête du jour</div>
+          <div className="text-xl font-extrabold"><QuestIcon /> Boulot du jour</div>
           <button type="button" onClick={onClose} className={BTN}>Fermer</button>
         </div>
         <div className="mt-2 space-y-1 text-sm leading-snug">
-          <div><QuestIcon /> <b>Une seule quête par jour</b>, à choisir parmi celles-ci.</div>
+          <div><QuestIcon /> <b>Un seul boulot par jour</b>, à choisir parmi ceux-ci.</div>
           <div>📌 Une fois acceptée, <b>elle reste</b> jusqu'à être accomplie.</div>
-          <div>🎁 La récompense est une <b>surprise</b> <i>(or, potion, parchemin, arme, compagnon…)</i>.</div>
+          <div>🎁 La récompense est une <b>surprise</b> <i>(flouz, potion, parchemin, arme, compagnon…)</i>.</div>
         </div>
         {msg && <div className="mt-2 text-xs font-bold text-[#92400e]">{msg}</div>}
         {data === null && <div className="mt-3 text-sm">Chargement…</div>}
@@ -147,8 +147,8 @@ export function QuestPanel({ onClose }: { onClose: () => void }) {
 
         {!mine && data && (
           <div className="mt-3">
-            {doneToday && !reward && <div className="mb-2 text-sm font-bold">✔ Quête du jour terminée. <i>Reviens demain pour une nouvelle !</i></div>}
-            {!doneToday && <div className="mb-1 text-xs font-bold uppercase tracking-widest">Choisis ta quête</div>}
+            {doneToday && !reward && <div className="mb-2 text-sm font-bold">✔ Boulot du jour terminé. <i>Reviens demain pour une nouvelle !</i></div>}
+            {!doneToday && <div className="mb-1 text-xs font-bold uppercase tracking-widest">Choisis ton boulot</div>}
             <div className="space-y-2">
               {data.quests.map((q) => (
                 <div key={q.quest_key} className="flex items-center justify-between gap-2 rounded-lg border border-[#b98a54] bg-[#f6e8c4] p-2">

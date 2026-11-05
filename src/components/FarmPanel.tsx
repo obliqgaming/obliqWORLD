@@ -37,7 +37,7 @@ export function FarmPanel({ onClose }: { onClose: () => void }) {
       setList(await fetchMyCompanions());
       setStarters(await fetchStarterChoices());
     } catch (e: any) {
-      setMsg(e?.message?.includes("companions") ? "La ferme n'est pas encore activée (SQL 031)." : (e?.message ?? "Erreur"));
+      setMsg(e?.message?.includes("companions") ? "La Ferme des Jetés en Pâture n'est pas encore activée (SQL 031)." : (e?.message ?? "Erreur"));
       setList([]);
     }
   };
@@ -70,7 +70,7 @@ export function FarmPanel({ onClose }: { onClose: () => void }) {
     <div className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto parchment-scroll bg-black/55 p-2" onClick={(e) => e.stopPropagation()} style={{ fontFamily: "'Baloo 2', cursive" }}>
       <div className="max-h-full w-[min(40rem,98%)] overflow-y-auto parchment-scroll rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-3 text-[#3a2410] shadow-xl">
         <div className="flex items-center justify-between">
-          <div className="text-xl font-extrabold">🐾 La ferme</div>
+          <div className="text-xl font-extrabold">🐾 La Ferme des Jetés en Pâture</div>
           <button type="button" onClick={onClose} className="rounded border border-[#7a4a22] px-3 py-0.5 text-xs font-bold hover:bg-[#7a4a22]/15">Fermer</button>
         </div>
         {pending > 0 && (
@@ -104,7 +104,7 @@ export function FarmPanel({ onClose }: { onClose: () => void }) {
           <div className="mt-3 rounded-lg bg-white/35 p-2.5 text-sm leading-snug">
             <div className="font-extrabold">🐾 Un compagnon t'accompagne en expédition</div>
             <div className="mt-1">Il prend <b>la moitié des dégâts</b> que tu reçois.</div>
-            <div>💤 À 0 PV, il se repose : <b>3</b> expéditions (petit), <b>6</b> (moyen) ou <b>9</b> (grand).</div>
+            <div>💤 À 0 peps, il se repose : <b>3</b> expéditions (petit), <b>6</b> (moyen) ou <b>9</b> (grand).</div>
             <div className="mt-1 text-xs opacity-80">Où en trouver : en butin sur les monstres, à l'onglet Acheter, ou en les dessinant.</div>
           </div>
         )}
@@ -119,7 +119,7 @@ export function FarmPanel({ onClose }: { onClose: () => void }) {
                   <div className="truncate">
                     <span className="text-sm font-extrabold">{c.name}</span>
                   </div>
-                  <div>{c.is_prototype ? <Pill label="Prototype" color="#f3f4f6" /> : c.rarity ? <Pill label={RARITY_INFO[c.rarity].label} color={RARITY_INFO[c.rarity].color} /> : <Pill label={TIER_INFO[c.tier].label} color={TIER_INFO[c.tier].color} />} · {c.hp}/{c.hp_max} PV</div>
+                  <div>{c.is_prototype ? <Pill label="Prototype" color="#f3f4f6" /> : c.rarity ? <Pill label={RARITY_INFO[c.rarity].label} color={RARITY_INFO[c.rarity].color} /> : <Pill label={TIER_INFO[c.tier].label} color={TIER_INFO[c.tier].color} />} · {c.hp}/{c.hp_max} peps</div>
                   {resting && <div className="font-bold text-[#7a3a0e]">💤 Se repose encore {c.rest_left} expédition{c.rest_left > 1 ? "s" : ""}</div>}
                   {provisional && <div className="font-bold text-[#7a3a0e]">À toi à la fin de l'expédition</div>}
                   {c.active && !resting && <div className="font-bold text-[#166534]">✔ T'accompagne</div>}

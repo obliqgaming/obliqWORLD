@@ -111,7 +111,7 @@ export function ShopPanel({ gold, family, onGoldChange, onBought }: { gold: numb
       {pending > 0 && (
         <div className="mt-2 flex items-center gap-2 rounded border border-[#7a4a22] bg-[#fde7c8] p-2 text-sm font-bold">
           📬 Tes ventes t'ont rapporté {pending} <Coin />
-          <button type="button" disabled={busy} className={BTN} onClick={() => void act(async () => { await shopCollect(); }, "✔ Or récupéré.")}>Récupérer</button>
+          <button type="button" disabled={busy} className={BTN} onClick={() => void act(async () => { await shopCollect(); }, "✔ Flouz récupéré.")}>Récupérer</button>
         </div>
       )}
       {msg && <div className="mt-2 text-xs font-bold text-[#92400e]">{msg}</div>}

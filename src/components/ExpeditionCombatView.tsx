@@ -275,7 +275,7 @@ export function ExpeditionCombatView({
               <HpBar current={a.hpCurrent} max={a.hpMax} />
               {a.pmMax ? (
                 <div className="mt-0.5 text-[10px] font-bold text-[#93c5fd]">
-                  PM {a.pmCurrent ?? 0}/{a.pmMax}
+                  Jus {a.pmCurrent ?? 0}/{a.pmMax}
                 </div>
               ) : null}
             </div>

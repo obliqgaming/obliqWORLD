@@ -5,10 +5,31 @@ import { inspectCharacter, type Inspected } from "../lib/inspect";
 import { TIER_INFO } from "../lib/companions";
 import { EFFECT_INFO, RARITY_INFO, bonusText } from "../lib/weapons";
 import { RarityName } from "./InventoryPanel";
+import { scenesClient } from "../lib/scenes-supabase";
 
 export function InspectPanel({ characterId, onClose }: { characterId: string; onClose: () => void }) {
   const [d, setD] = useState<Inspected | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  // Peps / jus du personnage (lus tels quels dans sa fiche en base ; rien n'est affiché si la base ne les donne pas).
+  const [vitals, setVitals] = useState<{ pv: number | null; pvMax: number | null; pm: number | null; pmMax: number | null } | null>(null);
+  useEffect(() => {
+    let alive = true;
+    setVitals(null);
+    void scenesClient
+      .from("character_build")
+      .select("*")
+      .eq("character_id", characterId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!alive || !data) return;
+        const r = data as Record<string, unknown>;
+        const n = (k: string) => (typeof r[k] === "number" ? (r[k] as number) : null);
+        setVitals({ pv: n("pv_current"), pvMax: n("pv_max"), pm: n("pm_current"), pmMax: n("pm_max") });
+      });
+    return () => {
+      alive = false;
+    };
+  }, [characterId]);
   useEffect(() => {
     let alive = true;
     inspectCharacter(characterId)
@@ -52,6 +73,24 @@ export function InspectPanel({ characterId, onClose }: { characterId: string; on
                       <div className="truncate text-sm font-extrabold">{spec}{d.class_name ? <span className="font-bold opacity-70"> · « {d.class_name} »</span> : null}</div>
                     </div>
                   </div>
+                  {vitals && (vitals.pvMax !== null || vitals.pmMax !== null) && (
+                    <div className="grid gap-1.5">
+                      {vitals.pvMax !== null && (
+                        <div className="flex items-center gap-2 rounded-lg bg-white/45 px-2 py-1">
+                          <span className="text-base leading-none">❤️</span>
+                          <span className="text-lg font-extrabold leading-none">{vitals.pvMax}</span>
+                          <span className="text-[11px] leading-tight opacity-80">points de peps</span>
+                        </div>
+                      )}
+                      {vitals.pmMax !== null && vitals.pmMax > 0 && (
+                        <div className="flex items-center gap-2 rounded-lg bg-white/45 px-2 py-1">
+                          <span className="text-base leading-none">💧</span>
+                          <span className="text-lg font-extrabold leading-none">{vitals.pmMax}</span>
+                          <span className="text-[11px] leading-tight opacity-80">points de jus</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <div className={title}>Créations</div>
                   <div className="grid gap-1.5">
                     {stat("✍", d.weapons_drawn, "arme dessinée", "armes dessinées")}
