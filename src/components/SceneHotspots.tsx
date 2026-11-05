@@ -16,7 +16,8 @@ import { QuestPanel } from "./QuestPanel";
 export function HotspotMarker({ hotspot, onClick }: { hotspot: SceneHotspot; onClick: () => void }) {
   const info = hotspotInfo(hotspot.kind);
   const styles = useHotspotStyles();
-  const st = styles[hotspot.kind];
+  if (!styles && hotspotInfo(hotspot.kind).kind in { forge: 1, step_editor: 1, farm: 1, merchant: 1, quests: 1 }) return null; // réglages pas encore chargés : pas de saut de taille
+  const st = styles?.[hotspot.kind];
   const seed = [...hotspot.id].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7); // décale la respiration de chaque lieu
   if (st?.image_url) {
     // Lieu en image (personnage) : le point posé dans /admin = ses pieds, la largeur est un % de la scène.

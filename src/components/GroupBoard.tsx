@@ -10,7 +10,7 @@ import {
 const FONT = { fontFamily: "'Baloo 2', cursive" };
 const BTN = "rounded-lg border-2 border-[#7a4a22] bg-[#7a4a22] px-3 py-1 text-xs font-bold text-[#fff3d6] hover:bg-[#5e3818] disabled:opacity-50";
 const BTN2 = "rounded-lg border-2 border-[#7a4a22] px-3 py-1 text-xs font-bold text-[#5e3818] hover:bg-[#7a4a22]/15 disabled:opacity-50";
-const ROUTE = { court: "P'tite balade dans la forêt", long: "Grand Safari Sylvestre" } as const;
+const ROUTE = { court: "P'tite Balade en Forêt", long: "Grand Safari Sylvestre" } as const;
 
 const toLocalInput = (d: Date) => {
   const p = (n: number) => String(n).padStart(2, "0");
@@ -119,8 +119,8 @@ export function GroupBoard({ character, onClose, onInvite }: { character: { id: 
                 <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
                   <select value={route} onChange={(e) => setRoute(e.target.value as "" | "court" | "long")} className="rounded border border-[#7a4a22] bg-white/70 px-1.5 py-1">
                     <option value="">Expédition au choix</option>
-                    <option value="court">Courte</option>
-                    <option value="long">Longue</option>
+                    <option value="court">{ROUTE.court}</option>
+                    <option value="long">{ROUTE.long}</option>
                   </select>
                   <label className="flex items-center gap-1">Rendez-vous :
                     <input type="datetime-local" value={meet} min={toLocalInput(new Date())} onChange={(e) => setMeet(e.target.value)} className="rounded border border-[#7a4a22] bg-white/70 px-1 py-0.5" />

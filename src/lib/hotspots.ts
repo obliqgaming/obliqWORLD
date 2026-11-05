@@ -129,11 +129,17 @@ export async function fetchHotspotStyles(): Promise<Record<string, HotspotStyle>
   return out;
 }
 
-export function useHotspotStyles(): Record<string, HotspotStyle> {
-  const [styles, setStyles] = useState<Record<string, HotspotStyle>>(DEFAULT_HOTSPOT_STYLES);
+// null tant que les réglages ne sont pas chargés : on n'affiche rien plutôt que des tailles d'origine qui « sautent ».
+let stylesCache: Record<string, HotspotStyle> | null = null;
+export function useHotspotStyles(): Record<string, HotspotStyle> | null {
+  const [styles, setStyles] = useState<Record<string, HotspotStyle> | null>(stylesCache);
   useEffect(() => {
     let alive = true;
-    const load = () => void fetchHotspotStyles().then((s) => alive && setStyles(s));
+    const load = () =>
+      void fetchHotspotStyles().then((s) => {
+        stylesCache = s;
+        if (alive) setStyles(s);
+      });
     load();
     window.addEventListener("obliq-hotspot-styles", load);
     return () => {

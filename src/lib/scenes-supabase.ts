@@ -323,7 +323,8 @@ const DEPTH_NEAR_SCALE = 1.35;
 
 export function computeDepthScale(y: number, depthScale: DepthScale | null | undefined): number {
   if (!depthScale) return 1;
-  const { y80, y100, y120 } = depthScale;
+  // Les 3 lignes triées de haut en bas : « loin » = la plus haute, « près » = la plus basse, même si elles ont été posées dans un autre ordre.
+  const [y80, y100, y120] = [depthScale.y80, depthScale.y100, depthScale.y120].sort((a, b) => a - b) as [number, number, number];
   if (y <= y80) return DEPTH_FAR_SCALE;
   if (y <= y100) return DEPTH_FAR_SCALE + ((y - y80) / (y100 - y80 || 1)) * (DEPTH_MID_SCALE - DEPTH_FAR_SCALE);
   if (y <= y120) return DEPTH_MID_SCALE + ((y - y100) / (y120 - y100 || 1)) * (DEPTH_NEAR_SCALE - DEPTH_MID_SCALE);

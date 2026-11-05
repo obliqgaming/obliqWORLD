@@ -1,6 +1,6 @@
 // Vocabulaire du jeu (noms choisis par Lils, novembre 2026). Un seul endroit pour retrouver / changer un nom.
 export const VOCAB = {
-  courte: "P'tite balade dans la forêt",
+  courte: "P'tite Balade en Forêt",
   longue: "Grand Safari Sylvestre",
   boss: "Chef-Patron",
   forge: "La Forge du Manchot",

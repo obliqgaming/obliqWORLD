@@ -121,6 +121,7 @@ import { PLACEHOLDER_EVENTS, eventForStep, expeditionLength } from "../lib/exped
 import { openNarrativeStep, fetchNarrativeEvent, type NarrativeEvent } from "../lib/narrative";
 import { NarrativeStepPanel } from "../components/NarrativeStepPanel";
 import { HotspotMarker, HotspotPanel } from "../components/SceneHotspots";
+import { LoadingScreen } from "../components/LoadingScreen";
 import { InspectPanel } from "../components/InspectPanel";
 import { WornSprite } from "../components/WornSprite";
 import { EMOTES, EMOTE_KEYS, EMOTE_COOLDOWN_MS, emoteFromCommand, emoteStyle, type EmoteKey } from "../lib/emotes";
@@ -281,6 +282,17 @@ function Index() {
   const [exits, setExits] = useState<SceneExit[]>([]);
   const [character, setCharacter] = useState<Character | null>(null);
   const [checkingCharacter, setCheckingCharacter] = useState(true);
+  // Écran de chargement : tant que la scène de reconnexion, son image et ses lieux ne sont pas prêts.
+  const [restoring, setRestoring] = useState(true);
+  const restoreStartedRef = useRef(false);
+  const [hotspotsLoaded, setHotspotsLoaded] = useState(false);
+  const [veilTimeout, setVeilTimeout] = useState(false);
+  const sceneIdForVeil = scene.id;
+  useEffect(() => {
+    setVeilTimeout(false);
+    const t = window.setTimeout(() => setVeilTimeout(true), 8000); // sécurité : le voile ne reste jamais bloqué
+    return () => window.clearTimeout(t);
+  }, [sceneIdForVeil]);
   // Message affiché si le chargement ou la création de personnage échoue
   // (session invitée impossible, réseau, etc.) — avant, ces échecs n'étaient
   // visibles que dans la console, donnant l'impression d'un écran qui ne
@@ -840,7 +852,10 @@ function Index() {
         if (!cancelled) setCharacterError("Impossible de charger ton personnage. Vérifie ta connexion et réessaie.");
       })
       .finally(() => {
-        if (!cancelled) setCheckingCharacter(false);
+        if (!cancelled) {
+          setCheckingCharacter(false);
+          if (!restoreStartedRef.current) setRestoring(false);
+        }
       });
     return () => {
       cancelled = true;
@@ -850,7 +865,11 @@ function Index() {
 
   // Reconnexion : on réapparaît là où on s'était déconnecté (scène + position), sauf scène d'expédition (gérée à part).
   const restoreLastScene = async (c: { scene_id: string }) => {
-    if (!c.scene_id || c.scene_id === initialScene.id) return;
+    restoreStartedRef.current = true;
+    if (!c.scene_id || c.scene_id === initialScene.id) {
+      setRestoring(false);
+      return;
+    }
     try {
       const target = await fetchScene(c.scene_id);
       if (isExpeditionSceneName(target.name)) return;
@@ -859,6 +878,8 @@ function Index() {
       setScene(target);
     } catch (e) {
       console.error("restore scene failed", e);
+    } finally {
+      setRestoring(false);
     }
   };
 
@@ -1403,11 +1424,15 @@ function Index() {
       .catch((e) => console.error("Scene portal fetch failed", e));
     setHotspots([]);
     setOpenHotspot(null);
+    setHotspotsLoaded(false);
     fetchSceneHotspots(scene.id)
       .then((h) => {
         if (!cancelled) setHotspots(h);
       })
-      .catch((e) => console.error("Scene hotspots fetch failed", e));
+      .catch((e) => console.error("Scene hotspots fetch failed", e))
+      .finally(() => {
+        if (!cancelled) setHotspotsLoaded(true);
+      });
     return () => {
       cancelled = true;
     };
@@ -2568,7 +2593,11 @@ function Index() {
   };
 
   if (checkingCharacter) {
-    return <div className="flex h-screen w-screen items-center justify-center bg-black text-[#fff3d6]">Chargement…</div>;
+    return (
+      <div className="relative h-screen w-screen bg-black">
+        <LoadingScreen visible />
+      </div>
+    );
   }
 
   if (deadInfo) {
@@ -2608,6 +2637,7 @@ function Index() {
 
   return (
     <div className="relative flex h-screen w-screen items-center justify-center overflow-hidden bg-black">
+      <LoadingScreen visible={!veilTimeout && (restoring || !imgNatural || !hotspotsLoaded || !hotspotStyles)} />
       <div
         ref={sceneRef}
         onClick={handleSceneClick}
@@ -2817,7 +2847,7 @@ function Index() {
         )}
 
         {character && !inExpeditionScene && hotspots.filter((h) => h.kind !== "board" && !claimedGold.has(h.id)).map((h) => (
-          <HotspotMarker key={h.id} hotspot={h} onClick={() => walkThen(h.position, () => (h.kind.startsWith("gold") ? collectGold(h) : setOpenHotspot(h)), !!hotspotStyles[h.kind]?.image_url)} />
+          <HotspotMarker key={h.id} hotspot={h} onClick={() => walkThen(h.position, () => (h.kind.startsWith("gold") ? collectGold(h) : setOpenHotspot(h)), !!hotspotStyles?.[h.kind]?.image_url)} />
         ))}
         {goldFloats.map((g) => (
           <div key={g.key} className="obw-gold-float pointer-events-none absolute z-40 -translate-x-1/2 text-xl font-extrabold" style={{ left: `${g.x}%`, top: `${g.y}%`, color: g.ok ? "#fde68a" : "#fca5a5", textShadow: "0 2px 4px #000, 0 0 8px rgba(0,0,0,0.6)" }}>
@@ -2844,7 +2874,7 @@ function Index() {
                 isSelfReady={selfReady && mine}
                 readyCount={mine ? readyCount : 0}
                 totalCount={groupIds.length}
-                label={portal.route === "long" ? `Grand Safari Sylvestre · niv. ${longMinLevel}` : scenePortals.length > 1 ? "P'tite balade dans la forêt" : undefined}
+                label={portal.route === "long" ? `Grand Safari Sylvestre · niv. ${longMinLevel}` : scenePortals.length > 1 ? "P'tite Balade en Forêt" : undefined}
                 onClick={() => walkThen(portal.position, () => void handleTogglePortal(portal))}
               />
             );

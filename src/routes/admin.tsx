@@ -490,7 +490,7 @@ function AdminPage() {
     setPlacingPortal(null);
     if (!scene) return;
     const existing = expPortals.find((x) => x.route === route);
-    const nom = route === "long" ? "Portail du Grand Safari Sylvestre" : "Portail de la P'tite balade dans la forêt";
+    const nom = route === "long" ? "Portail du Grand Safari Sylvestre" : "Portail de la P'tite Balade en Forêt";
     try {
       if (existing) {
         await updateExpeditionPortalPosition(existing.id, p);
@@ -1213,7 +1213,7 @@ function AdminPage() {
             {expPortals.map((pt) => (
               <div
                 key={pt.id}
-                title={pt.route === "long" ? "Portail du Grand Safari Sylvestre" : "Portail de la P'tite balade dans la forêt"}
+                title={pt.route === "long" ? "Portail du Grand Safari Sylvestre" : "Portail de la P'tite Balade en Forêt"}
                 className="pointer-events-none absolute flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 text-sm"
                 style={{
                   left: `${pt.position.x}%`,

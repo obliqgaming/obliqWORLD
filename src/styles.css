@@ -201,3 +201,6 @@
 @keyframes obw-breathe { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.008, 1.018); } }
 .obw-breathe { transform-origin: 50% 100%; animation: obw-breathe 3.6s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .obw-breathe { animation: none; } }
+
+.obw-loading-dots { animation: obw-loading-pulse 1.4s ease-in-out infinite; }
+@keyframes obw-loading-pulse { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
