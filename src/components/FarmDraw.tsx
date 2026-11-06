@@ -22,6 +22,7 @@ export function FarmDraw({ onChanged }: { onChanged: () => void }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [result, setResult] = useState<CompanionDesign | null>(null);
+  const [canvasKey, setCanvasKey] = useState(0); // change après une validation : la toile repart vide (impossible de revalider le même dessin)
   useEffect(() => {
     void fetchCompanionRules().then(setRules);
     void fetchMyGold().then(setGold);
@@ -40,6 +41,7 @@ export function FarmDraw({ onChanged }: { onChanged: () => void }) {
     try {
       const { design } = await createCompanionDesign(blob, name.trim());
       setName("");
+      setCanvasKey((k) => k + 1);
       setResult(design);
       void fetchMyGold().then(setGold);
       onChanged();
@@ -61,7 +63,7 @@ export function FarmDraw({ onChanged }: { onChanged: () => void }) {
       </div>
       <input value={name} maxLength={40} onChange={(e) => setName(e.target.value)} placeholder="Nom du compagnon" className="mt-2 w-full rounded border border-[#7a4a22] bg-white/70 px-2 py-1 text-sm" />
       <div className="mt-2">
-        <DrawingCanvas width={COMPANION_W} height={COMPANION_H} noAnchor exportLabel={`Valider (${rules?.cost ?? 6} flouz)`} exporting={busy} onExport={(b) => void handleExport(b)} />
+        <DrawingCanvas key={canvasKey} width={COMPANION_W} height={COMPANION_H} noAnchor exportLabel={`Valider (${rules?.cost ?? 6} flouz)`} exporting={busy} onExport={(b) => void handleExport(b)} />
       </div>
       {msg && <div className="mt-2 text-xs font-bold text-[#92400e]">{msg}</div>}
       {result && (

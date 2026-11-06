@@ -77,7 +77,7 @@ export function HotspotMarker({ hotspot, onClick, bubble }: { hotspot: SceneHots
       style={{ left: `${hotspot.position.x}%`, top: `${hotspot.position.y}%`, cursor: CURSOR_INTERACT }}
     >
       {"bare" in info && info.bare ? (
-        <span className="text-4xl transition-transform hover:scale-125" style={{ filter: "drop-shadow(0 0 6px rgba(253,230,138,0.9))" }}>
+        <span className="text-lg transition-transform hover:scale-125" style={{ filter: "drop-shadow(0 0 6px rgba(253,230,138,0.9))" }}>
           <HotspotGlyph icon={info.icon} />
         </span>
       ) : (

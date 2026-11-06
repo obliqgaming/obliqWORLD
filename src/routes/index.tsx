@@ -171,6 +171,7 @@ export const Route = createFileRoute("/")({
 // vitesse constante, 1 = comportement d'origine très marqué). Passé de 0.12
 // (~90% de moins que l'origine) à 0.2 (~80% de moins) car à 90% l'accélération
 // ne se sentait plus du tout.
+const RUN_FACTOR = 1.45; // double-clic : on court, juste un peu plus vite
 const BASE_WALK_SPEED_PX_PER_SEC = 140; // vitesse "de base" sur courte distance
 const ACCEL_INTENSITY = 0.35; // remonté à nouveau (0.2 -> 0.28 -> 0.35)
 const ACCEL_REFERENCE_PX = 900; // distance à partir de laquelle le bonus est à fond
@@ -1954,7 +1955,7 @@ function Index() {
         let seen = 1;
         try { seen = Number(localStorage.getItem(k) ?? "1") || 1; } catch { /* stockage indisponible */ }
         if (b.level > seen) {
-          setLevelLine(randomLevelLine());
+          void randomLevelLine().then((l) => { if (!cancelled) setLevelLine(l); });
           setLevelInfo(null);
           void fetchLevelUpInfo(character.id, b.level).then((i) => { if (!cancelled) setLevelInfo(i); });
           setLevelUp(b.level);
@@ -2387,18 +2388,22 @@ function Index() {
   };
 
   // ---------- Marche : avance la file d'attente de points (pathfinding) un par un ----------
+  const runRef = useRef(false);
+  const lastFloorClickRef = useRef<{ t: number; x: number; y: number } | null>(null);
+  const [running, setRunning] = useState(false);
   const stepWalk = (rect: DOMRect, onArrive?: () => void) => {
     if (!character) return;
     const next = walkQueueRef.current.shift();
     if (!next) {
       setWalking(false);
+      setRunning(false);
       onArrive?.();
       return;
     }
 
     const origin = charSpriteRef.current ? currentSpritePercent(charSpriteRef.current, rect) : pos;
     const dist = distanceInPx(rect, origin, next);
-    const ms = walkDurationMs(dist);
+    const ms = Math.round(walkDurationMs(dist) / (runRef.current ? RUN_FACTOR : 1));
 
     // Sens du sprite : seul le déplacement horizontal compte (un pas purement
     // vertical garde le sens précédent plutôt que de retourner le personnage
@@ -2434,8 +2439,10 @@ function Index() {
   // zones non marchables via findPath) et le suit pas à pas. Le dernier clic
   // prime toujours — s'il y avait déjà une marche en cours, on l'interrompt et
   // on repart de la position visuelle ACTUELLE (pas de l'ancienne destination).
-  const startWalk = (target: Point, onArrive?: () => void) => {
+  const startWalk = (target: Point, onArrive?: () => void, run = false) => {
     if (!character || !sceneRef.current) return;
+    runRef.current = run;
+    setRunning(run);
     const rect = sceneRef.current.getBoundingClientRect();
     markActive();
 
@@ -2470,7 +2477,12 @@ function Index() {
     if (!insideARoom) return;
     if ((scene.obstacles ?? []).some((hole) => pointInPolygon(target, hole))) return;
 
-    startWalk(target);
+    // Double-clic (deux clics rapprochés dans le temps et dans l'espace) : on court un peu plus vite.
+    const now = Date.now();
+    const last = lastFloorClickRef.current;
+    const isDouble = !!last && now - last.t < 350 && Math.hypot(((target.x - last.x) / 100) * rect.width, ((target.y - last.y) / 100) * rect.height) < 40;
+    lastFloorClickRef.current = { t: now, x: target.x, y: target.y };
+    startWalk(target, undefined, isDouble);
   };
 
   // ---------- Changement de scène (appelé une fois la marche jusqu'à la sortie terminée) ----------
@@ -2806,7 +2818,7 @@ function Index() {
                   style={{
                     cursor: CURSOR_INTERACT,
                     transformOrigin: "50% 100%",
-                    animation: walking ? "auberge-walk 250ms linear infinite" : "none",
+                    animation: walking ? `auberge-walk ${running ? 190 : 250}ms linear infinite` : "none",
                   }}
                   onClick={(e) => { e.stopPropagation(); setEmoteMenuOpen((o) => !o); }}
                 />
@@ -3092,14 +3104,14 @@ function Index() {
             }}
           />}
 
-        {levelUp && character && !axisChoice && !endBanner && !inExpeditionScene && (
+        {levelUp && character && !endBanner && !inExpeditionScene && (
           <LevelUpModal name={character.name} level={levelUp} imageUrl={character.image_url} info={levelInfo} line={levelLine} onClose={closeLevelUp} onTalents={() => { closeLevelUp(); setTalentsOpen(true); }} />
         )}
         {levelBanner && inExpeditionScene && (
           <LevelUpBanner level={levelBanner} />
         )}
 
-        {axisChoice && !endBanner && !inExpeditionScene && (
+        {axisChoice && !levelUp && !endBanner && !inExpeditionScene && (
           <AxisChoiceModal axes={axisChoice.axes} powers={axisChoice.powers} busy={axisBusy} error={axisError} onChoose={(k) => void handleChooseAxis(k)} />
         )}
 

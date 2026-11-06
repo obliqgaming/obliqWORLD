@@ -2,6 +2,7 @@
 // Cadence réglable dans /admin > Réglages (npc_speech_min_minutes / npc_speech_max_minutes) : UNE réplique, tous PNJ confondus.
 import { useEffect, useRef, useState } from "react";
 import { scenesClient } from "./scenes-supabase";
+import { fetchAllPhrases } from "./phrases";
 
 export const NPC_LINES: Record<string, string[]> = {
   forge: [
@@ -67,22 +68,22 @@ const lsGet = (k: string) => { try { return localStorage.getItem(k); } catch { r
 const lsSet = (k: string, v: string) => { try { localStorage.setItem(k, v); } catch { /* ignoré */ } };
 
 // Paquet mélangé : toutes les phrases passent avant de recommencer, jamais deux fois de suite la même (même au changement de tour).
-function nextLine(kind: string): string | null {
-  const lines = NPC_LINES[kind];
-  if (!lines?.length) return null;
-  let deck: { remaining: number[]; last: number } = { remaining: [], last: -1 };
-  try { const raw = lsGet(deckKey(kind)); if (raw) deck = JSON.parse(raw); } catch { /* paquet neuf */ }
-  deck.remaining = (deck.remaining ?? []).filter((i) => i >= 0 && i < lines.length);
+// Le paquet mémorise des textes (et non des positions) : modifier la liste dans /admin ne le casse pas.
+function nextLine(kind: string, lines: string[]): string | null {
+  if (!lines.length) return null;
+  let deck: { remaining: string[]; last: string } = { remaining: [], last: "" };
+  try { const raw = lsGet(deckKey(kind)); if (raw) { const d = JSON.parse(raw); if (Array.isArray(d.remaining)) deck = { remaining: d.remaining, last: String(d.last ?? "") }; } } catch { /* paquet neuf */ }
+  deck.remaining = deck.remaining.filter((t) => typeof t === "string" && lines.includes(t));
   if (deck.remaining.length === 0) {
-    const all = lines.map((_, i) => i);
+    const all = [...lines];
     for (let i = all.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [all[i], all[j]] = [all[j]!, all[i]!]; }
     if (all.length > 1 && all[all.length - 1] === deck.last) { [all[0], all[all.length - 1]] = [all[all.length - 1]!, all[0]!]; } // la dernière du tableau sort en premier
     deck.remaining = all;
   }
-  const idx = deck.remaining.pop()!;
-  deck.last = idx;
+  const t = deck.remaining.pop()!;
+  deck.last = t;
   lsSet(deckKey(kind), JSON.stringify(deck));
-  return lines[idx] ?? null;
+  return t;
 }
 
 async function fetchDelays(): Promise<{ min: number; max: number }> {
@@ -106,13 +107,16 @@ export function useNpcSpeech(npcs: { id: string; kind: string }[]): Record<strin
   const npcsRef = useRef(npcs);
   npcsRef.current = npcs;
   const delays = useRef<{ min: number; max: number }>({ min: 8, max: 14 });
+  const linesRef = useRef<Record<string, string[]>>({});
   useEffect(() => {
     let alive = true;
     void fetchDelays().then((d) => { delays.current = d; });
+    void fetchAllPhrases().then((all) => { linesRef.current = all; });
     let clearT: number | null = null;
     const tick = () => {
       if (!alive || document.visibilityState !== "visible") return;
-      const present = npcsRef.current.filter((n) => NPC_LINES[n.kind]);
+      const linesOf = (kind: string) => { const mine = (linesRef.current[`npc:${kind}`] ?? []).map((t) => t.trim()).filter(Boolean); return mine.length ? mine : NPC_LINES[kind] ?? []; };
+      const present = npcsRef.current.filter((n) => linesOf(n.kind).length > 0);
       if (present.length === 0) return;
       const now = Date.now();
       let nextAt = Number(lsGet(NEXT_KEY));
@@ -121,7 +125,7 @@ export function useNpcSpeech(npcs: { id: string; kind: string }[]): Record<strin
       const lastKind = lsGet(LAST_KIND_KEY);
       const pool = present.length > 1 ? present.filter((n) => n.kind !== lastKind) : present;
       const chosen = pool[Math.floor(Math.random() * pool.length)]!;
-      const text = nextLine(chosen.kind);
+      const text = nextLine(chosen.kind, linesOf(chosen.kind));
       // prochaine réplique : délai aléatoire entre les deux réglages (en minutes)
       const { min, max } = delays.current;
       lsSet(NEXT_KEY, String(now + (min + Math.random() * (max - min)) * 60_000));

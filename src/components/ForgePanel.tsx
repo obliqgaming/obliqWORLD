@@ -49,6 +49,7 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
   const [family, setFamily] = useState<"melee" | "magie" | null>(null);
   const [preview, setPreview] = useState<{ url: string; anchor: Point } | null>(null);
   const [result, setResult] = useState<Weapon | null>(null);
+  const [canvasKey, setCanvasKey] = useState(0); // la toile repart vide après une validation
   const [revealDone, setRevealDone] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -91,6 +92,7 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
         // Arme de l'autre spécialisation : elle reste dans l'inventaire, non équipée.
       }
       setRevealDone(false);
+      setCanvasKey((k) => k + 1);
       setResult(weapon);
       setName("");
       void fetchMyGold().then(setGold);
@@ -129,6 +131,7 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
                 </div>
               )}
               <DrawingCanvas
+                key={canvasKey}
                 width={WEAPON_W}
                 height={WEAPON_H}
                 anchorOptional={false}

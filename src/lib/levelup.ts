@@ -1,5 +1,6 @@
 // Écran de montée de niveau : phrases drôles, chiffres avant → après (peps / jus), points de talent, petit jingle.
 import { scenesClient } from "./scenes-supabase";
+import { phrasesFor } from "./phrases";
 import { fetchMyTalentKeys, pointsTotal } from "./talents";
 
 export const LEVEL_LINES = [
@@ -14,7 +15,10 @@ export const LEVEL_LINES = [
   "Morsoif a levé un sourcil. C'est énorme.",
   "Encore un peu et on te donnera un titre ronflant !",
 ];
-export const randomLevelLine = () => LEVEL_LINES[Math.floor(Math.random() * LEVEL_LINES.length)]!;
+export const randomLevelLine = async (): Promise<string> => {
+  const list = await phrasesFor("levelup", LEVEL_LINES);
+  return list[Math.floor(Math.random() * list.length)] ?? "";
+};
 
 export type LevelUpInfo = { pv: number | null; pm: number | null; pvBefore: number | null; pmBefore: number | null; pointsLeft: number };
 
