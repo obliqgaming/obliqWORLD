@@ -102,7 +102,7 @@ import { ExpeditionBattle } from "../components/ExpeditionBattle";
 import { Pasture } from "../components/Pasture";
 import { WeaponDisplay } from "../components/WeaponDisplay";
 import { CampPanel } from "../components/CampPanel";
-import { AxisChoiceModal, EndBanner, LevelUpModal, OutcomePanel, type OutcomeInfo } from "../components/ExpeditionExtras";
+import { AxisChoiceModal, EndBanner, LevelUpBanner, LevelUpModal, OutcomePanel, type OutcomeInfo } from "../components/ExpeditionExtras";
 import {
   chooseAxis,
   fetchGameAxes,
@@ -122,6 +122,7 @@ import { openNarrativeStep, fetchNarrativeEvent, type NarrativeEvent } from "../
 import { NarrativeStepPanel } from "../components/NarrativeStepPanel";
 import { HotspotMarker, HotspotPanel } from "../components/SceneHotspots";
 import { LoadingScreen } from "../components/LoadingScreen";
+import { fetchLevelUpInfo, playLevelUpJingle, randomLevelLine, rememberVitals, writeSnap, type LevelUpInfo } from "../lib/levelup";
 import { useNpcSpeech } from "../lib/npc-lines";
 import { shouldMirror, useImageFlips } from "../lib/image-flips";
 import { InspectPanel } from "../components/InspectPanel";
@@ -425,6 +426,10 @@ function Index() {
   const [axisChoice, setAxisChoice] = useState<{ axes: GameAxis[]; powers: GamePower[] } | null>(null);
   const [axisBusy, setAxisBusy] = useState(false);
   const [levelUp, setLevelUp] = useState<number | null>(null);
+  const [levelInfo, setLevelInfo] = useState<LevelUpInfo | null>(null);
+  const [levelLine, setLevelLine] = useState("");
+  const [levelBanner, setLevelBanner] = useState<number | null>(null);
+  const levelBannerShownRef = useRef<number>(0);
   const [axisError, setAxisError] = useState<string | null>(null);
 
   // ---- Ratio réel de l'image de scène (fix du bug "objet-cover recadre l'image,
@@ -1948,13 +1953,44 @@ function Index() {
         const k = `obw-level-seen-${character.id}`;
         let seen = 1;
         try { seen = Number(localStorage.getItem(k) ?? "1") || 1; } catch { /* stockage indisponible */ }
-        if (b.level > seen) setLevelUp(b.level);
+        if (b.level > seen) {
+          setLevelLine(randomLevelLine());
+          setLevelInfo(null);
+          void fetchLevelUpInfo(character.id, b.level).then((i) => { if (!cancelled) setLevelInfo(i); });
+          setLevelUp(b.level);
+          playLevelUpJingle(volumeRef.current, mutedRef.current);
+        } else {
+          void rememberVitals(character.id, b.level);
+        }
       } catch { /* ignoré */ }
     })();
     return () => { cancelled = true; };
   }, [character?.id, inExpeditionScene, activeExpedition?.id, endBanner]);
+  // En cours d'expédition : petite bannière dès qu'un combat se termine avec un nouveau niveau (l'écran complet vient au retour).
+  useEffect(() => {
+    if (!character || !inExpeditionScene || activeCombatId) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const b = await fetchMyBuild(character.id);
+        if (cancelled || !b) return;
+        let seen = 1;
+        try { seen = Number(localStorage.getItem(`obw-level-seen-${character.id}`) ?? "1") || 1; } catch { /* ignoré */ }
+        if (b.level > seen && b.level > levelBannerShownRef.current) {
+          levelBannerShownRef.current = b.level;
+          setLevelBanner(b.level);
+          playLevelUpJingle(volumeRef.current, mutedRef.current);
+          window.setTimeout(() => setLevelBanner(null), 6200);
+        }
+      } catch { /* ignoré */ }
+    })();
+    return () => { cancelled = true; };
+  }, [activeCombatId, inExpeditionScene, character?.id]);
   const closeLevelUp = () => {
-    if (character && levelUp) { try { localStorage.setItem(`obw-level-seen-${character.id}`, String(levelUp)); } catch { /* ignoré */ } }
+    if (character && levelUp) {
+      try { localStorage.setItem(`obw-level-seen-${character.id}`, String(levelUp)); } catch { /* ignoré */ }
+      if (levelInfo) writeSnap(character.id, levelUp, levelInfo.pv, levelInfo.pm);
+    }
     setLevelUp(null);
   };
 
@@ -3057,7 +3093,10 @@ function Index() {
           />}
 
         {levelUp && character && !axisChoice && !endBanner && !inExpeditionScene && (
-          <LevelUpModal name={character.name} level={levelUp} onClose={closeLevelUp} />
+          <LevelUpModal name={character.name} level={levelUp} imageUrl={character.image_url} info={levelInfo} line={levelLine} onClose={closeLevelUp} onTalents={() => { closeLevelUp(); setTalentsOpen(true); }} />
+        )}
+        {levelBanner && inExpeditionScene && (
+          <LevelUpBanner level={levelBanner} />
         )}
 
         {axisChoice && !endBanner && !inExpeditionScene && (

@@ -204,3 +204,14 @@
 
 .obw-loading-dots { animation: obw-loading-pulse 1.4s ease-in-out infinite; }
 @keyframes obw-loading-pulse { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
+
+/* Montée de niveau : rayons qui tournent, petit saut du personnage, étincelles, bannière */
+@keyframes obw-rays-spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+.obw-rays { transform: translate(-50%, -50%); background: repeating-conic-gradient(from 0deg, rgba(252,211,77,0.30) 0deg 9deg, transparent 9deg 22deg); animation: obw-rays-spin 24s linear infinite; mask-image: radial-gradient(circle, #000 0%, transparent 55%); -webkit-mask-image: radial-gradient(circle, #000 0%, transparent 55%); }
+@keyframes obw-hop { 0%, 100% { transform: translateY(0); } 35% { transform: translateY(-14px); } 55% { transform: translateY(0); } 70% { transform: translateY(-5px); } }
+.obw-hop { animation: obw-hop 1.4s ease-in-out infinite; }
+@keyframes obw-spark { 0% { opacity: 0; transform: translateY(0) scale(0.6); } 20% { opacity: 1; } 100% { opacity: 0; transform: translateY(-120px) scale(1.2); } }
+.obw-spark { animation: obw-spark 3s ease-out infinite; }
+@keyframes obw-banner { 0% { opacity: 0; transform: translate(-50%, -12px); } 12%, 85% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(-50%, -8px); } }
+.obw-banner { animation: obw-banner 6s ease-out forwards; }
+@media (prefers-reduced-motion: reduce) { .obw-rays, .obw-hop, .obw-spark { animation: none; } }

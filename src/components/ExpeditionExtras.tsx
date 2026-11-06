@@ -2,7 +2,8 @@
 // fin d'expédition, choix de l'axe au niveau 3.
 import { Typewriter } from "./Typewriter";
 import type { GameAxis, GamePower } from "../lib/expedition-combat";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import type { LevelUpInfo } from "../lib/levelup";
 import { uiSound } from "../lib/ui-sounds";
 import { LootPanel } from "./LootPanel";
 
@@ -154,15 +155,71 @@ export function AxisChoiceModal({
   );
 }
 
-export function LevelUpModal({ name, level, onClose }: { name: string; level: number; onClose: () => void }) {
+// Chiffre qui monte de `from` à `to` en ~0,9 s (avant → après).
+function CountUp({ from, to }: { from: number; to: number }) {
+  const [v, setV] = useState(from);
+  useEffect(() => {
+    let raf = 0;
+    const t0 = performance.now();
+    const step = (t: number) => {
+      const k = Math.min(1, (t - t0 - 500) / 900);
+      setV(k <= 0 ? from : Math.round(from + (to - from) * k));
+      if (k < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [from, to]);
+  return <>{v}</>;
+}
+
+function StatRow({ label, before, after }: { label: string; before: number | null; after: number | null }) {
+  if (after == null) return null;
+  const gained = before != null ? after - before : 0;
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 p-3" style={PANEL_FONT} onClick={onClose}>
-      <div className="w-[min(22rem,92%)] rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-6 text-center text-[#3a2410] shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <div className="text-4xl">✨</div>
-        <div className="mt-1 text-2xl font-extrabold">Niveau {level} !</div>
-        <div className="mt-1 text-sm">Bravo, {name} gagne en puissance.</div>
+    <div className="flex items-center justify-between rounded-lg bg-white/45 px-3 py-1.5 text-sm font-bold">
+      <span>{label}</span>
+      <span className="tabular-nums">
+        {before != null && before !== after ? <><span className="opacity-60">{before}</span> → <b className="text-[#15803d]"><CountUp from={before} to={after} /></b> <span className="text-[#15803d]">(+{gained})</span></> : <b>{after}</b>}
+      </span>
+    </div>
+  );
+}
+
+export function LevelUpModal({ name, level, imageUrl, info, line, onClose, onTalents }: { name: string; level: number; imageUrl?: string | null; info?: LevelUpInfo | null; line?: string; onClose: () => void; onTalents?: () => void }) {
+  return (
+    <div className="absolute inset-0 z-50 flex items-center justify-center overflow-hidden bg-black/65 p-3" style={PANEL_FONT} onClick={onClose}>
+      <div className="obw-rays pointer-events-none absolute left-1/2 top-1/2 h-[140vmax] w-[140vmax]" />
+      {Array.from({ length: 14 }).map((_, i) => (
+        <span key={i} className="obw-spark pointer-events-none absolute text-xl" style={{ left: `${8 + ((i * 37) % 84)}%`, top: `${55 + ((i * 23) % 40)}%`, animationDelay: `${(i % 7) * 0.25}s`, animationDuration: `${2.2 + (i % 5) * 0.4}s`, color: "#fcd34d" }}>✦</span>
+      ))}
+      <div className="relative w-[min(23rem,92%)] rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-5 text-center text-[#3a2410] shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        {imageUrl && <img src={imageUrl} alt="" draggable={false} className="obw-hop mx-auto -mt-16 h-28 w-28 object-contain drop-shadow-lg" />}
+        <div className="mt-1 text-3xl font-extrabold" style={{ color: "#b45309", textShadow: "0 1px 0 #fff3d6" }}>Niveau {level} !</div>
+        <div className="text-sm font-bold">{name}</div>
+        {line && <div className="mt-1 text-sm italic">{line}</div>}
+        {info && (info.pv != null || info.pm != null) && (
+          <div className="mt-3 space-y-1.5 text-left">
+            <StatRow label="Points de peps max" before={info.pvBefore} after={info.pv} />
+            <StatRow label="Points de jus max" before={info.pmBefore} after={info.pm} />
+          </div>
+        )}
+        {info && info.pointsLeft > 0 && (
+          <div className="mt-3 rounded-lg border-2 border-[#c98a00] bg-[#fde68a] px-3 py-2 text-sm font-extrabold text-[#92400e]">
+            🌟 {info.pointsLeft} point{info.pointsLeft > 1 ? "s" : ""} de talent à dépenser !
+            {onTalents && <button type="button" onClick={onTalents} className="mt-1.5 block w-full rounded-lg border-2 border-[#92400e] bg-[#92400e] px-3 py-1 text-sm font-bold text-[#fff3d6] hover:bg-[#78350f]">Dépenser mes points</button>}
+          </div>
+        )}
         <button type="button" onClick={onClose} className="mt-4 rounded-lg border-2 border-[#7a4a22] bg-[#7a4a22] px-6 py-1.5 text-sm font-bold text-[#fff3d6] hover:bg-[#5e3818]">OK</button>
       </div>
+    </div>
+  );
+}
+
+/** Petite bannière dorée en cours d'expédition : l'écran complet viendra au retour au village. */
+export function LevelUpBanner({ level }: { level: number }) {
+  return (
+    <div className="obw-banner pointer-events-none absolute left-1/2 top-3 z-[45] -translate-x-1/2 rounded-full border-2 border-[#fcd34d] bg-[#78350f]/90 px-4 py-1.5 text-sm font-extrabold text-[#fde68a] shadow-lg" style={PANEL_FONT}>
+      ✨ Niveau {level} ! (détails au retour)
     </div>
   );
 }
