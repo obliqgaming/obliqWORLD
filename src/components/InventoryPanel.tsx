@@ -2,6 +2,7 @@
 // (Pas de changement d'arme en combat : on équipe au village.)
 import { uiSound } from "../lib/ui-sounds";
 import { ZoomImage } from "./ZoomImage";
+import { WeaponSheet } from "./ItemSheets";
 import { Coin, Bag, WEAPON_FONT } from "./GameIcons";
 import { AuthorLine } from "./AuthorLine";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -196,7 +197,7 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
               {items.length === 0 && <div className="text-sm">Aucune arme sur toi. Va voir à la Forge du Manchot !</div>}
               {items.map((it) => (
                 <div key={it.id} className={`flex items-center gap-2 rounded border p-1.5 ${it.id === shownId ? "border-[#7a4a22] bg-white/70" : "border-[#7a4a22]/50 bg-white/40"}`}>
-                  <ZoomImage src={it.weapon.image_url} className="h-14 w-16 shrink-0 object-contain" />
+                  <ZoomImage src={it.weapon.image_url} details={(() => { const st = itemStats(it); return <WeaponSheet name={itemDisplayName(it)} rarity={st.rarity} prototype={it.is_prototype} weaponType={it.weapon.weapon_type} bonus={st.bonus} effect={st.effect} authorId={it.weapon.author_user_id} extra={<div className="text-xs">Durabilité <b>{it.durability}/{it.durability_max}</b></div>} />; })()} className="h-14 w-16 shrink-0 object-contain" />
                   <div className="min-w-0 flex-1">
                     <div className="truncate"><RarityName name={itemDisplayName(it) + (it.weapon.hidden ? " (masquée)" : "")} rarity={itemStats(it).rarity} prototype={it.is_prototype} /></div>
                     <ItemDetails it={it} />

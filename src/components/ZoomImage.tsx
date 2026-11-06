@@ -1,15 +1,25 @@
-// Image cliquable : le curseur « créature » au survol, et un clic l'affiche en grand (taille réelle du dessin).
-import { useEffect, useState } from "react";
+// Image cliquable : curseur « créature » au survol ; un clic ouvre une petite fiche parchemin
+// (image + détails). Un clic n'importe où la ferme. `scale` = fraction de la taille réelle du dessin.
+import { useEffect, useState, type ReactNode } from "react";
 import { CURSOR_INTERACT } from "../lib/cursors";
 
-export function ZoomImage({ src, alt = "", className, style }: { src: string; alt?: string; className?: string; style?: React.CSSProperties | undefined }) {
+export function ZoomImage({ src, alt = "", className, style, details, scale = 1 }: {
+  src: string;
+  alt?: string;
+  className?: string;
+  style?: React.CSSProperties | undefined;
+  details?: ReactNode;
+  scale?: number;
+}) {
   const [open, setOpen] = useState(false);
+  const [nat, setNat] = useState<{ w: number; h: number } | null>(null);
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
+  const size = nat ? { width: Math.round(nat.w * scale), height: Math.round(nat.h * scale) } : {};
   return (
     <>
       <img
@@ -26,15 +36,27 @@ export function ZoomImage({ src, alt = "", className, style }: { src: string; al
       />
       {open && (
         <div
-          className="fixed inset-0 z-[90] flex items-center justify-center bg-black/75 p-4"
+          className="fixed inset-0 z-[90] flex items-center justify-center bg-black/65 p-4"
           style={{ cursor: CURSOR_INTERACT }}
           onClick={(e) => {
             e.stopPropagation();
             setOpen(false);
           }}
         >
-          <img src={src} alt={alt} draggable={false} className="max-h-[88vh] max-w-[92vw] rounded-lg object-contain drop-shadow-2xl" style={{ background: "repeating-conic-gradient(#3b2a1a 0% 25%, #33241a 0% 50%) 50% / 20px 20px" }} />
-          <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded bg-black/60 px-3 py-1 text-xs font-bold text-[#fff3d6]">Clique n'importe où pour fermer</div>
+          <div className="flex max-h-[92vh] max-w-[94vw] flex-col items-center gap-3 overflow-auto rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-4 text-[#3a2410] shadow-2xl" style={{ fontFamily: "'Baloo 2', cursive", minWidth: "min(18rem, 90vw)" }}>
+            <div className="flex items-center justify-center rounded-lg bg-white/40 p-2">
+              <img
+                src={src}
+                alt={alt}
+                draggable={false}
+                onLoad={(e) => setNat({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
+                className="object-contain"
+                style={{ ...size, maxWidth: "min(80vw, 100%)", maxHeight: "55vh" }}
+              />
+            </div>
+            {details && <div className="w-full">{details}</div>}
+            <div className="text-[11px] font-bold opacity-60">Clique n'importe où pour fermer</div>
+          </div>
         </div>
       )}
     </>

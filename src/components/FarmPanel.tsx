@@ -2,6 +2,7 @@
 // il prend la moitié des dégâts que tu reçois. À 0 PV il s'enfuit et se repose quelques expéditions.
 import { uiSound } from "../lib/ui-sounds";
 import { ZoomImage } from "./ZoomImage";
+import { CompanionSheet } from "./ItemSheets";
 import { useEffect, useRef, useState } from "react";
 import { FarmDraw, FarmShop } from "./FarmDraw";
 import { RARITY_INFO } from "../lib/weapons";
@@ -17,7 +18,7 @@ export function FarmPanel({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
-  const [tab, setTab] = useState<"mine" | "draw" | "buy">("mine");
+  const [tab, setTab] = useState<"mine" | "draw" | "buy">("draw");
   const [starters, setStarters] = useState<StarterCompanion[]>([]);
   // Or des ventes de MES compagnons, à récupérer depuis n'importe quel onglet.
   const [pending, setPending] = useState(0);
@@ -81,19 +82,19 @@ export function FarmPanel({ onClose }: { onClose: () => void }) {
           </div>
         )}
         <div className="mt-3 flex gap-2">
-          <button type="button" onClick={() => setTab("mine")} className={`rounded px-3 py-1 text-sm font-bold ${tab === "mine" ? "bg-[#7a4a22] text-[#fff3d6]" : "border border-[#7a4a22]"}`}>🐾 Mes compagnons</button>
           <button type="button" onClick={() => setTab("draw")} className={`rounded px-3 py-1 text-sm font-bold ${tab === "draw" ? "bg-[#7a4a22] text-[#fff3d6]" : "border border-[#7a4a22]"}`}>🎨 Dessiner</button>
           <button type="button" onClick={() => setTab("buy")} className={`rounded px-3 py-1 text-sm font-bold ${tab === "buy" ? "bg-[#7a4a22] text-[#fff3d6]" : "border border-[#7a4a22]"}`}>🛒 Acheter</button>
+          <button type="button" onClick={() => setTab("mine")} className={`rounded px-3 py-1 text-sm font-bold ${tab === "mine" ? "bg-[#7a4a22] text-[#fff3d6]" : "border border-[#7a4a22]"}`}>🐾 Mes compagnons</button>
         </div>
         {tab === "draw" && <FarmDraw onChanged={() => void reload()} />}
         {tab === "buy" && <FarmShop onChanged={() => { void reload(); window.dispatchEvent(new Event("obliq-companion-changed")); }} />}
-        {tab === "mine" && starters.length > 0 && (
+        {starters.length > 0 && (
           <div className="mt-3 rounded border-2 border-[#16a34a] bg-white/50 p-2">
             <div className="text-sm font-extrabold">🎁 Choisis ton premier compagnon <i>(gratuit, une seule fois)</i></div>
             <div className="mt-2 flex flex-wrap gap-2">
               {starters.map((c) => (
                 <button key={c.id} type="button" disabled={busy} title={c.name} className="rounded border border-[#7a4a22] bg-white/60 p-1 hover:bg-[#7a4a22]/20 disabled:opacity-50" onClick={() => void act(() => claimStarterCompanion(c.id))}>
-                  <ZoomImage src={c.image_url} alt={c.name} className="h-24 w-24 object-contain" />
+                  <ZoomImage src={c.image_url} alt={c.name} scale={0.75} details={<CompanionSheet name={c.name} tier={c.tier} />} className="h-24 w-24 object-contain" />
                 </button>
               ))}
             </div>
@@ -115,7 +116,7 @@ export function FarmPanel({ onClose }: { onClose: () => void }) {
             const provisional = c.loot_expedition_id !== null;
             return (
               <div key={c.id} className={`flex gap-2 rounded border bg-white/40 p-2 ${c.active ? "border-[#166534] ring-2 ring-[#16a34a]" : "border-[#7a4a22]/60"}`}>
-                <ZoomImage src={c.image_url} className="h-24 w-24 shrink-0 object-contain" style={resting ? { filter: "grayscale(1)", opacity: 0.6 } : undefined} />
+                <ZoomImage src={c.image_url} scale={0.75} details={<CompanionSheet name={c.name} rarity={c.rarity} tier={c.tier} prototype={c.is_prototype} hp={c.hp} hpMax={c.hp_max} restLeft={c.rest_left} />} className="h-24 w-24 shrink-0 object-contain" style={resting ? { filter: "grayscale(1)", opacity: 0.6 } : undefined} />
                 <div className="min-w-0 flex-1 text-xs">
                   <div className="truncate">
                     <span className="text-sm font-extrabold">{c.name}</span>

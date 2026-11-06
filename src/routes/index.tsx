@@ -2456,6 +2456,20 @@ function Index() {
       ? findPath(origin, target, scene.walkable_zone, scene.obstacles)
       : [target];
     walkQueueRef.current = waypoints;
+    // Interruption en pleine marche : on « fige » visuellement le sprite à sa position réelle avant de repartir.
+    // Sinon, si la nouvelle cible est identique à l'ancienne, le navigateur garde l'ANCIENNE durée de transition
+    // (trop lente) alors que le minuteur, lui, tombe plus tôt : le perso ne prend pas de vitesse, puis se téléporte.
+    const el = charSpriteRef.current;
+    if (walking && el) {
+      const prev = { l: el.style.left, t: el.style.top, tr: el.style.transition };
+      el.style.transition = "none";
+      el.style.left = `${origin.x}%`;
+      el.style.top = `${origin.y}%`;
+      void el.offsetWidth;
+      el.style.left = prev.l;
+      el.style.top = prev.t;
+      el.style.transition = prev.tr;
+    }
     stepWalk(rect, onArrive);
   };
 
