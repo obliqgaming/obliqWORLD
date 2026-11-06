@@ -1,5 +1,6 @@
 // Ferme : dessiner un compagnon (SQL 048) et acheter ceux des autres joueurs.
 import { useEffect, useRef, useState } from "react";
+import { ZoomImage } from "./ZoomImage";
 import { uiSound } from "../lib/ui-sounds";
 import { Coin } from "./GameIcons";
 import { DrawingCanvas } from "./DrawingCanvas";
@@ -68,7 +69,7 @@ export function FarmDraw({ onChanged }: { onChanged: () => void }) {
       {msg && <div className="mt-2 text-xs font-bold text-[#92400e]">{msg}</div>}
       {result && (
         <RevealModal tier={RARITY_TIER[result.rarity] ?? 1} title="Ton compagnon est validé !" onClose={() => setResult(null)}>
-          <img src={result.image_url} alt="" className="mx-auto h-28 w-28 object-contain" />
+          <ZoomImage src={result.image_url} className="mx-auto h-36 w-36 object-contain" />
           <div className="mt-2 text-center"><RarityName name={result.name} rarity={result.rarity} pill /></div>
           <div className="mt-1 text-center text-sm">{rules?.hp[result.rarity] ?? "?"} peps pour les acheteurs</div>
           <div className="mt-1 text-center text-xs opacity-80">Ton prototype est dans « Mes compagnons ».</div>
@@ -128,7 +129,7 @@ export function FarmShop({ onChanged }: { onChanged: () => void }) {
     const range = rules?.ranges[d.rarity as Rarity];
     return (
       <div key={l.design_id} className={`flex gap-2 rounded border border-[#7a4a22]/60 bg-white/40 p-2 ${sold ? "opacity-60" : ""}`}>
-        <img src={d.image_url} alt="" className="h-16 w-16 shrink-0 object-contain" />
+        <ZoomImage src={d.image_url} className="h-24 w-24 shrink-0 object-contain" />
         <div className="min-w-0 flex-1 text-xs">
           <RarityName name={d.name} rarity={d.rarity as Rarity} />
           <div className="mt-0.5"><RarityPill rarity={d.rarity as Rarity} /> · {rules?.hp[d.rarity as Rarity] ?? "?"} peps</div>

@@ -1,5 +1,6 @@
 // Fenêtre du marchand : acheter potions et parchemin, revendre ses objets et ses armes (au quart).
 import { uiSound } from "../lib/ui-sounds";
+import { ZoomImage } from "./ZoomImage";
 import { Coin } from "./GameIcons";
 import { RarityName, RarityPill } from "./InventoryPanel";
 import { useEffect, useRef, useState } from "react";
@@ -105,7 +106,7 @@ export function MerchantPanel({ onClose, onWeaponChanged }: { onClose: () => voi
               const v = weaponValue(it);
               return (
                 <div key={it.id} className="flex items-center gap-2 rounded border border-[#7a4a22]/60 bg-white/40 p-2 text-sm">
-                  <img src={it.weapon.image_url} alt="" className="h-12 w-9 shrink-0 object-contain" />
+                  <ZoomImage src={it.weapon.image_url} className="h-16 w-12 shrink-0 object-contain" />
                   <div className="min-w-0 flex-1 truncate">
                     <RarityName name={itemDisplayName(it)} rarity={it.weapon.rarity} prototype={it.is_prototype} />
                     <span className="ml-1 text-xs opacity-70"><RarityPill rarity={it.weapon.rarity} prototype={it.is_prototype} /> · {it.durability}/{it.durability_max}</span>

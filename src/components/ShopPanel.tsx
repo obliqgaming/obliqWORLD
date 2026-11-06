@@ -1,5 +1,6 @@
 // Onglet « Boutique » du forgeron : acheter les armes dessinées par les autres joueurs, fixer le prix des siennes.
 import { uiSound } from "../lib/ui-sounds";
+import { ZoomImage } from "./ZoomImage";
 import { Coin } from "./GameIcons";
 import { useEffect, useRef, useState } from "react";
 import { EFFECT_INFO, RARITY_INFO, bonusText, weaponFits, weaponKindLabel } from "../lib/weapons";
@@ -64,7 +65,7 @@ export function ShopPanel({ gold, family, onGoldChange, onBought }: { gold: numb
     const fits = weaponFits(w.weapon_type, family);
     return (
       <div key={l.weapon_id} className={`flex gap-2 rounded border border-[#7a4a22]/60 bg-white/40 p-2 ${sold ? "opacity-60" : ""}`}>
-        <img src={w.image_url} alt="" className="h-20 w-14 shrink-0 object-contain" />
+        <ZoomImage src={w.image_url} className="h-28 w-20 shrink-0 object-contain" />
         <div className="min-w-0 flex-1 text-xs">
           <RarityName name={w.name} rarity={w.rarity} />
           <div className="mt-0.5"><RarityPill rarity={w.rarity} /> · {weaponKindLabel(w.weapon_type)} · {bonusText(w.bonus_damage)}</div>

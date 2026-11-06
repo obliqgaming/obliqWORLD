@@ -1,6 +1,7 @@
 // Forge v1 : dessiner une arme (canvas 170 × 150), voir en direct comment elle
 // se tient dans la main de son personnage, la forger, l'équiper ou la ranger.
 import { RARITY_TIER, RevealModal } from "./RevealModal";
+import { ZoomImage } from "./ZoomImage";
 import { Coin, Bag } from "./GameIcons";
 import { useEffect, useRef, useState } from "react";
 import { DrawingCanvas } from "./DrawingCanvas";
@@ -196,7 +197,7 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
         )}
         {result && !revealDone && (
           <RevealModal tier={RARITY_TIER[result.rarity] ?? 1} title="Ton arme est forgée !" onClose={() => setRevealDone(true)}>
-            <img src={result.image_url} alt="" className="mx-auto my-2 h-24 object-contain" />
+            <ZoomImage src={result.image_url} className="mx-auto my-2 h-32 object-contain" />
             <RarityName name={result.name} rarity={result.rarity} pill />
           </RevealModal>
         )}
@@ -204,7 +205,7 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 p-3">
             <div className="w-[min(24rem,96%)] rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-5 text-center shadow-xl">
               <div className="text-xs font-bold uppercase tracking-widest text-[#7a4a22]">Ton arme est forgée !</div>
-              <img src={result.image_url} alt="" className="mx-auto my-2 h-24 object-contain" />
+              <ZoomImage src={result.image_url} className="mx-auto my-2 h-32 object-contain" />
               <RarityName name={result.name} rarity={result.rarity} />
               <div className="mt-2 text-base font-extrabold" style={{ color: "#3a2410" }}>
                 {RARITY_INFO[result.rarity].label} · {weaponKindLabel(result.weapon_type)} · {bonusText(result.bonus_damage)}
