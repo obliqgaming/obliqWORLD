@@ -166,3 +166,25 @@ export async function uploadHotspotImage(kind: string, file: File): Promise<stri
   if (error) throw error;
   return scenesClient.storage.from("scenes").getPublicUrl(name).data.publicUrl;
 }
+
+// Tas de flouz actifs aujourd'hui (SQL 090) : les mêmes pour tous. null = pas encore connu ou SQL pas lancé (on montre alors tous les tas).
+export function useActiveGoldIds(): Set<string> | null {
+  const [ids, setIds] = useState<Set<string> | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      const { data, error } = await scenesClient.rpc("daily_gold_active_ids");
+      if (!alive) return;
+      setIds(error ? null : new Set((data ?? []) as string[]));
+    };
+    void load();
+    let day = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
+    const onVis = () => {
+      const now = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
+      if (document.visibilityState === "visible" && now !== day) { day = now; void load(); }
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => { alive = false; document.removeEventListener("visibilitychange", onVis); };
+  }, []);
+  return ids;
+}

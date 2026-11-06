@@ -133,7 +133,7 @@ import { ClassNameModal, TalentPanel } from "../components/TalentPanel";
 import { fetchWornWeapons, type WornWeapon } from "../lib/weapons";
 import { setUiAudio, uiSound } from "../lib/ui-sounds";
 import { JINGLE_FAIL, JINGLE_SUCCESS, parseMusicList, startJingle } from "../lib/jingle";
-import { claimDailyGold, fetchSceneHotspots, useClaimedGoldToday, useHotspotStyles, type SceneHotspot } from "../lib/hotspots";
+import { claimDailyGold, fetchSceneHotspots, useActiveGoldIds, useClaimedGoldToday, useHotspotStyles, type SceneHotspot } from "../lib/hotspots";
 import { PartyInvitePopup } from "../components/PartyInvitePopup";
 import { PartyPanel } from "../components/PartyPanel";
 import { PeerContextMenu } from "../components/PeerContextMenu";
@@ -367,6 +367,7 @@ function Index() {
   useArrowCursorReady();
   const claimedGold = useClaimedGoldToday();
   const hotspotStyles = useHotspotStyles();
+  const activeGold = useActiveGoldIds();
   const [inspectId, setInspectId] = useState<string | null>(null); // recharge l'affichage quand la flèche-curseur des portails est prête
   const [scenePortals, setScenePortals] = useState<ExpeditionPortal[]>([]);
   const [longMinLevel, setLongMinLevel] = useState(5); // réglage long_expedition_min_level (SQL 040), pour l'étiquette du portail
@@ -2893,7 +2894,7 @@ function Index() {
           <Pasture zone={scene.pasture_zone!} depthScale={scene.depth_scale} boxWidth={sceneBoxSize.width} />
         )}
 
-        {character && !inExpeditionScene && hotspots.filter((h) => h.kind !== "board" && !claimedGold.has(h.id)).map((h) => (
+        {character && !inExpeditionScene && hotspots.filter((h) => h.kind !== "board" && !claimedGold.has(h.id) && (!h.kind.startsWith("gold") || !activeGold || activeGold.has(h.id))).map((h) => (
           <HotspotMarker key={h.id} hotspot={h} bubble={npcSpeech[h.id]} onClick={() => walkThen(h.position, () => (h.kind.startsWith("gold") ? collectGold(h) : setOpenHotspot(h)), !!hotspotStyles?.[h.kind]?.image_url)} />
         ))}
         {goldFloats.map((g) => (
