@@ -2848,7 +2848,7 @@ function Index() {
                   style={{
                     cursor: CURSOR_INTERACT,
                     transformOrigin: "50% 100%",
-                    animation: walking ? (PLAYER_WALK_HOP ? "auberge-hop 520ms ease-in-out infinite" : "auberge-walk 250ms linear infinite") : "none",
+                    animation: walking ? (PLAYER_WALK_HOP ? "auberge-hop 520ms ease-in-out infinite" : "auberge-walk 250ms linear infinite") : "obw-breathe-soft 4.6s ease-in-out infinite",
                   }}
                   onClick={(e) => { e.stopPropagation(); setEmoteMenuOpen((o) => !o); }}
                 />
@@ -2896,7 +2896,7 @@ function Index() {
                   style={{
                     cursor: CURSOR_INTERACT,
                     transformOrigin: "50% 100%",
-                    animation: isWalking ? (PLAYER_WALK_HOP ? "auberge-hop 520ms ease-in-out infinite" : "auberge-walk 250ms linear infinite") : "none",
+                    animation: isWalking ? (PLAYER_WALK_HOP ? "auberge-hop 520ms ease-in-out infinite" : "auberge-walk 250ms linear infinite") : "obw-breathe-soft 4.6s ease-in-out infinite",
                   }}
                   onClick={(e) => {
                     e.stopPropagation();

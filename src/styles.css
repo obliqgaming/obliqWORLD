@@ -198,7 +198,12 @@
 @keyframes emote-symbol { 0% { opacity: 0; transform: translate(-50%, 0) scale(.6); } 20% { opacity: 1; transform: translate(-50%, -6px) scale(1); } 100% { opacity: 0; transform: translate(-50%, -28px) scale(1.1); } }
 
 /* Respiration très discrète des lieux en personnages (durée et départ différents pour chacun). */
-@keyframes obw-breathe { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.008, 1.018); } }
+@keyframes obw-breathe { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.004, 1.009); } }
+@keyframes obw-breathe-soft { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.002, 1.005); } }
+@keyframes pet-jump { 0%,100% { transform: translateY(0); } 40% { transform: translateY(-45%); } 70% { transform: translateY(0); } 85% { transform: translateY(-12%); } }
+@keyframes pet-spin { 0% { transform: translateY(0) rotateY(0); } 30% { transform: translateY(-20%) rotateY(180deg); } 60% { transform: translateY(-8%) rotateY(360deg); } 100% { transform: translateY(0) rotateY(360deg); } }
+@keyframes pet-dance { 0%,100% { transform: rotate(0); } 12% { transform: rotate(-9deg) translateY(-6%); } 25% { transform: rotate(9deg) translateY(0); } 37% { transform: rotate(-9deg) translateY(-6%); } 50% { transform: rotate(9deg) translateY(0); } 62% { transform: rotate(-9deg) translateY(-6%); } 75% { transform: rotate(9deg) translateY(0); } }
+@keyframes pet-steps { 0% { transform: translateX(0); } 12% { transform: translateX(calc(var(--pdx) * 0.5)) translateY(-6%); } 24% { transform: translateX(var(--pdx)) translateY(0); } 50% { transform: translateX(var(--pdx)); } 62% { transform: translateX(calc(var(--pdx) * 0.5)) translateY(-6%); } 76% { transform: translateX(0) translateY(0); } 100% { transform: translateX(0); } }
 .obw-breathe { transform-origin: 50% 100%; animation: obw-breathe 3.6s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .obw-breathe { animation: none; } }
 
