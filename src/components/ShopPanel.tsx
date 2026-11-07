@@ -66,15 +66,16 @@ export function ShopPanel({ gold, family, onGoldChange, onBought }: { gold: numb
     const fits = weaponFits(w.weapon_type, family);
     return (
       <div key={l.weapon_id} className={`flex gap-2 rounded border border-[#7a4a22]/60 bg-white/40 p-2 ${sold ? "opacity-60" : ""}`}>
-        <ZoomImage src={w.image_url} details={<WeaponSheet name={w.name} rarity={w.rarity} weaponType={w.weapon_type} bonus={w.bonus_damage} effect={w.effect_key} authorId={w.author_user_id} extra={<div className="text-xs"><b>{l.price}</b> flouz · {l.stock_left}/{l.stock_total} en stock</div>} />} className="h-28 w-20 shrink-0 object-contain" />
+        <ZoomImage src={w.image_url} details={<WeaponSheet name={w.name} rarity={w.rarity} weaponType={w.weapon_type} bonus={w.bonus_damage} effect={w.effect_key} authorId={w.author_user_id} extra={<><div className="text-xs"><b>{l.price}</b> flouz · {l.stock_left}/{l.stock_total} en stock</div>{sold && <div className="rounded bg-[#991b1b] px-2 py-1 text-center text-xs font-extrabold text-white">Plus en stock<div className="text-[10px] font-semibold">Tu peux toujours la trouver en expédition !</div></div>}</>} />} className="h-28 w-20 shrink-0 object-contain" />
         <div className="min-w-0 flex-1 text-xs">
           <RarityName name={w.name} rarity={w.rarity} />
           <div className="mt-0.5"><RarityPill rarity={w.rarity} /> · {weaponKindLabel(w.weapon_type)} · {bonusText(w.bonus_damage)}</div>
           {w.effect_key && EFFECT_INFO[w.effect_key] && (
             <div><b>{EFFECT_INFO[w.effect_key]!.name}</b> : {EFFECT_INFO[w.effect_key]!.text}</div>
           )}
-          <div className="opacity-70">{l.authorName ? `par ${l.authorName} · ` : ""}{sold ? "ÉPUISÉE (on peut en trouver en butin)" : `${l.stock_left}/${l.stock_total} en stock`}</div>
+          <div className="opacity-70">{l.authorName ? `par ${l.authorName} · ` : ""}{sold ? "plus en stock" : `${l.stock_left}/${l.stock_total} en stock`}</div>
           {!fits && !l.mine && <div className="font-bold text-[#7a3a0e]">⚠ Pas portable par ta spécialisation (elle resterait dans ton inventaire).</div>}
+          {sold && <div className="rounded bg-[#991b1b] px-2 py-1 text-center text-xs font-extrabold text-white">Plus en stock<div className="text-[10px] font-semibold">Tu peux toujours la trouver en expédition !</div></div>}
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <b>{l.price} <Coin /></b>
             {!l.mine && (

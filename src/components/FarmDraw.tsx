@@ -130,11 +130,12 @@ export function FarmShop({ onChanged }: { onChanged: () => void }) {
     const range = rules?.ranges[d.rarity as Rarity];
     return (
       <div key={l.design_id} className={`flex gap-2 rounded border border-[#7a4a22]/60 bg-white/40 p-2 ${sold ? "opacity-60" : ""}`}>
-        <ZoomImage src={d.image_url} scale={0.75} details={<CompanionSheet name={d.name} rarity={d.rarity as Rarity} hp={rules?.hp[d.rarity as Rarity]} authorId={d.author_user_id} extra={<div className="text-xs"><b>{l.price}</b> flouz · {l.stock_left}/{l.stock_total} en stock</div>} />} className="h-24 w-24 shrink-0 object-contain" />
+        <ZoomImage src={d.image_url} scale={0.75} details={<CompanionSheet name={d.name} rarity={d.rarity as Rarity} hp={rules?.hp[d.rarity as Rarity]} authorId={d.author_user_id} extra={<><div className="text-xs"><b>{l.price}</b> flouz · {l.stock_left}/{l.stock_total} en stock</div>{sold && <div className="rounded bg-[#991b1b] px-2 py-1 text-center text-xs font-extrabold text-white">Plus en stock<div className="text-[10px] font-semibold">Tu peux toujours le trouver en expédition !</div></div>}</>} />} className="h-24 w-24 shrink-0 object-contain" />
         <div className="min-w-0 flex-1 text-xs">
           <RarityName name={d.name} rarity={d.rarity as Rarity} />
           <div className="mt-0.5"><RarityPill rarity={d.rarity as Rarity} /> · {rules?.hp[d.rarity as Rarity] ?? "?"} peps</div>
-          <div className="opacity-70">{l.authorName ? `par ${l.authorName} · ` : ""}{sold ? "ÉPUISÉ (on peut en trouver en butin)" : `${l.stock_left}/${l.stock_total} en stock`}</div>
+          <div className="opacity-70">{l.authorName ? `par ${l.authorName} · ` : ""}{sold ? "plus en stock" : `${l.stock_left}/${l.stock_total} en stock`}</div>
+          {sold && <div className="rounded bg-[#991b1b] px-2 py-1 text-center text-xs font-extrabold text-white">Plus en stock<div className="text-[10px] font-semibold">Tu peux toujours le trouver en expédition !</div></div>}
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <b>{l.price} <Coin /></b>
             {!l.mine && <button type="button" disabled={busy || sold || gold < l.price} className={BTN} onClick={() => void act(() => companionShopBuy(l.design_id), `✔ « ${d.name} » est à la Ferme des Jetés en Pâture.`)}>Acheter</button>}

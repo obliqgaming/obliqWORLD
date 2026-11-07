@@ -171,6 +171,8 @@ export const Route = createFileRoute("/")({
 // vitesse constante, 1 = comportement d'origine très marqué). Passé de 0.12
 // (~90% de moins que l'origine) à 0.2 (~80% de moins) car à 90% l'accélération
 // ne se sentait plus du tout.
+// Marche du joueur : true = petits sauts gauche/droite (520 ms) ; false = ancien balancement de la tête (« auberge-walk »).
+const PLAYER_WALK_HOP = true;
 const RUN_FACTOR = 1.45; // double-clic : on court, juste un peu plus vite
 const BASE_WALK_SPEED_PX_PER_SEC = 140; // vitesse "de base" sur courte distance
 const ACCEL_INTENSITY = 0.35; // remonté à nouveau (0.2 -> 0.28 -> 0.35)
@@ -2496,7 +2498,8 @@ function Index() {
     const last = lastFloorClickRef.current;
     const isDouble = !!last && now - last.t < 350 && Math.hypot(((target.x - last.x) / 100) * rect.width, ((target.y - last.y) / 100) * rect.height) < 40;
     lastFloorClickRef.current = { t: now, x: target.x, y: target.y };
-    startWalk(target, undefined, isDouble);
+    void isDouble; // la course au double-clic est désactivée (trop de bugs visuels)
+    startWalk(target, undefined, false);
   };
 
   // ---------- Changement de scène (appelé une fois la marche jusqu'à la sortie terminée) ----------
@@ -2764,7 +2767,7 @@ function Index() {
         }}
       >
         <style>{`
-          @keyframes auberge-walk{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg)}}
+          @keyframes auberge-walk{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg)}} @keyframes auberge-hop{0%{transform:translateY(0) rotate(-4deg)}25%{transform:translateY(-4%) rotate(-4deg)}50%{transform:translateY(0) rotate(4deg)}75%{transform:translateY(-4%) rotate(4deg)}100%{transform:translateY(0) rotate(-4deg)}}
           .cursor-creature{cursor:url('/cursors/cursor-creature.png') 12 12, pointer;}
         `}</style>
         <img
@@ -2832,7 +2835,7 @@ function Index() {
                   style={{
                     cursor: CURSOR_INTERACT,
                     transformOrigin: "50% 100%",
-                    animation: walking ? `auberge-walk ${running ? 190 : 250}ms linear infinite` : "none",
+                    animation: walking ? (PLAYER_WALK_HOP ? "auberge-hop 520ms ease-in-out infinite" : "auberge-walk 250ms linear infinite") : "none",
                   }}
                   onClick={(e) => { e.stopPropagation(); setEmoteMenuOpen((o) => !o); }}
                 />
