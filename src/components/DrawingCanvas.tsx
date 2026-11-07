@@ -7,6 +7,7 @@
 // Tout le moteur de dessin (pinceau, gomme, ligne, cercle, spray, remplissage,
 // pipette, undo/redo, historique) est identique à l'original.
 
+import { loadDraft, saveDraft } from "../lib/drawing-drafts";
 import React, { useRef, useState, useEffect, useCallback } from "react";
 import { hexToRgb, paintStrokeSegment, sprayPaintSegment } from "../lib/drawingTools";
 import type { Point } from "../lib/scenes-supabase";
@@ -114,6 +115,7 @@ export function DrawingCanvas({
   onPreview,
   initialAnchor,
   noAnchor = false,
+  draftKey,
 }: {
   onExport: (blob: Blob, handAnchor: Point | null) => void;
   exporting?: boolean;
@@ -130,6 +132,8 @@ export function DrawingCanvas({
   initialAnchor?: Point;
   /** true = aucun repère de main (ex. un compagnon) : onExport reçoit null. */
   noAnchor?: boolean;
+  /** Si fourni : le dessin est gardé en brouillon (restauré au retour) tant qu'il n'est pas validé. */
+  draftKey?: string | null;
 }) {
   const W = width ?? DEFAULT_CANVAS;
   const H = height ?? DEFAULT_CANVAS;
@@ -211,6 +215,39 @@ export function DrawingCanvas({
     if (!ctx) return;
     ctx.clearRect(0, 0, W, H);
   }, []);
+
+  // Brouillon : restauré une fois, puis sauvegardé après chaque geste (clic, trait, annulation…).
+  useEffect(() => {
+    if (!draftKey) return;
+    const saved = loadDraft(draftKey);
+    if (saved) {
+      const img = new Image();
+      img.onload = () => {
+        const ctx = canvasRef.current?.getContext("2d");
+        if (!ctx) return;
+        ctx.drawImage(img, 0, 0, W, H);
+        schedulePreview();
+      };
+      img.src = saved;
+    }
+    let t: number | undefined;
+    const save = () => {
+      window.clearTimeout(t);
+      t = window.setTimeout(() => {
+        const c = canvasRef.current;
+        if (c) saveDraft(draftKey, c.toDataURL("image/png"));
+      }, 250);
+    };
+    window.addEventListener("pointerup", save);
+    window.addEventListener("click", save);
+    window.addEventListener("keyup", save);
+    return () => {
+      window.clearTimeout(t);
+      window.removeEventListener("pointerup", save);
+      window.removeEventListener("click", save);
+      window.removeEventListener("keyup", save);
+    };
+  }, [draftKey]);
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {

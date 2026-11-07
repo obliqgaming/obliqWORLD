@@ -1,5 +1,6 @@
 // Quête quotidienne (SQL 041) : une quête par jour, choisie parmi 5 à un lieu « Quêtes ».
 import { scenesClient, ensureUserId } from "./scenes-supabase";
+import { useEffect, useState } from "react";
 
 export type Quest = { quest_key: string; title: string; description: string; goal: number; sort: number };
 export type MyQuest = { quest_key: string; progress: number; claimed: boolean; claimed_day: string | null };
@@ -35,4 +36,31 @@ export async function abandonQuest(): Promise<void> {
   const { error } = await scenesClient.rpc("quest_abandon");
   if (error) throw new Error(error.message.includes("quest_abandon") ? "Lance d'abord le SQL 087 dans Supabase." : error.message);
   window.dispatchEvent(new Event("obliq-quest-changed"));
+}
+
+/** true quand une quête du jour peut être acceptée (aucune en cours, et pas déjà terminée aujourd'hui). */
+export function useQuestAvailable(reloadKey: unknown): boolean {
+  const [mine, setMine] = useState<{ has: boolean; mine: MyQuest | null } | null>(null);
+  const [, tick] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => {
+      void fetchQuests()
+        .then((d) => !cancelled && setMine({ has: d.quests.length > 0, mine: d.mine }))
+        .catch(() => {});
+    };
+    load();
+    window.addEventListener("obliq-quest-changed", load);
+    const t = window.setInterval(() => tick((n) => n + 1), 60000); // simple recalcul local du changement de jour
+    return () => {
+      cancelled = true;
+      window.removeEventListener("obliq-quest-changed", load);
+      window.clearInterval(t);
+    };
+  }, [reloadKey]);
+  if (!mine || !mine.has) return false;
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
+  const m = mine.mine;
+  if (m && !m.claimed) return false; // une quête est déjà en cours
+  return !(m?.claimed && (m.claimed_day ?? "") >= today);
 }

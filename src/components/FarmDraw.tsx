@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ZoomImage } from "./ZoomImage";
 import { CompanionSheet } from "./ItemSheets";
+import { useDraftKey, loadDraftName, saveDraftName, clearDraft } from "../lib/drawing-drafts";
 import { uiSound } from "../lib/ui-sounds";
 import { Coin } from "./GameIcons";
 import { DrawingCanvas } from "./DrawingCanvas";
@@ -30,6 +31,13 @@ export function FarmDraw({ onChanged }: { onChanged: () => void }) {
     void fetchMyGold().then(setGold);
   }, []);
 
+  const draftKey = useDraftKey("companion");
+  useEffect(() => {
+    if (draftKey) setName(loadDraftName(draftKey));
+  }, [draftKey]);
+  useEffect(() => {
+    if (draftKey) saveDraftName(draftKey, name);
+  }, [draftKey, name]);
   const drawLock = useRef(false);
   async function handleExport(blob: Blob) {
     if (drawLock.current) return;
@@ -42,6 +50,7 @@ export function FarmDraw({ onChanged }: { onChanged: () => void }) {
     setMsg(null);
     try {
       const { design } = await createCompanionDesign(blob, name.trim());
+      clearDraft(draftKey);
       setName("");
       setCanvasKey((k) => k + 1);
       setResult(design);
@@ -65,7 +74,7 @@ export function FarmDraw({ onChanged }: { onChanged: () => void }) {
       </div>
       <input value={name} maxLength={40} onChange={(e) => setName(e.target.value)} placeholder="Nom du compagnon" className="mt-2 w-full rounded border border-[#7a4a22] bg-white/70 px-2 py-1 text-sm" />
       <div className="mt-2">
-        <DrawingCanvas key={canvasKey} width={COMPANION_W} height={COMPANION_H} noAnchor exportLabel={`Valider (${rules?.cost ?? 6} flouz)`} exporting={busy} onExport={(b) => void handleExport(b)} />
+        {draftKey && <DrawingCanvas key={canvasKey} draftKey={draftKey} width={COMPANION_W} height={COMPANION_H} noAnchor exportLabel={`Valider (${rules?.cost ?? 6} flouz)`} exporting={busy} onExport={(b) => void handleExport(b)} />}
       </div>
       {msg && <div className="mt-2 text-xs font-bold text-[#92400e]">{msg}</div>}
       {result && (

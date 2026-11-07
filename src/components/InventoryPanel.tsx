@@ -182,7 +182,7 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
             <div className="flex max-h-[22rem] min-w-0 flex-col gap-1.5 overflow-y-auto parchment-scroll pr-1">
               {stacks.length > 0 && (
                 <div className="mb-2 rounded border border-[#b98a54] bg-[#f6e8c4] p-2 text-sm">
-                  <div className="text-xs font-extrabold uppercase">Objets (utilisables en combat)</div>
+                  <div className="text-xs font-extrabold uppercase">Objets (utilisables en expédition)</div>
                   <div className="mt-1 grid grid-cols-[1.6rem_max-content_minmax(0,1fr)] items-start gap-x-2 gap-y-1">
                     {stacks.map((st) => (
                       <div key={st.kind} className="contents">

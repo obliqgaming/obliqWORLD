@@ -1,6 +1,7 @@
 // Forge v1 : dessiner une arme (canvas 170 × 150), voir en direct comment elle
 // se tient dans la main de son personnage, la forger, l'équiper ou la ranger.
 import { RARITY_TIER, RevealModal } from "./RevealModal";
+import { useDraftKey, loadDraftName, saveDraftName, clearDraft } from "../lib/drawing-drafts";
 import { ZoomImage } from "./ZoomImage";
 import { WeaponSheet } from "./ItemSheets";
 import { Coin, Bag } from "./GameIcons";
@@ -16,6 +17,7 @@ import {
 import { RarityName } from "./InventoryPanel";
 import { fetchMyBuild } from "../lib/expedition-combat";
 import { ShopPanel } from "./ShopPanel";
+import { PrototypesPanel } from "./PrototypesPanel";
 import { fetchForgeCost, fetchMyGold, fetchRepairCosts, repairItem } from "../lib/loot";
 
 const BTN = "rounded-lg border-2 border-[#7a4a22] bg-[#7a4a22] px-4 py-1.5 text-sm font-bold text-[#fff3d6] hover:bg-[#5e3818] disabled:opacity-50";
@@ -25,7 +27,7 @@ export type ForgeCharacter = { id: string; name: string; imageUrl: string; visua
 export function ForgePanel({ character, onClose, onWeaponChanged }: { character: ForgeCharacter | null; onClose: () => void; onWeaponChanged: () => void }) {
   const [hand, setHand] = useState<Point>(DEFAULT_HAND);
   const [cost, setCost] = useState(0);
-  const [tab, setTab] = useState<"forge" | "shop">("forge");
+  const [tab, setTab] = useState<"forge" | "shop" | "protos">("forge");
   const [repairOpen, setRepairOpen] = useState(false);
   const [repairItems, setRepairItems] = useState<WeaponItem[]>([]);
   const [repairCosts, setRepairCosts] = useState<Record<string, number>>({});
@@ -51,6 +53,13 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
   const [family, setFamily] = useState<"melee" | "magie" | null>(null);
   const [preview, setPreview] = useState<{ url: string; anchor: Point } | null>(null);
   const [result, setResult] = useState<Weapon | null>(null);
+  const draftKey = useDraftKey("weapon");
+  useEffect(() => {
+    if (draftKey) setName(loadDraftName(draftKey));
+  }, [draftKey]);
+  useEffect(() => {
+    if (draftKey) saveDraftName(draftKey, name);
+  }, [draftKey, name]);
   const [canvasKey, setCanvasKey] = useState(0); // la toile repart vide après une validation
   const [revealDone, setRevealDone] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -96,14 +105,15 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
       setRevealDone(false);
       setCanvasKey((k) => k + 1);
       setResult(weapon);
+      clearDraft(draftKey);
       setName("");
       void fetchMyGold().then(setGold);
     });
   }
 
   return (
-    <div className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto parchment-scroll bg-black/55 p-2" onClick={(e) => e.stopPropagation()} style={{ fontFamily: "'Baloo 2', cursive" }}>
-      <div className="max-h-full w-[min(56rem,98%)] overflow-y-auto parchment-scroll rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-4 text-[#3a2410] shadow-xl">
+    <div className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto overflow-x-hidden parchment-scroll bg-black/55 p-2" onClick={(e) => e.stopPropagation()} style={{ fontFamily: "'Baloo 2', cursive" }}>
+      <div className="max-h-full w-[min(56rem,98%)] overflow-y-auto overflow-x-hidden parchment-scroll rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-4 text-[#3a2410] shadow-xl">
         <div className="flex items-center justify-between">
           <div className="text-xl font-extrabold">⚒ La Forge du Manchot{(tab === "forge" ? cost > 0 : true) && <span className="ml-2 text-sm text-[#92400e]">{tab === "forge" && cost > 0 ? <>Forger coûte {cost} flouz · tu as {gold} <Coin /></> : <>Tu as {gold} <Coin /></>}</span>}</div>
           <button type="button" onClick={onClose} className="rounded border border-[#7a4a22] px-3 py-0.5 text-xs font-bold hover:bg-[#7a4a22]/15">Fermer</button>
@@ -112,9 +122,12 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
           <div className="mt-2 flex gap-2">
             <button type="button" onClick={() => setTab("forge")} className={`rounded px-3 py-1 text-sm font-bold ${tab === "forge" ? "bg-[#7a4a22] text-[#fff3d6]" : "border border-[#7a4a22]"}`}>⚒ Forger</button>
             <button type="button" onClick={() => setTab("shop")} className={`rounded px-3 py-1 text-sm font-bold ${tab === "shop" ? "bg-[#7a4a22] text-[#fff3d6]" : "border border-[#7a4a22]"}`}>🛒 Boutique</button>
+            <button type="button" onClick={() => setTab("protos")} className={`rounded px-3 py-1 text-sm font-bold ${tab === "protos" ? "bg-[#7a4a22] text-[#fff3d6]" : "border border-[#7a4a22]"}`}>📦 Mes prototypes</button>
           </div>
         )}
-        {character && tab === "shop" ? (
+        {character && tab === "protos" ? (
+          <PrototypesPanel onChanged={onWeaponChanged} />
+        ) : character && tab === "shop" ? (
           <ShopPanel gold={gold} family={family} onGoldChange={() => void fetchMyGold().then(setGold)} onBought={onWeaponChanged} />
         ) : !character ? (
           <div className="mt-3 text-sm">Il te faut un personnage pour forger une arme.</div>
@@ -132,8 +145,9 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
                   ⚠ Ton personnage est {family === "magie" ? "Magie" : "Mêlée"} : il ne pourra pas porter une arme de ce type (elle restera dans ton inventaire).
                 </div>
               )}
-              <DrawingCanvas
+              {draftKey && <DrawingCanvas
                 key={canvasKey}
+                draftKey={draftKey}
                 width={WEAPON_W}
                 height={WEAPON_H}
                 anchorOptional={false}
@@ -144,7 +158,7 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
                 initialAnchor={{ x: 50, y: 85 }}
                 onPreview={(url, anchor) => anchor && setPreview({ url, anchor })}
                 onExport={handleExport}
-              />
+              />}
               {msg && <div className="mt-2 text-xs font-bold text-[#92400e]">{msg}</div>}
               <div className="mt-3 rounded border border-[#7a4a22]/60 bg-white/40 p-2">
                 <button type="button" onClick={() => setRepairOpen((o) => !o)} className="text-sm font-extrabold">

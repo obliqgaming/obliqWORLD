@@ -109,15 +109,38 @@ export function itemDisplayName(it: WeaponItem): string {
   return it.weapon.name;
 }
 
+const ITEM_COLS = "id, weapon_id, is_prototype, durability, durability_max, adjust_dx, adjust_dy, adjust_rot, adjust_scale, weapon:weapons(*)";
+
+/** Armes du sac (les prototypes rangés à la forge n'y sont pas : SQL 092). */
 export async function fetchMyItems(): Promise<WeaponItem[]> {
   const uid = await ensureUserId();
-  const { data, error } = await scenesClient
-    .from("weapon_items")
-    .select("id, weapon_id, is_prototype, durability, durability_max, adjust_dx, adjust_dy, adjust_rot, adjust_scale, weapon:weapons(*)")
-    .eq("owner_user_id", uid)
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return ((data ?? []) as any[]).filter((r) => r.weapon) as WeaponItem[];
+  let r = await scenesClient.from("weapon_items").select(ITEM_COLS).eq("owner_user_id", uid).eq("stored", false).order("created_at", { ascending: false });
+  if (r.error) {
+    // colonne « stored » pas encore créée (SQL 092 non lancé) : on lit tout comme avant
+    r = await scenesClient.from("weapon_items").select(ITEM_COLS).eq("owner_user_id", uid).order("created_at", { ascending: false });
+  }
+  if (r.error) throw r.error;
+  return ((r.data ?? []) as any[]).filter((x) => x.weapon) as WeaponItem[];
+}
+
+/** Prototypes rangés à la forge. */
+export async function fetchStoredPrototypes(): Promise<WeaponItem[]> {
+  const uid = await ensureUserId();
+  const { data, error } = await scenesClient.from("weapon_items").select(ITEM_COLS).eq("owner_user_id", uid).eq("stored", true).order("created_at", { ascending: false });
+  if (error) return [];
+  return ((data ?? []) as any[]).filter((x) => x.weapon) as WeaponItem[];
+}
+
+export async function storePrototype(itemId: string, stored: boolean): Promise<void> {
+  const { error } = await scenesClient.rpc("prototype_store", { p_item: itemId, p_stored: stored });
+  if (error) throw new Error(error.message.includes("prototype_store") && error.message.includes("function") ? "Lance d'abord le SQL 092 dans Supabase." : error.message.includes("prototype_equipe") ? "Ce prototype est équipé : change d'arme avant de le ranger." : error.message);
+}
+
+/** Range tous les prototypes non équipés du sac. Renvoie combien ont été rangés. */
+export async function storeAllPrototypes(): Promise<number> {
+  const { data, error } = await scenesClient.rpc("prototype_store_all");
+  if (error) throw new Error(error.message.includes("prototype_store_all") && error.message.includes("function") ? "Lance d'abord le SQL 092 dans Supabase." : error.message);
+  return Number(data ?? 0);
 }
 
 export async function createWeapon(blob: Blob, name: string, type: WeaponType, grip: Point): Promise<{ weapon: Weapon; itemId: string }> {

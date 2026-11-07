@@ -92,6 +92,7 @@ import { fetchMyCompanions, fetchPartyCompanions, type PartyCompanion } from "..
 import { AboutDialog } from "../components/AboutDialog";
 import { GroupBoard } from "../components/GroupBoard";
 import { QuestTracker } from "../components/QuestTracker";
+import { useQuestAvailable } from "../lib/quests";
 import { GroupAdBanner } from "../components/GroupAdBanner";
 import { fetchAdReminders, meetLabel, touchSeen, touchSeenPeers } from "../lib/group-ads";
 import { WelcomeModal } from "../components/WelcomeModal";
@@ -171,7 +172,7 @@ export const Route = createFileRoute("/")({
 // vitesse constante, 1 = comportement d'origine très marqué). Passé de 0.12
 // (~90% de moins que l'origine) à 0.2 (~80% de moins) car à 90% l'accélération
 // ne se sentait plus du tout.
-// Marche du joueur : true = petits sauts gauche/droite (520 ms) ; false = ancien balancement de la tête (« auberge-walk »).
+// Marche de TOUS les joueurs (les compagnons gardent l'ancien balancement) : true = petits sauts gauche/droite (520 ms) ; false = ancien balancement de la tête (« auberge-walk »).
 const PLAYER_WALK_HOP = true;
 const RUN_FACTOR = 1.45; // double-clic : on court, juste un peu plus vite
 const BASE_WALK_SPEED_PX_PER_SEC = 140; // vitesse "de base" sur courte distance
@@ -736,7 +737,7 @@ function Index() {
     filter.type = "lowpass";
     filter.frequency.value = 650 + Math.random() * 200; // légère variation, pour pas que ça sonne robotique
 
-    const baseGain = 0.06 * volumeRef.current; // volume volontairement bas, discret, module par le curseur général
+    const baseGain = 0.11 * volumeRef.current; // volume volontairement bas, discret, module par le curseur général
     if (baseGain <= 0) return;
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(baseGain, ctx.currentTime);
@@ -2123,6 +2124,18 @@ function Index() {
   // ---------- Emotes ----------
   const [emotes, setEmotes] = useState<Record<string, EmoteKey>>({});
   const [emoteMenuOpen, setEmoteMenuOpen] = useState(false);
+  const questAvailable = useQuestAvailable(`${scene.id}|${openHotspot?.id ?? ""}`);
+  // Le menu des emotes se ferme dès qu'on clique ailleurs (hors menu et hors personnage).
+  useEffect(() => {
+    if (!emoteMenuOpen) return;
+    const close = (e: PointerEvent) => {
+      const t = e.target as Node | null;
+      if (t && ((t as Element).closest?.("[data-emote-menu]") || charSpriteRef.current?.contains(t))) return;
+      setEmoteMenuOpen(false);
+    };
+    window.addEventListener("pointerdown", close, true);
+    return () => window.removeEventListener("pointerdown", close, true);
+  }, [emoteMenuOpen]);
   const emoteTimers = useRef<Record<string, number>>({});
   const lastEmoteAt = useRef(0);
   const clearEmote = (characterId: string) => {
@@ -2883,7 +2896,7 @@ function Index() {
                   style={{
                     cursor: CURSOR_INTERACT,
                     transformOrigin: "50% 100%",
-                    animation: isWalking ? "auberge-walk 250ms linear infinite" : "none",
+                    animation: isWalking ? (PLAYER_WALK_HOP ? "auberge-hop 520ms ease-in-out infinite" : "auberge-walk 250ms linear infinite") : "none",
                   }}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -2960,7 +2973,7 @@ function Index() {
         )}
 
         {character && !inExpeditionScene && hotspots.filter((h) => h.kind !== "board" && !claimedGold.has(h.id) && (!h.kind.startsWith("gold") || !activeGold || activeGold.has(h.id))).map((h) => (
-          <HotspotMarker key={h.id} hotspot={h} bubble={npcSpeech[h.id]} onClick={() => walkThen(h.position, () => (h.kind.startsWith("gold") ? collectGold(h) : setOpenHotspot(h)), !!hotspotStyles?.[h.kind]?.image_url)} />
+          <HotspotMarker key={h.id} hotspot={h} bubble={npcSpeech[h.id]} alert={h.kind === "quests" && questAvailable} onClick={() => walkThen(h.position, () => (h.kind.startsWith("gold") ? collectGold(h) : setOpenHotspot(h)), !!hotspotStyles?.[h.kind]?.image_url)} />
         ))}
         {goldFloats.map((g) => (
           <div key={g.key} className="obw-gold-float pointer-events-none absolute z-40 -translate-x-1/2 text-xl font-extrabold" style={{ left: `${g.x}%`, top: `${g.y}%`, color: g.ok ? "#fde68a" : "#fca5a5", textShadow: "0 2px 4px #000, 0 0 8px rgba(0,0,0,0.6)" }}>
@@ -3168,7 +3181,7 @@ function Index() {
           style={{ background: presenceDebugOn ? "#9effa0" : "#fff3d6" }}
         />
         {character && emoteMenuOpen && !activeCombatId && (
-          <div className="absolute bottom-16 left-1/2 z-40 grid w-max -translate-x-1/2 grid-cols-3 gap-1.5 rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-2 shadow-xl" style={{ fontFamily: "'Baloo 2', cursive" }} onClick={(e) => e.stopPropagation()}>
+          <div data-emote-menu className="absolute bottom-16 left-1/2 z-40 grid w-max -translate-x-1/2 grid-cols-3 gap-1.5 rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-2 shadow-xl" style={{ fontFamily: "'Baloo 2', cursive" }} onClick={(e) => e.stopPropagation()}>
             {EMOTE_KEYS.map((k) => (
               <button key={k} type="button" disabled={walking} onClick={() => { sendEmote(k); setEmoteMenuOpen(false); }} className="flex w-24 flex-col items-center rounded-lg border border-[#7a4a22]/50 bg-white/40 px-1 py-1 text-xs font-bold text-[#3a2410] hover:bg-white/70 disabled:opacity-40" style={{ cursor: CURSOR_INTERACT }}>
                 <span className="text-xl leading-none">{EMOTES[k].icon}</span>

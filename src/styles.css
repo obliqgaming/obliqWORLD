@@ -215,3 +215,6 @@
 @keyframes obw-banner { 0% { opacity: 0; transform: translate(-50%, -12px); } 12%, 85% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(-50%, -8px); } }
 .obw-banner { animation: obw-banner 6s ease-out forwards; }
 @media (prefers-reduced-motion: reduce) { .obw-rays, .obw-hop, .obw-spark { animation: none; } }
+
+@keyframes obw-alert-bob{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-4px) scale(1.12)}}
+.obw-alert{display:block;animation:obw-alert-bob 1.1s ease-in-out infinite}
