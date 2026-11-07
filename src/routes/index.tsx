@@ -90,6 +90,8 @@ import { ensureSessionCleanup, publishDisplayName, markLoggedOut, loggedOutInfo,
 import { PetSprite } from "../components/PetSprite";
 import { fetchMyCompanions, fetchPartyCompanions, type PartyCompanion } from "../lib/companions";
 import { AboutDialog } from "../components/AboutDialog";
+import { LegacyChoice } from "../components/LegacyChoice";
+import { fetchLegacyHeld, type LegacyHeld } from "../lib/legacy";
 import { GroupBoard } from "../components/GroupBoard";
 import { QuestTracker } from "../components/QuestTracker";
 import { useQuestAvailable } from "../lib/quests";
@@ -333,6 +335,21 @@ function Index() {
   const [boardOpen, setBoardOpen] = useState(false);
   const [welcomeOpen, setWelcomeOpen] = useState(false);
   const [deadInfo, setDeadInfo] = useState<{ name: string; cause: string | null; summary?: DeathSummary } | null>(null);
+  // Après une mort : anciennes armes/compagnons mis de côté à choisir (SQL 094). undefined = pas encore chargé.
+  const [legacyHeld, setLegacyHeld] = useState<LegacyHeld | undefined>(undefined);
+  const noCharacter = character === null;
+  useEffect(() => {
+    if (!noCharacter || loginRequired) {
+      setLegacyHeld(undefined);
+      return;
+    }
+    let live = true;
+    const empty: LegacyHeld = { weapons: [], companions: [] };
+    void Promise.race([fetchLegacyHeld(), new Promise<LegacyHeld>((res) => window.setTimeout(() => res(empty), 5000))]).then((h) => live && setLegacyHeld(h));
+    return () => {
+      live = false;
+    };
+  }, [noCharacter, loginRequired]);
   const [deadBusy, setDeadBusy] = useState(false);
   const [deadError, setDeadError] = useState<string | null>(null);
   // Journal visible à l'écran (dernières lignes), pour diagnostiquer sans
@@ -2737,6 +2754,13 @@ function Index() {
         onVolumeChange={handleVolumeChange}
       />
     );
+  }
+
+  if (!character && legacyHeld === undefined) {
+    return <LoadingScreen visible />;
+  }
+  if (!character && legacyHeld && (legacyHeld.weapons.length > 0 || legacyHeld.companions.length > 0)) {
+    return <LegacyChoice held={legacyHeld} onDone={() => setLegacyHeld({ weapons: [], companions: [] })} />;
   }
 
   if (!character) {

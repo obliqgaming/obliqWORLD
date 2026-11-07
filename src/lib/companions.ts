@@ -29,9 +29,11 @@ export type Companion = {
 
 export async function fetchMyCompanions(): Promise<Companion[]> {
   const uid = await ensureUserId();
-  const { data, error } = await scenesClient.from("companions").select("*").eq("owner_user_id", uid).order("created_at", { ascending: false });
-  if (error) throw error;
-  return (data ?? []) as Companion[];
+  // Les compagnons « mis de côté » après une mort (SQL 094) n'apparaissent pas tant qu'on n'a pas choisi.
+  let r = await scenesClient.from("companions").select("*").eq("owner_user_id", uid).eq("legacy_hold", false).order("created_at", { ascending: false });
+  if (r.error) r = await scenesClient.from("companions").select("*").eq("owner_user_id", uid).order("created_at", { ascending: false });
+  if (r.error) throw r.error;
+  return (r.data ?? []) as Companion[];
 }
 
 export async function setActiveCompanion(id: string | null): Promise<void> {

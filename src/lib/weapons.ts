@@ -114,7 +114,8 @@ const ITEM_COLS = "id, weapon_id, is_prototype, durability, durability_max, adju
 /** Armes du sac (les prototypes rangés à la forge n'y sont pas : SQL 092). */
 export async function fetchMyItems(): Promise<WeaponItem[]> {
   const uid = await ensureUserId();
-  let r = await scenesClient.from("weapon_items").select(ITEM_COLS).eq("owner_user_id", uid).eq("stored", false).order("created_at", { ascending: false });
+  let r = await scenesClient.from("weapon_items").select(ITEM_COLS).eq("owner_user_id", uid).eq("stored", false).eq("legacy_hold", false).order("created_at", { ascending: false });
+  if (r.error) r = await scenesClient.from("weapon_items").select(ITEM_COLS).eq("owner_user_id", uid).eq("stored", false).order("created_at", { ascending: false });
   if (r.error) {
     // colonne « stored » pas encore créée (SQL 092 non lancé) : on lit tout comme avant
     r = await scenesClient.from("weapon_items").select(ITEM_COLS).eq("owner_user_id", uid).order("created_at", { ascending: false });
