@@ -13,8 +13,8 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
         {/* Titre */}
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="text-xl font-extrabold leading-tight">🌱 À propos d'ObliqWorld</div>
-            <div className="mt-0.5 text-xs font-bold opacity-70">🧪 encore en alpha, ça évolue petit à petit</div>
+            <div className="text-xl font-extrabold leading-tight">À propos d'ObliqWorld</div>
+            <div className="mt-0.5 text-xs font-bold opacity-70">encore en alpha, ça évolue petit à petit</div>
           </div>
           <button type="button" onClick={onClose} className="shrink-0 rounded border border-[#7a4a22] px-2 text-sm font-bold hover:bg-[#7a4a22]/10">Fermer</button>
         </div>
