@@ -1,4 +1,4 @@
-// Suivi discret de la quête du jour (en haut à gauche) : avancement, puis « récompense prête ! » qui attire l'œil.
+// Suivi discret de la quête du jour (à droite, sous les icônes) : avancement, puis « récompense prête ! » qui attire l'œil.
 // Se met à jour sans polling : au changement de lieu, au retour sur l'onglet, et quand le tableau des quêtes change quelque chose.
 import { useEffect, useState } from "react";
 import { abandonQuest, fetchQuests, type MyQuest, type Quest } from "../lib/quests";
@@ -22,7 +22,7 @@ export function QuestTracker({ sceneId, refreshKey }: { sceneId: string; refresh
   const doneToday = !!data.mine?.claimed && (data.mine.claimed_day ?? "") >= todayParis;
   if (doneToday) return null;
   const q = mine ? data.quests.find((x) => x.quest_key === mine.quest_key) : null;
-  const wrap = "pointer-events-none absolute left-5 top-14 z-30 max-w-[15rem] px-2.5 py-1.5 text-xs";
+  const wrap = "pointer-events-none absolute right-5 top-44 z-30 max-w-[15rem] px-2.5 py-1.5 text-right text-xs";
   if (!mine || !q) {
     if (data.quests.length === 0) return null;
     return <div className={`${wrap} text-[#fff3d6]`} style={FONT}>📜 Un boulot du jour t'attend</div>;

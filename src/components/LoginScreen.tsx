@@ -58,7 +58,6 @@ export function LoginScreen({
           ) : (
             <>
               <p className="font-extrabold">Un petit monde à créer ensemble.</p>
-              <p className="text-sm">Pour entrer, <b>connecte-toi avec Twitch ou Discord</b>.</p>
             </>
           )}
         </div>

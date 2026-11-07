@@ -130,6 +130,10 @@ export function CharacterSelect({
           </p>
         )}
 
+        <p className="mb-3 rounded-lg border-2 border-[#7a4a22]/60 bg-[#7a4a22]/15 px-3 py-2 text-center text-sm font-bold">
+          ⚔️ Ton personnage doit avoir une main (ou un membre) capable de tenir une arme : place bien le repère de main sur le dessin.
+        </p>
+
         {/* Étape 2 : le dessin (obligatoire) */}
         {DEV_ALLOW_EXISTING_CHARACTERS && (
           <div className="mb-3 flex justify-center gap-2">
@@ -240,6 +244,9 @@ export function CharacterSelect({
             {refMsg && <p className="mt-1 text-xs font-bold text-[#92400e]">{refMsg}</p>}
           </div>
           {formMessage && <p className="mt-2 text-center text-sm font-bold text-[#92400e]">{formMessage}</p>}
+          <p className="mt-3 text-center text-[11px] font-semibold text-red-700/90">
+            Nom et dessin doivent respecter les règles de modération de Twitch : rien d'offensant ni de choquant.
+          </p>
         </div>
       </div>
     </div>
