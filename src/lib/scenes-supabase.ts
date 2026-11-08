@@ -1154,16 +1154,19 @@ export async function saveChatMessage(characterId: string, channel: "say" | "gro
   if (error) throw error;
 }
 
-export async function fetchChatHistory(sceneId: string, partyId: string | null, size = 50, since: string | null = null): Promise<ChatMessage[]> {
+export async function fetchChatHistory(sceneId: string, partyId: string | null, size = 50, since: string | null = null, dayStart: string | null = null): Promise<ChatMessage[]> {
   const out: ChatMessage[] = [];
+  // Borne basse : le début de l'expédition ET le début de la journée (le plus récent des deux) — le tchat repart de zéro chaque jour.
+  const lowerMs = Math.max(since ? new Date(since).getTime() : 0, dayStart ? new Date(dayStart).getTime() : 0);
+  const lower = lowerMs > 0 ? new Date(lowerMs).toISOString() : "1970-01-01";
   const toMsg = (r: any, channel: "say" | "group"): ChatMessage => ({ characterId: r.character_id, name: r.name, text: r.text, ts: new Date(r.created_at).getTime(), channel, ...(r.color ? { color: r.color as string } : {}) });
   // En expédition (since défini) : pas de « dire » du lieu, partagé par toutes les expéditions ; seulement le groupe.
   if (!since) {
-    const say = await scenesClient.from("chat_messages").select("character_id, name, text, created_at, color").eq("channel", "say").eq("scene_id", sceneId).gte("created_at", since ?? "1970-01-01").order("created_at", { ascending: false }).limit(size);
+    const say = await scenesClient.from("chat_messages").select("character_id, name, text, created_at, color").eq("channel", "say").eq("scene_id", sceneId).gte("created_at", lower).order("created_at", { ascending: false }).limit(size);
     for (const r of (say.data ?? []) as any[]) out.push(toMsg(r, "say"));
   }
   if (partyId) {
-    const g = await scenesClient.from("chat_messages").select("character_id, name, text, created_at, color").eq("channel", "group").eq("party_id", partyId).gte("created_at", since ?? "1970-01-01").order("created_at", { ascending: false }).limit(size);
+    const g = await scenesClient.from("chat_messages").select("character_id, name, text, created_at, color").eq("channel", "group").eq("party_id", partyId).gte("created_at", lower).order("created_at", { ascending: false }).limit(size);
     for (const r of (g.data ?? []) as any[]) out.push(toMsg(r, "group"));
   }
   return out.sort((a, b) => a.ts - b.ts).slice(-size);

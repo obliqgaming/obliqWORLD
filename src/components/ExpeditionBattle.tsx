@@ -499,6 +499,31 @@ export function ExpeditionBattle({
   }, [active, myDead, replaying, tiles, me?.pmCurrent, targetEnemy, targetAlly, turn]);
 
   const enemySlots = (snap?.enemies ?? []).slice(0, ENEMY_SLOTS.length);
+  // ---- Arrivée des monstres, un par un depuis la droite (sauf si on rouvre un combat déjà entamé : ils sont alors tout de suite en place) ----
+  const [enemyIn, setEnemyIn] = useState<string[]>([]);
+  const [enemyLanded, setEnemyLanded] = useState<string[]>([]);
+  const introRef = useRef<{ decided: boolean; skip: boolean; scheduled: Set<string> }>({ decided: false, skip: false, scheduled: new Set() });
+  const enemyIdsKey = enemySlots.map((e) => e.id).join(",");
+  useEffect(() => {
+    if (!snap || !enemyIdsKey) return;
+    const r = introRef.current;
+    if (!r.decided) {
+      r.decided = true;
+      r.skip = snap.combat.turn > 1 || snap.combat.status !== "active";
+    }
+    const fresh = enemyIdsKey.split(",").filter((id) => !r.scheduled.has(id));
+    if (fresh.length === 0) return;
+    fresh.forEach((id) => r.scheduled.add(id));
+    if (r.skip) {
+      setEnemyIn((c) => [...c, ...fresh]);
+      setEnemyLanded((c) => [...c, ...fresh]);
+      return;
+    }
+    fresh.forEach((id, k) => {
+      window.setTimeout(() => setEnemyIn((c) => (c.includes(id) ? c : [...c, id])), 500 + k * 1100);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enemyIdsKey, !!snap]);
   // Dessins choisis par le serveur : on charge ceux qu'on n'a pas encore.
   const missingAssetKey = enemySlots
     .map((e) => e.visual_asset_id)
@@ -675,9 +700,10 @@ export function ExpeditionBattle({
           <div
             key={en.id}
             className="absolute"
-            style={{ left: `${slot.x}%`, top: `${slot.y}%`, height: en.role === "boss" ? "34%" : "26%", transform: "translate(-50%, -100%)", zIndex: Math.round(slot.y), cursor: dead || !active || replaying ? undefined : CURSOR_INTERACT }}
+            style={{ left: enemyIn.includes(en.id) ? `${slot.x}%` : "116%", top: `${slot.y}%`, height: en.role === "boss" ? "34%" : "26%", transform: "translate(-50%, -100%)", zIndex: Math.round(slot.y), cursor: dead || !active || replaying ? undefined : CURSOR_INTERACT, transition: enemyIn.includes(en.id) && !enemyLanded.includes(en.id) ? "left 1200ms ease-out" : undefined }}
+            onTransitionEnd={(e) => { if (e.propertyName === "left") setEnemyLanded((c) => (c.includes(en.id) ? c : [...c, en.id])); }}
             onClick={() => {
-              if (dead || !active || replaying) return;
+              if (dead || !active || replaying || !enemyLanded.includes(en.id)) return;
               setTargetEnemy(en.id);
               const gp = selectedPower ? powers.find((p) => p.power_key === selectedPower) : null;
               if (iAmReady && !(gp && needsNoEnemy(gp))) {
@@ -685,7 +711,7 @@ export function ExpeditionBattle({
               }
             }}
           >
-            <div className="absolute -top-16 left-1/2 w-44 -translate-x-1/2 text-center text-[11px] font-bold text-[#fff3d6]" style={{ textShadow: "0 1px 3px #000" }}>
+            <div className="absolute -top-16 left-1/2 w-44 -translate-x-1/2 text-center text-[11px] font-bold text-[#fff3d6]" style={{ textShadow: "0 1px 3px #000", opacity: enemyLanded.includes(en.id) ? 1 : 0, transition: "opacity 300ms" }}>
               {selected && !dead && active ? <div className="-mb-0.5 text-sm leading-none text-[#fbbf24]" style={{ textShadow: "0 1px 3px #000" }}>▼ cible</div> : null}
               <div className="whitespace-nowrap leading-tight">
                 {ROLE_LABEL[en.role] ? <span className="mr-1 text-[9px] uppercase tracking-widest text-[#fbbf24]">{ROLE_LABEL[en.role]} ·</span> : null}
@@ -701,7 +727,7 @@ export function ExpeditionBattle({
               </div>
             )}
             <div className={fx === "act" ? "obw-act-l h-full" : fx === "hit" ? "obw-hit h-full" : fx === "heal" ? "obw-heal h-full" : "h-full"}>
-              <div className="h-full" style={{ filter: dead ? "grayscale(1) brightness(0.5)" : undefined, outline: selected && !dead ? "2px dashed #fbbf24" : undefined, outlineOffset: 2 }}>
+              <div className="h-full" style={{ filter: dead ? "grayscale(1) brightness(0.5)" : undefined, outline: selected && !dead ? "2px dashed #fbbf24" : undefined, outlineOffset: 2, transformOrigin: "50% 100%", animation: enemyIn.includes(en.id) && !enemyLanded.includes(en.id) ? "auberge-walk 300ms linear infinite" : undefined }}>
                 {img ? <div className="h-full" style={{ transform: shouldMirror(flips, img, false) ? "scaleX(-1)" : "none" }}><WornSprite fit="height" src={img} alt={en.name} weapon={mWeapon} className="block h-full w-auto object-contain" /></div> : <PlaceholderEnemy />}
               </div>
             </div>

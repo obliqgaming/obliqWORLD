@@ -202,10 +202,16 @@ const autoNameColor = (id: string) => {
 const CHAT_COLOR_KEY = "obliqworld-chat-color";
 // Le plus bas à l'écran est devant. Reste sous 20 : les écrans plein cadre (expédition) passent par-dessus les personnages du lieu.
 const depthZ = (y: number) => 14 + Math.max(0, Math.min(5, Math.floor(y / 17)));
-const CHAT_EXPIRE_MS = 2 * 60 * 60 * 1000; // sans nouveau message pendant 2 h, le tchat s'efface
+// Le tchat s'efface chaque jour à minuit (heure de Paris) : on ne garde que les messages d'aujourd'hui (en plus de la limite de nombre).
+const parisDayStartMs = (): number => {
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Paris", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).formatToParts(now);
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? 0);
+  return now.getTime() - (((get("hour") % 24) * 60 + get("minute")) * 60 + get("second")) * 1000 - now.getMilliseconds();
+};
 const expireChat = (log: ChatMessage[]): ChatMessage[] => {
-  const last = log[log.length - 1];
-  return last && Date.now() - last.ts > CHAT_EXPIRE_MS ? [] : log;
+  const start = parisDayStartMs();
+  return log.some((m) => m.ts < start) ? log.filter((m) => m.ts >= start) : log;
 };
 const GROUP_CHAT_COLOR = "#7dd3fc"; // canal /g (groupe) ; le canal /d (dire) garde la couleur habituelle
 const mergeChat = (a: ChatMessage[], b: ChatMessage[]): ChatMessage[] => {
@@ -455,7 +461,12 @@ function Index() {
 
   // ---- Ratio réel de l'image de scène (fix du bug "objet-cover recadre l'image,
   // mais les % de position/zone marchable sont calculés sur l'image d'origine") ----
-  const [imgNatural, setImgNatural] = useState<{ w: number; h: number } | null>(null);
+  // Dimensions mémorisées AVEC l'adresse de l'image : une dimension qui ne correspond pas à l'image affichée est ignorée.
+  // (Avant, on remettait à zéro après chaque changement de lieu ; si l'image était déjà en cache, elle se chargeait AVANT la remise à zéro,
+  // les dimensions restaient vides et le cadre prenait tout l'écran : ratio cassé, icônes de travers.)
+  const [imgDims, setImgDims] = useState<{ url: string; w: number; h: number } | null>(null);
+  const imgNatural = imgDims && imgDims.url === scene.image_url ? { w: imgDims.w, h: imgDims.h } : null;
+  const sceneImgRef = useRef<HTMLImageElement | null>(null);
   const [viewport, setViewport] = useState(() => ({
     w: typeof window !== "undefined" ? window.innerWidth : 1280,
     h: typeof window !== "undefined" ? window.innerHeight : 720,
@@ -463,17 +474,20 @@ function Index() {
   useEffect(() => {
     const onResize = () => setViewport({ w: window.innerWidth, h: window.innerHeight });
     window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
+    window.visualViewport?.addEventListener("resize", onResize);
+    return () => { window.removeEventListener("resize", onResize); window.visualViewport?.removeEventListener("resize", onResize); };
   }, []);
   useEffect(() => {
-    setImgNatural(null); // on réinitialise le temps que la nouvelle image de scène se charge
-  }, [scene.image_url]);
-  const sceneBoxSize = imgNatural
-    ? (() => {
-        const scale = Math.min(viewport.w / imgNatural.w, viewport.h / imgNatural.h);
-        return { width: Math.round(imgNatural.w * scale), height: Math.round(imgNatural.h * scale) };
-      })()
-    : { width: viewport.w, height: viewport.h };
+    // Image déjà chargée (cache) avant que l'écouteur n'existe : on lit ses dimensions directement.
+    const el = sceneImgRef.current;
+    if (el && el.complete && el.naturalWidth > 0) setImgDims({ url: scene.image_url, w: el.naturalWidth, h: el.naturalHeight });
+  }, [scene.image_url, character?.id]);
+  // Le cadre du jeu garde TOUJOURS le ratio de l'image (barres noires si la fenêtre n'a pas le même ratio). Avant le chargement : 16/9.
+  const sceneBoxSize = (() => {
+    const nat = imgNatural ?? { w: 16, h: 9 };
+    const scale = Math.min(viewport.w / nat.w, viewport.h / nat.h);
+    return { width: Math.round(nat.w * scale), height: Math.round(nat.h * scale) };
+  })();
 
   // ---- Marche des autres joueurs, calculée localement (fix téléportation) ----
   const prevPeerPosRef = useRef<Record<string, Point>>({});
@@ -1371,7 +1385,7 @@ function Index() {
     // En expédition : seulement ce qui s'est dit depuis le début de CETTE expédition.
     const inExp = isExpeditionSceneName(scene.name);
     if (inExp && !activeExpedition) return;
-    void fetchChatHistory(sid, party?.id ?? null, CHAT_LOG_SIZE, inExp ? (activeExpedition?.started_at ?? activeExpedition?.created_at ?? null) : null)
+    void fetchChatHistory(sid, party?.id ?? null, CHAT_LOG_SIZE, inExp ? (activeExpedition?.started_at ?? activeExpedition?.created_at ?? null) : null, new Date(parisDayStartMs()).toISOString())
       .then((h) => { if (!cancelled && chatSceneRef.current === sid) setChatLog((cur) => expireChat(mergeChat(h, cur))); })
       .catch(() => {});
     return () => { cancelled = true; };
@@ -2493,13 +2507,17 @@ function Index() {
     // (trop lente) alors que le minuteur, lui, tombe plus tôt : le perso ne prend pas de vitesse, puis se téléporte.
     const el = charSpriteRef.current;
     if (walking && el) {
-      const prev = { l: el.style.left, t: el.style.top, tr: el.style.transition };
+      // On fige AUSSI la taille (transform) : couper la transition la faisait sauter d'un coup à la taille de l'ancienne destination.
+      const prev = { l: el.style.left, t: el.style.top, tr: el.style.transition, tf: el.style.transform };
+      const curTransform = window.getComputedStyle(el).transform;
       el.style.transition = "none";
       el.style.left = `${origin.x}%`;
       el.style.top = `${origin.y}%`;
+      if (curTransform && curTransform !== "none") el.style.transform = curTransform;
       void el.offsetWidth;
       el.style.left = prev.l;
       el.style.top = prev.t;
+      el.style.transform = prev.tf;
       el.style.transition = prev.tr;
     }
     stepWalk(rect, onArrive);
@@ -2810,7 +2828,8 @@ function Index() {
         <img
           src={scene.image_url}
           alt={scene.name}
-          onLoad={(e) => setImgNatural({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
+          ref={sceneImgRef}
+          onLoad={(e) => setImgDims({ url: scene.image_url, w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
           className="absolute inset-0 h-full w-full object-cover"
           draggable={false}
         />
@@ -3049,6 +3068,7 @@ function Index() {
             sceneImageUrl={scene.image_url}
             mirrorBg={bgMirrored}
             walkOutIds={leavingIds}
+            arrivalKey={activeExpedition ? `${activeExpedition.id}:${(outcomeInfo ? stepIndex - 1 : stepIndex) + 1}` : undefined}
             eventNumber={(outcomeInfo ? stepIndex - 1 : stepIndex) + 1}
             progress={activeExpedition ? ((outcomeInfo ? stepIndex - 1 : stepIndex) + 1) / Math.max(1, expeditionLength(activeExpedition.route, activeExpedition.id)) : undefined}
             phase="event"

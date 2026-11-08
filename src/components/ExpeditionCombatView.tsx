@@ -121,6 +121,9 @@ export function PlaceholderEnemy() {
   );
 }
 
+// Dernière étape dont l'arrivée a déjà été jouée (évite de refaire marcher le groupe quand la vue réapparaît après un combat).
+let lastArrivalKey = "";
+
 export function ExpeditionCombatView({
   sceneImageUrl,
   eventNumber,
@@ -138,6 +141,7 @@ export function ExpeditionCombatView({
   hideEvent = false,
   mirrorBg = false,
   walkOutIds = [],
+  arrivalKey,
 }: {
   sceneImageUrl: string;
   /** Position dans l'expédition (1, 2, 3…). */
@@ -163,8 +167,24 @@ export function ExpeditionCombatView({
   mirrorBg?: boolean;
   /** Personnages qui traversent l'écran vers la droite (après le « OK » du résultat). */
   walkOutIds?: string[];
+  /** Identifie l'étape (expédition + numéro) : quand elle change, le groupe arrive depuis la gauche en marchant, l'un après l'autre. */
+  arrivalKey?: string | undefined;
 }) {
   const flips = useImageFlips();
+  // ---- Arrivée d'étape : « pre » = hors écran à gauche, « go » = en marche vers sa place, « in » = en place ----
+  const [stage, setStage] = useState<"pre" | "go" | "in">(() => (arrivalKey && arrivalKey !== lastArrivalKey ? "pre" : "in"));
+  const [landed, setLanded] = useState<string[]>([]);
+  useEffect(() => {
+    if (!arrivalKey) return;
+    if (arrivalKey === lastArrivalKey) { setStage("in"); return; }
+    setStage("pre");
+    setLanded([]);
+    let r2 = 0;
+    const r1 = window.requestAnimationFrame(() => {
+      r2 = window.requestAnimationFrame(() => { lastArrivalKey = arrivalKey; setStage("go"); });
+    });
+    return () => { window.cancelAnimationFrame(r1); if (r2) window.cancelAnimationFrame(r2); };
+  }, [arrivalKey]);
   // Compte à rebours purement local (aucun appel serveur).
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -201,11 +221,18 @@ export function ExpeditionCombatView({
         const slot = ALLY_SLOTS[i]!;
         const dead = a.hpCurrent <= 0;
         const leaving = walkOutIds.includes(a.characterId);
+        const arriving = !leaving && stage !== "in" && !landed.includes(a.characterId);
+        const walkingNow = leaving || arriving;
         return (
           <div
             key={a.characterId}
             className="absolute"
-            style={{ left: leaving ? "118%" : `${slot.x}%`, top: `${slot.y}%`, height: "26%", transform: "translate(-50%, -100%)", zIndex: Math.round(slot.y), transition: leaving ? "left 1600ms linear" : undefined }}
+            style={{
+              left: leaving ? "118%" : stage === "pre" ? "-14%" : `${slot.x}%`,
+              top: `${slot.y}%`, height: "26%", transform: "translate(-50%, -100%)", zIndex: Math.round(slot.y),
+              transition: leaving ? "left 1600ms linear" : stage === "go" && arriving ? `left 1500ms linear ${i * 700}ms` : undefined,
+            }}
+            onTransitionEnd={(e) => { if (e.propertyName === "left" && !leaving && stage === "go") setLanded((l) => (l.includes(a.characterId) ? l : [...l, a.characterId])); }}
           >
             <style>{`@keyframes obw-walk{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(6deg)}}`}</style>
             <div style={{ transform: shouldMirror(flips, a.imageUrl, true) ? "scaleX(-1)" : "none", height: "100%" }}>
@@ -214,11 +241,11 @@ export function ExpeditionCombatView({
                 alt={a.name}
                 draggable={false}
                 className="h-full w-auto object-contain drop-shadow-[0_4px_6px_rgba(0,0,0,0.5)]"
-                style={{ filter: dead ? "grayscale(1) brightness(0.5)" : undefined, transformOrigin: "50% 100%", animation: leaving ? "obw-walk 250ms linear infinite" : undefined }}
+                style={{ filter: dead ? "grayscale(1) brightness(0.5)" : undefined, transformOrigin: "50% 100%", animation: walkingNow ? "auberge-hop 520ms ease-in-out infinite" : undefined }}
               />
             </div>
             {a.companion && !dead && (
-              <img src={a.companion.image_url} alt="" draggable={false} className="pointer-events-none absolute bottom-0 -right-[38%] block h-1/2 w-auto object-contain drop-shadow-[0_3px_4px_rgba(0,0,0,0.5)]" style={{ transform: shouldMirror(flips, a.companion.image_url, true) ? "scaleX(-1)" : "none", transformOrigin: "50% 100%", animation: leaving ? "obw-walk 250ms linear infinite" : undefined }} />
+              <img src={a.companion.image_url} alt="" draggable={false} className="pointer-events-none absolute bottom-0 -right-[38%] block h-1/2 w-auto object-contain drop-shadow-[0_3px_4px_rgba(0,0,0,0.5)]" style={{ transform: shouldMirror(flips, a.companion.image_url, true) ? "scaleX(-1)" : "none", transformOrigin: "50% 100%", animation: walkingNow ? "obw-walk 250ms linear infinite" : undefined }} />
             )}
             <div
               className="absolute left-1/2 top-full mt-0.5 -translate-x-1/2 whitespace-nowrap text-[11px] font-bold text-[#fff3d6]"
