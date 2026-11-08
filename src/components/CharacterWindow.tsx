@@ -13,7 +13,7 @@ import { inspectCharacter, type Inspected } from "../lib/inspect";
 import { TIER_INFO } from "../lib/companions";
 import { CONSUMABLE_INFO, fetchMyConsumables, type ConsumableStack } from "../lib/consumables";
 import { fetchMyGold } from "../lib/loot";
-import { fetchMyBuild } from "../lib/expedition-combat";
+import { fetchGameAxes, fetchGameSettings, fetchMyBuild } from "../lib/expedition-combat";
 import { scenesClient, type Point } from "../lib/scenes-supabase";
 import {
   DEFAULT_HAND, EFFECT_INFO, bonusText, adjustItem, deleteMyItem, equipItem, fetchEquippedItemId,
@@ -52,12 +52,20 @@ export function CharacterWindow({
   useEffect(() => {
     let alive = true;
     setVitals(null);
-    void scenesClient.from("character_build").select("*").eq("character_id", characterId).maybeSingle().then(({ data }) => {
+    // Peps / jus max réels d'une expédition : table game_axes (selon l'axe, ou « apprenti » avant le niveau 3) × pv_scale / pm_scale,
+    // exactement comme expedition_init_stats. (character_build ne stocke pas de jus.)
+    void (async () => {
+      const { data } = await scenesClient.from("character_build").select("family, axis_key").eq("character_id", characterId).maybeSingle();
       if (!alive || !data) return;
-      const r = data as Record<string, unknown>;
-      const n = (k: string) => (typeof r[k] === "number" ? (r[k] as number) : null);
-      setVitals({ pvMax: n("pv_max"), pmMax: n("pm_max") });
-    });
+      const r = data as { family: string | null; axis_key: string | null };
+      const key = r.axis_key ?? (r.family === "magie" ? "apprenti_magie" : "apprenti_melee");
+      const [axes, st] = await Promise.all([fetchGameAxes(), fetchGameSettings().catch(() => ({} as Record<string, number>))]);
+      const ax = axes.find((a) => a.axis_key === key);
+      if (!alive || !ax) return;
+      const pvS = Number(st["pv_scale"] ?? 1);
+      const pmS = Number(st["pm_scale"] ?? 1);
+      setVitals({ pvMax: Math.max(1, Math.round(ax.pv * pvS)), pmMax: Math.round(ax.pm * pmS) });
+    })().catch(() => {});
     return () => { alive = false; };
   }, [characterId]);
   useEffect(() => {

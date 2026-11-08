@@ -2,7 +2,8 @@
 import { PanelIcon } from "./GameIcons";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { uiSound } from "../lib/ui-sounds";
-import { fetchGamePowers, fetchGameSettings, type GamePower } from "../lib/expedition-combat";
+import { fetchGameAxes, fetchGamePowers, fetchGameSettings, powersForBuild, type GameAxis, type GamePower } from "../lib/expedition-combat";
+import { powerType } from "./ExpeditionBattle";
 import {
   AXIS_LABEL, RENAME_SUGGESTIONS, TALENT_LEVELS, CROSS_MIN_LEVEL, TREE_ORDER, fetchMyTalentKeys, fetchTalentBuild, fetchTalents, ownedWithFree, pointsTotal, resetTalents,
   setClassName, takeTalent, talentStatus, type GameTalent, type TalentBuild,
@@ -60,6 +61,7 @@ export function TalentPanel({ characterId, onClose }: { characterId: string; onC
   const [talents, setTalents] = useState<GameTalent[]>([]);
   const [keys, setKeys] = useState<string[]>([]);
   const [powers, setPowers] = useState<GamePower[]>([]);
+  const [axes, setAxes] = useState<GameAxis[]>([]);
   const [resetCost, setResetCost] = useState(20);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -75,6 +77,7 @@ export function TalentPanel({ characterId, onClose }: { characterId: string; onC
       setTalents(t);
       setKeys(k);
       setPowers(p);
+      void fetchGameAxes().then(setAxes).catch(() => {});
       setResetCost(Number(st["talent_reset_cost"] ?? 20));
     } catch (e: any) {
       setErr(e?.message ?? "Impossible de charger les talents (SQL 055 lancé ?).");
@@ -233,6 +236,29 @@ export function TalentPanel({ characterId, onClose }: { characterId: string; onC
                   <div className="text-2xl font-extrabold leading-none">{nextPointLevel ? `Niv. ${nextPointLevel}` : "—"}</div>
                 </div>
               </div>
+              {(() => {
+                const mine = powersForBuild(build as any, powers, talents, keys);
+                const base = axes.find((a) => a.axis_key === own)?.base_attack_name ?? "Attaque";
+                const magic = build.family === "magie";
+                const tiles: { key: string; name: string; type: ReturnType<typeof powerType>; cost: number; cd: number | null; desc: string }[] = [
+                  { key: "_base", name: base, type: powerType(null, magic), cost: 0, cd: null, desc: "Attaque de base (gratuite)" },
+                  ...mine.map((p) => ({ key: p.power_key, name: p.name, type: powerType(p, magic), cost: p.cost_pm, cd: p.recharge, desc: p.description })),
+                ];
+                return (
+                  <div className="mt-2 rounded-lg bg-white/40 p-1.5">
+                    <div className="mb-1 text-center text-[10px] font-bold uppercase opacity-70">Mes sorts ({tiles.length})</div>
+                    <div className="flex flex-wrap justify-center gap-1.5">
+                      {tiles.map((t) => (
+                        <div key={t.key} title={t.desc} className="flex w-[5.2rem] flex-col items-center rounded-md border border-[#7a4a22]/50 bg-[#fdf3d8] px-1 py-1 text-center leading-tight">
+                          <img src={`/icons/powers/${t.type}.webp`} alt="" width={28} height={28} className="h-7 w-7 object-contain" draggable={false} />
+                          <div className="mt-0.5 text-[11px] font-extrabold">{t.name}</div>
+                          <div className="text-[10px] font-bold text-[#1d4ed8]">{t.cost ? `${t.cost} jus` : "0 jus"}{t.cd ? ` · ${t.cd} t.` : ""}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
               <div className="mt-2 flex gap-1 sm:hidden">
                 {order.map((a, i) => (
                   <button key={a} type="button" onClick={() => setTab(i)} className="flex-1 rounded border-2 border-[#7a4a22] py-0.5 text-xs font-bold" style={{ background: tab === i ? "#7a4a22" : "transparent", color: tab === i ? "#fff3d6" : "#5e3818" }}>
