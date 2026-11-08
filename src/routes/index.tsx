@@ -98,7 +98,8 @@ import { useQuestAvailable } from "../lib/quests";
 import { GroupAdBanner } from "../components/GroupAdBanner";
 import { fetchAdReminders, meetLabel, touchSeen, touchSeenPeers } from "../lib/group-ads";
 import { WelcomeModal } from "../components/WelcomeModal";
-import { ADMIN_USER_ID, REQUIRE_PROVIDER_LOGIN } from "../lib/alpha-config";
+import { ADMIN_USER_ID, ENABLE_GAME_FRAME, GAME_FRAME_SIZE, REQUIRE_PROVIDER_LOGIN } from "../lib/alpha-config";
+import { GameFrame } from "../components/GameFrame";
 import { ExpeditionPortalMarker } from "../components/ExpeditionPortal";
 import { ExpeditionCombatView, type CombatAlly, type ExpeditionEvent } from "../components/ExpeditionCombatView";
 import { ExpeditionBattle } from "../components/ExpeditionBattle";
@@ -483,9 +484,11 @@ function Index() {
     if (el && el.complete && el.naturalWidth > 0) setImgDims({ url: scene.image_url, w: el.naturalWidth, h: el.naturalHeight });
   }, [scene.image_url, character?.id]);
   // Le cadre du jeu garde TOUJOURS le ratio de l'image (barres noires si la fenêtre n'a pas le même ratio). Avant le chargement : 16/9.
+  // Cadre en bois autour du décor (essai réversible : ENABLE_GAME_FRAME dans alpha-config). Désactivé, frameT vaut 0 et rien ne change.
+  const frameT = ENABLE_GAME_FRAME ? Math.round(Math.min(viewport.w, (viewport.h * 16) / 9) * GAME_FRAME_SIZE) : 0;
   const sceneBoxSize = (() => {
     const nat = imgNatural ?? { w: 16, h: 9 };
-    const scale = Math.min(viewport.w / nat.w, viewport.h / nat.h);
+    const scale = Math.min((viewport.w - 2 * frameT) / nat.w, (viewport.h - 2 * frameT) / nat.h);
     return { width: Math.round(nat.w * scale), height: Math.round(nat.h * scale) };
   })();
 
@@ -2800,7 +2803,7 @@ function Index() {
   }
 
   return (
-    <div className="relative flex h-screen w-screen items-center justify-center overflow-hidden bg-black">
+    <div className="relative flex h-screen w-screen items-center justify-center overflow-hidden bg-black" style={ENABLE_GAME_FRAME ? { background: "radial-gradient(ellipse at center, #2a1a0e 0%, #120a05 100%)" } : undefined}>
       <LoadingScreen visible={!booted && !veilTimeout} />
       <div
         className="pointer-events-none absolute inset-0 z-[55] bg-black"
@@ -3206,7 +3209,6 @@ function Index() {
             Le groupe est au complet : l'expédition est lancée ! (le déroulé des étapes reste à construire)
           </div>
         )}
-
         <SoundControl
           muted={muted}
           onToggleMute={toggleMute}
@@ -3342,6 +3344,8 @@ function Index() {
         )}
       </div>
 
+      {ENABLE_GAME_FRAME && <GameFrame width={sceneBoxSize.width} height={sceneBoxSize.height} thickness={frameT} />}
+
       {/* ---------- Chat calé en bas à gauche, flottant directement sur le décor ----------
           Plus de cadre parchemin : texte clair + ombre portée pour rester
           lisible sur n'importe quel fond, sombre ou clair. Conteneur
@@ -3351,7 +3355,7 @@ function Index() {
           Devient ~90% transparent après 15s sans nouveau message, et repasse
           net dès qu'on le survole (le survol relance aussi les 15s au moment
           où la souris ressort). */}
-      <div className={`pointer-events-none absolute bottom-3 left-3 ${trade || boardOpen ? "z-[60]" : "z-40"}`} style={{ width: Math.max(150, Math.min(560, viewport.w / 2 - ((inExpeditionScene ? 1 : 4) * (inExpeditionScene ? 30 : Math.round(Math.min(60, Math.max(34, sceneBoxSize.width * 0.05)))) + 32) / 2 - 24)) }}>
+      <div className={`pointer-events-none absolute bottom-3 left-3 ${trade || boardOpen ? "z-[60]" : "z-40"}`} style={{ ...(ENABLE_GAME_FRAME ? { left: Math.max(0, (viewport.w - sceneBoxSize.width) / 2) + 12, bottom: Math.max(0, (viewport.h - sceneBoxSize.height) / 2) + 12 } : {}), width: Math.max(150, Math.min(560, viewport.w / 2 - ((inExpeditionScene ? 1 : 4) * (inExpeditionScene ? 30 : Math.round(Math.min(60, Math.max(34, sceneBoxSize.width * 0.05)))) + 32) / 2 - 24)) }}>
         <div
           className="flex flex-col justify-end gap-1 px-2 py-1 transition-opacity duration-300"
           style={{
