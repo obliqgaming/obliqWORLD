@@ -201,7 +201,7 @@ const autoNameColor = (id: string) => {
 };
 const CHAT_COLOR_KEY = "obliqworld-chat-color";
 // Le plus bas à l'écran est devant. Reste sous 20 : les écrans plein cadre (expédition) passent par-dessus les personnages du lieu.
-const depthZ = (y: number) => 14 + Math.max(0, Math.min(5, Math.floor(y / 17)));
+const depthZ = (y: number) => 11 + Math.max(0, Math.min(8, Math.floor(y / (100 / 9)))); // 9 niveaux (11 à 19) : plus fin qu'avant (6), donc moins d'égalités entre deux personnages proches
 // Le tchat s'efface chaque jour à minuit (heure de Paris) : on ne garde que les messages d'aujourd'hui (en plus de la limite de nombre).
 const parisDayStartMs = (): number => {
   const now = new Date();
@@ -2916,7 +2916,7 @@ function Index() {
               style={{
                 left: `${peer.position.x}%`,
                 top: `${peer.position.y}%`,
-                zIndex: bubbles[peer.characterId] ? 35 : depthZ(peer.position.y),
+                zIndex: bubbles[peer.characterId] ? 35 : depthZ(peer.position.y) - (depthZ(peer.position.y) === depthZ(pos.y) && peer.position.y < pos.y ? 1 : 0), // même niveau : celui qui est le plus bas à l'écran passe devant (moi si je suis plus bas)
                 width: sceneBoxSize.width * CHARACTER_WIDTH_RATIO,
                 transformOrigin: "50% 100%",
                 transform: `translate(-50%, -100%) scale(${computeDepthScale(peer.position.y, scene.depth_scale)})`,

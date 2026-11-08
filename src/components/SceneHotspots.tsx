@@ -30,7 +30,7 @@ export function HotspotMarker({ hotspot, onClick, bubble, alert }: { hotspot: Sc
         }}
         title={hotspot.label ?? info.label}
         className="pointer-events-auto absolute -translate-x-1/2 -translate-y-full"
-        style={{ left: `${hotspot.position.x}%`, top: `${hotspot.position.y}%`, width: `${st.width_pct}%`, cursor: CURSOR_INTERACT, zIndex: bubble ? 36 : 13 + Math.max(0, Math.min(5, Math.floor(hotspot.position.y / 17))) }}
+        style={{ left: `${hotspot.position.x}%`, top: `${hotspot.position.y}%`, width: `${st.width_pct}%`, cursor: CURSOR_INTERACT, zIndex: bubble ? 36 : 11 + Math.max(0, Math.min(8, Math.floor(hotspot.position.y / (100 / 9)))) }}
       >
         {(st.npc_name || bubble || alert) && (
           <span className="pointer-events-none absolute bottom-full left-1/2 flex -translate-x-1/2 flex-col items-center" style={{ fontFamily: "'Baloo 2', cursive" }}>
