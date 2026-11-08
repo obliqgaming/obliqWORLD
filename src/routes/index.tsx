@@ -98,7 +98,7 @@ import { useQuestAvailable } from "../lib/quests";
 import { GroupAdBanner } from "../components/GroupAdBanner";
 import { fetchAdReminders, meetLabel, touchSeen, touchSeenPeers } from "../lib/group-ads";
 import { WelcomeModal } from "../components/WelcomeModal";
-import { ADMIN_USER_ID, ENABLE_GAME_FRAME, GAME_FRAME_SIZE, REQUIRE_PROVIDER_LOGIN } from "../lib/alpha-config";
+import { ADMIN_USER_ID, ENABLE_GAME_FRAME, ENABLE_UNIFIED_SHEET, GAME_FRAME_SIZE, REQUIRE_PROVIDER_LOGIN } from "../lib/alpha-config";
 import { GameFrame } from "../components/GameFrame";
 import { ExpeditionPortalMarker } from "../components/ExpeditionPortal";
 import { ExpeditionCombatView, type CombatAlly, type ExpeditionEvent } from "../components/ExpeditionCombatView";
@@ -130,6 +130,7 @@ import { fetchLevelUpInfo, playLevelUpJingle, randomLevelLine, rememberVitals, w
 import { useNpcSpeech } from "../lib/npc-lines";
 import { shouldMirror, useImageFlips } from "../lib/image-flips";
 import { InspectPanel } from "../components/InspectPanel";
+import { CharacterWindow } from "../components/CharacterWindow";
 import { WornSprite } from "../components/WornSprite";
 import { EMOTES, EMOTE_KEYS, EMOTE_COOLDOWN_MS, emoteFromCommand, emoteStyle, type EmoteKey } from "../lib/emotes";
 import { CURSOR_DEFAULT, CURSOR_INTERACT, arrowCursor, useArrowCursorReady } from "../lib/cursors";
@@ -2980,7 +2981,7 @@ function Index() {
             onClose={() => setPeerMenu(null)}
           />
         )}
-        {inspectId && <InspectPanel characterId={inspectId} onClose={() => setInspectId(null)} />}
+        {inspectId && (ENABLE_UNIFIED_SHEET ? <CharacterWindow characterId={inspectId} onClose={() => setInspectId(null)} /> : <InspectPanel characterId={inspectId} onClose={() => setInspectId(null)} />)}
         {trade && !inExpeditionScene && (() => {
           const t = trade.trade;
           const iAmA = trade.me === "a";
@@ -3242,7 +3243,7 @@ function Index() {
           const boxPx = inExpeditionScene ? 30 : Math.round(Math.min(60, Math.max(34, sceneBoxSize.width * 0.05)));   // suit la taille de la scène
           const box = `${boxPx}px`;
           const items: { key: string; title: string; src: string; onClick: () => void }[] = [
-            ...(!inExpeditionScene ? [{ key: "sheet", title: "Ma fiche de personnage", src: "/icons/sheet.png", onClick: () => setInspectId(character.id) }] : []),
+            ...(!inExpeditionScene && !ENABLE_UNIFIED_SHEET ? [{ key: "sheet", title: "Ma fiche de personnage", src: "/icons/sheet.png", onClick: () => setInspectId(character.id) }] : []),
             { key: "bag", title: "Inventaire", src: "/icons/bag.svg", onClick: () => setInventoryOpen(true) },
             ...(!inExpeditionScene ? [
               { key: "talents", title: "Talents", src: "/icons/target.png", onClick: () => setTalentsOpen(true) },
@@ -3320,7 +3321,14 @@ function Index() {
         {renameAxis && character && !axisChoice && !inExpeditionScene && (
           <ClassNameModal characterId={character.id} axisKey={renameAxis} onDone={() => setRenameAxis(null)} />
         )}
-        {inventoryOpen && character && !activeCombatId && (
+        {inventoryOpen && character && !activeCombatId && ENABLE_UNIFIED_SHEET && (
+          <CharacterWindow
+            characterId={character.id}
+            mine={{ character: { id: character.id, name: character.name, imageUrl: character.image_url, visualAssetId: character.visual_asset_id }, onWeaponChanged: handleMyWeaponChanged }}
+            onClose={() => setInventoryOpen(false)}
+          />
+        )}
+        {inventoryOpen && character && !activeCombatId && !ENABLE_UNIFIED_SHEET && (
           <InventoryPanel
             character={{ id: character.id, name: character.name, imageUrl: character.image_url, visualAssetId: character.visual_asset_id }}
             onClose={() => setInventoryOpen(false)}

@@ -11,6 +11,10 @@ export const ENABLE_GAME_FRAME = true;
 // Épaisseur du bois, en part de la largeur du décor (0.022 ≈ 40 px sur un écran 1920 ; 0.016 = plus fin).
 export const GAME_FRAME_SIZE = 0.022;
 
+// Fenêtre unique Personnage (fiche + sac). true = une seule fenêtre à onglets, seule l'icône de sac reste dans la barre ;
+// false = les deux anciennes fenêtres (fiche et inventaire), strictement comme avant. SEULE valeur à changer pour revenir en arrière.
+export const ENABLE_UNIFIED_SHEET = true;
+
 // Compte administrateur : jamais bloqué par l'écran de connexion, même s'il n'est pas encore lié à Twitch/Discord.
 export const ADMIN_USER_ID = "03fcd13f-b0a1-4092-ba83-0469c035b09c";
 
