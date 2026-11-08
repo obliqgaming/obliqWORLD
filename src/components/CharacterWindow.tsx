@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { uiSound } from "../lib/ui-sounds";
 import { ZoomImage } from "./ZoomImage";
 import { WeaponSheet, CompanionSheet } from "./ItemSheets";
-import { Coin, PanelIcon } from "./GameIcons";
+import { Bag, Coin } from "./GameIcons";
 import { WornSprite } from "./WornSprite";
 import { ItemDetails, RarityName, RarityPill } from "./InventoryPanel";
 import type { ForgeCharacter } from "./ForgePanel";
@@ -154,7 +154,7 @@ export function CharacterWindow({
       <div className="flex max-h-full w-[min(46rem,98%)] flex-col rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] text-[#3a2410] shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex shrink-0 items-center justify-between border-b border-[#7a4a22]/40 px-4 py-2">
           <div className="truncate text-xl font-extrabold">
-            <PanelIcon src="/icons/sheet.png" />{d?.name ?? character?.name ?? "Personnage"}
+            <Bag size="1.2em" /> {d?.name ?? character?.name ?? "Personnage"}
             {mine && <span className="ml-2 text-sm text-[#92400e]"><Coin /> {gold > 0 ? `${gold} flouz` : "pas de flouz"}</span>}
           </div>
           <button type="button" onClick={onClose} className="rounded border border-[#7a4a22] px-3 py-0.5 text-xs font-bold hover:bg-[#7a4a22]/15">Fermer</button>
@@ -163,12 +163,21 @@ export function CharacterWindow({
           {err && <div className="text-sm font-bold text-[#92400e]">{err}</div>}
           {!d && !err && <div className="text-sm">Chargement…</div>}
           {d && (
-            <div className="grid gap-4 sm:grid-cols-[13rem_minmax(0,1fr)]">
+            <div className="grid gap-4 sm:grid-cols-[16rem_minmax(0,1fr)]">
               {/* Colonne gauche : le perso, ses chiffres, (mon) réglage d'arme */}
               <div className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full bg-[#7a4a22] px-3 py-1 text-sm font-extrabold text-[#fff3d6]">Niv. {d.level ?? 1}</span>
+                  <div className="min-w-0 leading-tight">
+                    <div className="text-[10px] font-bold uppercase opacity-60">Spécialisation</div>
+                    <div className="truncate text-sm font-extrabold">{spec}{d.class_name ? <span className="font-bold opacity-70"> · « {d.class_name} »</span> : null}</div>
+                  </div>
+                </div>
+                {vitals && vitals.pvMax !== null && vital("❤️", vitals.pvMax, "points de peps")}
+                {vitals && vitals.pmMax !== null && vitals.pmMax > 0 && vital("💧", vitals.pmMax, "points de jus")}
                 <div
                   ref={previewRef}
-                  className={`touch-none rounded-md border border-[#7a4a22]/60 bg-white/40 p-2 ${mine && eq ? "cursor-move" : ""}`}
+                  className={`relative z-10 touch-none rounded-md border border-[#7a4a22]/60 bg-white/40 p-0.5 ${mine && eq ? "cursor-move" : ""}`}
                   onPointerDown={(e) => {
                     if (!mine || !eq) return;
                     e.currentTarget.setPointerCapture(e.pointerId);
@@ -188,22 +197,9 @@ export function CharacterWindow({
                     d.image_url && <img src={d.image_url} alt="" className="block w-full object-contain" draggable={false} />
                   )}
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="rounded-full bg-[#7a4a22] px-3 py-1 text-sm font-extrabold text-[#fff3d6]">Niv. {d.level ?? 1}</span>
-                  <div className="min-w-0 leading-tight">
-                    <div className="text-[10px] font-bold uppercase opacity-60">Spécialisation</div>
-                    <div className="truncate text-sm font-extrabold">{spec}{d.class_name ? <span className="font-bold opacity-70"> · « {d.class_name} »</span> : null}</div>
-                  </div>
-                </div>
-                {vitals && vitals.pvMax !== null && vital("❤️", vitals.pvMax, "points de peps")}
-                {vitals && vitals.pmMax !== null && vitals.pmMax > 0 && vital("💧", vitals.pmMax, "points de jus")}
-                <div className={title}>Créations</div>
-                {stat("✍", d.weapons_drawn, "arme dessinée", "armes dessinées")}
-                {stat("🐾", d.companions_drawn ?? 0, "compagnon dessiné", "compagnons dessinés")}
-                {stat("📜", d.events_written ?? 0, "passage écrit", "passages écrits")}
                 {mine && eq && (
                   <div className="mt-1 text-[11px]">
-                    <div className="space-y-0.5 opacity-80"><div>✋ <b>Glisse</b> l'arme équipée pour la replacer dans la main, <b>tourne-la</b>, ajuste sa <b>taille</b>.</div><div>💾 Puis <b>Enregistrer</b> : <i>le réglage est gardé pour cette arme.</i></div></div>
+                    <div className="space-y-0.5 opacity-80"><div>✋ <b>Glisse</b> l'arme équipée.</div><div>💾 Puis <b>Enregistrer</b>.</div></div>
                     <div className="mt-1 grid grid-cols-[3.6rem_minmax(0,1fr)_2.4rem] items-center gap-x-1 gap-y-1">
                       <span>Rotation</span>
                       <input type="range" min={-180} max={180} step={5} value={adj.rot} onChange={(e) => setAdj((a) => ({ ...a, rot: Number(e.target.value) }))} className="min-w-0" />
@@ -218,11 +214,16 @@ export function CharacterWindow({
                     </div>
                   </div>
                 )}
+                <div className={title + " mt-1"}>Créations</div>
+                {stat("✍", d.weapons_drawn, "arme dessinée", "armes dessinées")}
+                {stat("🐾", d.companions_drawn ?? 0, "compagnon dessiné", "compagnons dessinés")}
+                {stat("📜", d.events_written ?? 0, "passage écrit", "passages écrits")}
               </div>
 
               {/* Colonne droite : onglets */}
-              <div className="min-w-0">
-                <div className="mb-2 flex flex-wrap gap-1 border-b border-[#7a4a22]/40 pb-1.5">
+              <div className="min-w-0 sm:relative">
+               <div className="flex h-full min-h-0 flex-col sm:absolute sm:inset-0">
+                <div className="mb-2 flex shrink-0 flex-wrap gap-1 border-b border-[#7a4a22]/40 pb-1.5">
                   {tabs.map((t) => (
                     <button key={t.key} type="button" onClick={() => setTab(t.key)}
                       className={`rounded-t px-2.5 py-0.5 text-xs font-extrabold ${tab === t.key ? "bg-[#7a4a22] text-[#fff3d6]" : "border border-[#7a4a22]/50 hover:bg-[#7a4a22]/15"}`}>{t.label}</button>
@@ -230,7 +231,7 @@ export function CharacterWindow({
                 </div>
 
                 {tab === "weapons" && mine && character && (
-                  <div className="flex max-h-[22rem] flex-col gap-1.5 overflow-y-auto parchment-scroll pr-1">
+                  <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto parchment-scroll pr-1">
                     {items.length === 0 && <div className="text-sm">Aucune arme sur toi. Va voir à la Forge du Manchot !</div>}
                     {[...items].sort((a, b) => Number(b.id === equipped) - Number(a.id === equipped)).map((it) => (
                       <div key={it.id} className={`flex items-center gap-2 rounded border p-1.5 ${it.id === equipped ? "border-[#7a4a22] bg-white/70" : "border-[#7a4a22]/50 bg-white/40"}`}>
@@ -283,7 +284,7 @@ export function CharacterWindow({
                   nComp === 0 ? (
                     <div className="text-sm opacity-70">Aucun compagnon.</div>
                   ) : (
-                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-3">
+                    <div className="grid min-h-0 flex-1 grid-cols-3 content-start gap-2 overflow-y-auto parchment-scroll pr-1">
                       {d.companions.map((c, i) => (
                         <div key={i} className="rounded-lg border border-[#7a4a22]/40 bg-white/40 p-1.5 text-center leading-tight" title={c.name}>
                           <div className="flex h-16 items-center justify-center">
@@ -301,7 +302,7 @@ export function CharacterWindow({
                   stacks.length === 0 ? (
                     <div className="text-sm opacity-70">Aucun objet.</div>
                   ) : (
-                    <div className="rounded border border-[#b98a54] bg-[#f6e8c4] p-2 text-sm">
+                    <div className="min-h-0 flex-1 overflow-y-auto parchment-scroll rounded border border-[#b98a54] bg-[#f6e8c4] p-2 text-sm">
                       <div className="text-xs font-extrabold uppercase">Objets (utilisables en expédition)</div>
                       <div className="mt-1 grid grid-cols-[1.6rem_max-content_minmax(0,1fr)] items-start gap-x-2 gap-y-1">
                         {stacks.map((st) => (
@@ -316,6 +317,7 @@ export function CharacterWindow({
                   )
                 )}
                 {msg && <div className="mt-2 text-xs font-bold text-[#92400e]">{msg}</div>}
+               </div>
               </div>
             </div>
           )}
