@@ -19,9 +19,16 @@ export function loadDraft(key: string): string | null {
 export function saveDraft(key: string, value: string) {
   try { localStorage.setItem(key, value); } catch { /* stockage plein ou bloqué : tant pis */ }
 }
+// Brouillons vidés (dessin validé) : la sauvegarde finale d'un canvas qui se ferme ne doit pas les ressusciter.
+const cleared = new Set<string>();
+export const draftWasCleared = (key: string) => cleared.has(key);
+export const armDraft = (key: string) => { cleared.delete(key); };
 export function clearDraft(key: string | null) {
   if (!key) return;
-  try { localStorage.removeItem(key); localStorage.removeItem(`${key}:name`); } catch { /* ignore */ }
+  cleared.add(key);
+  try { localStorage.removeItem(key); localStorage.removeItem(`${key}:name`); localStorage.removeItem(`${key}:family`); localStorage.removeItem(`${key}:anchor`); } catch { /* ignore */ }
 }
 export function loadDraftName(key: string): string { return loadDraft(`${key}:name`) ?? ""; }
 export function saveDraftName(key: string, name: string) { saveDraft(`${key}:name`, name); }
+export function loadDraftFamily(key: string): "melee" | "magie" | null { const v = loadDraft(`${key}:family`); return v === "melee" || v === "magie" ? v : null; }
+export function saveDraftFamily(key: string, family: string | null) { if (family) saveDraft(`${key}:family`, family); }

@@ -1,4 +1,5 @@
-import { useState, type ChangeEvent, type MouseEvent } from "react";
+import { useEffect, useState, type ChangeEvent, type MouseEvent } from "react";
+import { useDraftKey, loadDraftName, saveDraftName, loadDraftFamily, saveDraftFamily, clearDraft } from "../lib/drawing-drafts";
 import { uploadDrawingAsCharacterAsset, type AuthIdentity, type CharacterFamily, type Point, type VisualAsset } from "../lib/scenes-supabase";
 import { AccountBadge } from "./AccountBadge";
 import { DrawingCanvas } from "./DrawingCanvas";
@@ -41,6 +42,17 @@ export function CharacterSelect({
   // Famille choisie AVANT le dessin ; définitive une fois le personnage créé.
   const [family, setFamily] = useState<CharacterFamily | null>(null);
   const [saving, setSaving] = useState(false);
+  // Brouillon du premier personnage : dessin, nom, spécialisation et repère de main sont gardés sur cet appareil jusqu'à la validation.
+  const draftKey = useDraftKey("character");
+  useEffect(() => {
+    if (!draftKey) return;
+    const n = loadDraftName(draftKey);
+    if (n) setName(n);
+    const f = loadDraftFamily(draftKey);
+    if (f) setFamily(f);
+  }, [draftKey]);
+  useEffect(() => { if (draftKey) saveDraftName(draftKey, name); }, [draftKey, name]);
+  useEffect(() => { if (draftKey) saveDraftFamily(draftKey, family); }, [draftKey, family]);
   const [tab, setTab] = useState<"draw" | "existing">("draw");
   const [selected, setSelected] = useState<string | null>(null);
 
@@ -79,6 +91,7 @@ export function CharacterSelect({
     setSaving(true);
     try {
       const asset = await uploadDrawingAsCharacterAsset(blob, name, handAnchor);
+      clearDraft(draftKey);
       onChoose(asset.id, name, family);
     } catch (e) {
       console.error("Drawing upload failed", e);
@@ -182,9 +195,9 @@ export function CharacterSelect({
               {busy ? "Création…" : "Confirmer"}
             </button>
           </div>
-        ) : (
-          <DrawingCanvas onExport={handleDrawingExported} exporting={saving || !!busy} />
-        )}
+        ) : draftKey ? (
+          <DrawingCanvas draftKey={draftKey} onExport={handleDrawingExported} exporting={saving || !!busy} />
+        ) : null}
 
         {/* Après le dessin : le nom et la spécialisation (définitive) */}
         <div className="mt-5 border-t-2 border-[#7a4a22]/40 pt-4">

@@ -7,7 +7,7 @@
 // Tout le moteur de dessin (pinceau, gomme, ligne, cercle, spray, remplissage,
 // pipette, undo/redo, historique) est identique à l'original.
 
-import { loadDraft, saveDraft } from "../lib/drawing-drafts";
+import { armDraft, draftWasCleared, loadDraft, saveDraft } from "../lib/drawing-drafts";
 import React, { useRef, useState, useEffect, useCallback } from "react";
 import { hexToRgb, paintStrokeSegment, sprayPaintSegment } from "../lib/drawingTools";
 import type { Point } from "../lib/scenes-supabase";
@@ -216,7 +216,7 @@ export function DrawingCanvas({
     ctx.clearRect(0, 0, W, H);
   }, []);
 
-  // Brouillon : restauré une fois, puis sauvegardé après chaque geste (clic, trait, annulation…).
+  // Brouillon : restauré une fois, puis sauvegardé de façon économe (voir plus bas).
   useEffect(() => {
     if (!draftKey) return;
     const saved = loadDraft(draftKey);
@@ -230,24 +230,51 @@ export function DrawingCanvas({
       };
       img.src = saved;
     }
-    let t: number | undefined;
-    const save = () => {
-      window.clearTimeout(t);
-      t = window.setTimeout(() => {
-        const c = canvasRef.current;
-        if (c) saveDraft(draftKey, c.toDataURL("image/png"));
-      }, 250);
+    // Sauvegarde économe : un geste ne fait que lever un drapeau (gratuit) ; le dessin n'est encodé qu'au plus toutes les 30 s,
+    // et seulement s'il a changé, plus une dernière fois quand l'onglet se ferme / passe en arrière-plan / quand la fenêtre se ferme.
+    armDraft(draftKey);
+    const canvas = canvasRef.current;
+    let dirty = false;
+    const mark = () => { dirty = true; };
+    const flush = () => {
+      if (!dirty || !canvas || draftWasCleared(draftKey)) return;
+      dirty = false;
+      saveDraft(draftKey, canvas.toDataURL("image/png"));
     };
-    window.addEventListener("pointerup", save);
-    window.addEventListener("click", save);
-    window.addEventListener("keyup", save);
+    const timer = window.setInterval(flush, 30000);
+    const onHide = () => { if (document.visibilityState === "hidden") flush(); };
+    window.addEventListener("pointerup", mark);
+    window.addEventListener("keyup", mark);
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onHide);
     return () => {
-      window.clearTimeout(t);
-      window.removeEventListener("pointerup", save);
-      window.removeEventListener("click", save);
-      window.removeEventListener("keyup", save);
+      window.clearInterval(timer);
+      window.removeEventListener("pointerup", mark);
+      window.removeEventListener("keyup", mark);
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onHide);
+      flush();
     };
   }, [draftKey]);
+
+  // Repère de la main : gardé avec le brouillon (restauré une fois, puis sauvegardé à chaque changement).
+  const anchorRestored = useRef(false);
+  useEffect(() => {
+    if (!draftKey || noAnchor) return;
+    try {
+      const raw = loadDraft(`${draftKey}:anchor`);
+      if (raw) {
+        const v = JSON.parse(raw) as { x?: number; y?: number; on?: boolean };
+        if (typeof v.x === "number" && typeof v.y === "number") setHandAnchor({ x: v.x, y: v.y });
+        if (typeof v.on === "boolean") setHandAnchorEnabled(v.on);
+      }
+    } catch { /* ignoré */ }
+    anchorRestored.current = true;
+  }, [draftKey, noAnchor]);
+  useEffect(() => {
+    if (!draftKey || noAnchor || !anchorRestored.current) return;
+    saveDraft(`${draftKey}:anchor`, JSON.stringify({ x: handAnchor.x, y: handAnchor.y, on: handAnchorEnabled }));
+  }, [draftKey, noAnchor, handAnchor, handAnchorEnabled]);
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
