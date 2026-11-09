@@ -23,6 +23,7 @@ export function CharacterSelect({
   onDisconnect,
   error,
   busy,
+  backdropUrl,
 }: {
   assets: VisualAsset[];
   onChoose: (visualAssetId: string, name: string, family: CharacterFamily) => void;
@@ -37,6 +38,8 @@ export function CharacterSelect({
   // et si une création est en cours (désactive "Confirmer" entre-temps).
   error?: string | null;
   busy?: boolean;
+  /** Image de fond (le décor de l'auberge), floutée derrière l'écran. */
+  backdropUrl?: string | undefined;
 }) {
   const [name, setName] = useState("");
   // Famille choisie AVANT le dessin ; définitive une fois le personnage créé.
@@ -100,7 +103,14 @@ export function CharacterSelect({
   };
 
   return (
-    <div className="relative flex h-screen w-screen items-center justify-center bg-[#1a0f07] p-4">
+    <div className="relative isolate flex h-screen w-screen items-center justify-center bg-[#1a0f07] p-4">
+      {/* Décor de l'auberge en fond, flouté et assombri (simple image déjà chargée par le jeu) : on voit où on arrive. */}
+      {backdropUrl && (
+        <>
+          <img src={backdropUrl} alt="" draggable={false} className="pointer-events-none absolute inset-0 -z-10 h-full w-full scale-105 object-cover blur-[3px]" />
+          <div className="pointer-events-none absolute inset-0 -z-10 bg-black/45" />
+        </>
+      )}
       <SoundControl
         muted={muted}
         onToggleMute={onToggleMute}
@@ -144,7 +154,7 @@ export function CharacterSelect({
         )}
 
         <p className="mb-3 rounded-lg border-2 border-[#7a4a22]/60 bg-[#7a4a22]/15 px-3 py-2 text-center text-sm font-bold">
-          ⚔️ Ton personnage doit avoir une main (ou un membre) capable de tenir une arme : place bien le repère de main sur le dessin.
+          ⚔️ Ton personnage doit avoir une main (ou un membre) capable de tenir une arme :<br />place bien le repère de main sur le dessin.
         </p>
 
         {/* Étape 2 : le dessin (obligatoire) */}
@@ -224,12 +234,16 @@ export function CharacterSelect({
               type="button"
               disabled={saving || !!busy}
               onClick={() => setFamily(f.id)}
-              className={`rounded-lg border-2 px-3 py-2 text-left ${
-                family === f.id ? "border-[#7a4a22] bg-[#7a4a22]/20" : "border-transparent bg-black/10"
-              }`}
+              className="flex flex-col items-center gap-0.5 rounded-lg border-2 px-3 py-2 text-center transition-transform hover:scale-[1.02]"
+              style={
+                family === f.id
+                  ? { background: f.id === "melee" ? "#b91c1c" : "#6d28d9", borderColor: "#3a2210", color: "#fff3d6", boxShadow: "0 2px 0 #3a2210" }
+                  : { background: f.id === "melee" ? "rgba(185,28,28,0.16)" : "rgba(109,40,217,0.16)", borderColor: f.id === "melee" ? "rgba(185,28,28,0.5)" : "rgba(109,40,217,0.5)" }
+              }
             >
-              <div className="text-base font-bold">{f.label}</div>
-              <div className="text-xs font-medium opacity-80">{f.desc}</div>
+              <div className="text-2xl leading-none">{f.id === "melee" ? "⚔️" : "✨"}</div>
+              <div className="text-base font-extrabold">{f.label}</div>
+              <div className="text-xs font-medium opacity-90">{f.desc}</div>
             </button>
           ))}
         </div>

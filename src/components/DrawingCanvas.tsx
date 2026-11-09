@@ -654,6 +654,11 @@ export function DrawingCanvas({
           <Save className="h-4 w-4" />
           {exporting ? "Envoi…" : exportLabel}
         </button>
+        {/* Raccourcis, en petit, dans le vide sous le bouton (ne change pas la taille de la fenêtre). */}
+        <div className="mt-1 text-[10px] leading-snug text-[#3a2210]/70">
+          <div><b>Ctrl+Z</b> : retour · <b>Ctrl+Maj+Z</b> : rétablir</div>
+          <div><b>Alt</b> (maintenu) : pipette</div>
+        </div>
       </div>
     </div>
   );

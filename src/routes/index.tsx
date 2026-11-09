@@ -2788,6 +2788,7 @@ function Index() {
   if (!character) {
     return (
       <CharacterSelect
+        backdropUrl={scene.image_url}
         assets={characterAssets}
         onChoose={handleCharacterChosen}
         muted={muted}
