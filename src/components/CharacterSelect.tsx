@@ -106,10 +106,10 @@ export function CharacterSelect({
     <div className="relative isolate flex h-screen w-screen items-center justify-center bg-[#1a0f07] p-4">
       {/* Décor de l'auberge en fond, flouté et assombri (simple image déjà chargée par le jeu) : on voit où on arrive. */}
       {backdropUrl && (
-        <>
-          <img src={backdropUrl} alt="" draggable={false} className="pointer-events-none absolute inset-0 -z-10 h-full w-full scale-105 object-cover blur-[3px]" />
-          <div className="pointer-events-none absolute inset-0 -z-10 bg-black/45" />
-        </>
+        <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+          <img src={backdropUrl} alt="" draggable={false} className="h-full w-full scale-105 object-cover blur-[3px]" />
+          <div className="absolute inset-0 bg-black/45" />
+        </div>
       )}
       <SoundControl
         muted={muted}
@@ -222,7 +222,7 @@ export function CharacterSelect({
 
         {/* Étape 1 : la famille (définitive) */}
         <p className="mb-2 text-center text-sm font-bold">Spécialisation</p>
-        <div className="mb-4 grid grid-cols-2 gap-3">
+        <div className="mb-4 flex justify-center gap-3">
           {(
             [
               { id: "melee", label: "Mêlée", desc: "Tu te bats au corps à corps." },
@@ -234,16 +234,17 @@ export function CharacterSelect({
               type="button"
               disabled={saving || !!busy}
               onClick={() => setFamily(f.id)}
-              className="flex flex-col items-center gap-0.5 rounded-lg border-2 px-3 py-2 text-center transition-transform hover:scale-[1.02]"
-              style={
-                family === f.id
-                  ? { background: f.id === "melee" ? "#b91c1c" : "#6d28d9", borderColor: "#3a2210", color: "#fff3d6", boxShadow: "0 2px 0 #3a2210" }
-                  : { background: f.id === "melee" ? "rgba(185,28,28,0.16)" : "rgba(109,40,217,0.16)", borderColor: f.id === "melee" ? "rgba(185,28,28,0.5)" : "rgba(109,40,217,0.5)" }
-              }
+              className="flex w-44 flex-col items-center gap-0.5 rounded-lg border-2 px-3 py-1.5 text-center transition hover:-translate-y-px"
+              style={{
+                background: f.id === "melee" ? "#8f2b1d" : "#4b3a8c",
+                color: "#fff3d6",
+                borderColor: family === f.id ? "#fde68a" : "#3a2210",
+                boxShadow: family === f.id ? "0 0 0 2px #3a2210, 0 3px 0 #3a2210" : "0 2px 0 #3a2210",
+                filter: family === f.id || family === null ? "none" : "saturate(0.5) brightness(0.85)",
+              }}
             >
-              <div className="text-2xl leading-none">{f.id === "melee" ? "⚔️" : "✨"}</div>
-              <div className="text-base font-extrabold">{f.label}</div>
-              <div className="text-xs font-medium opacity-90">{f.desc}</div>
+              <div className="flex items-center gap-1.5 text-base font-extrabold"><span className="text-lg leading-none">{f.id === "melee" ? "⚔️" : "✨"}</span>{f.label}</div>
+              <div className="text-[11px] font-medium leading-tight opacity-90">{f.desc}</div>
             </button>
           ))}
         </div>
