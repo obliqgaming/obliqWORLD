@@ -76,7 +76,7 @@ export function FarmPanel({ onClose }: { onClose: () => void }) {
           <button type="button" onClick={onClose} className="rounded border border-[#7a4a22] px-3 py-0.5 text-xs font-bold hover:bg-[#7a4a22]/15">Fermer</button>
         </div>
         {pending > 0 && (
-          <div className="mt-2 flex items-center gap-2 rounded border border-[#7a4a22] bg-[#fde7c8] p-2 text-sm font-bold">
+          <div className="mt-2 flex items-center gap-2 rounded-lg border-2 border-[#b45309] bg-[#fcd34d] p-2 text-sm font-extrabold text-[#3a2410] shadow-[0_0_0_3px_rgba(245,158,11,0.35)]">
             📬 Tes ventes t'ont rapporté {pending} <Coin />
             <button type="button" disabled={busy} className={BTN} onClick={() => void act(async () => { await shopCollect(); await reloadPending(); })}>Récupérer</button>
           </div>

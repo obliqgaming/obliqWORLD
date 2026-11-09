@@ -136,17 +136,19 @@ export function CharacterWindow({
   const spec = d ? (d.axis ?? (d.family === "magie" ? "Magie" : d.family === "melee" ? "Mêlée" : "—")) : "";
   const w = d?.weapon ?? null;
   const title = "text-[11px] font-extrabold uppercase tracking-wide text-[#7a4a22]";
+  // Lignes chiffrées alignées : icône, nombre et libellé ont chacun leur colonne fixe.
+  const ROW = "grid grid-cols-[1.5rem_2.25rem_minmax(0,1fr)] items-center gap-x-1.5 rounded-lg bg-white/45 px-2 py-0.5";
   const stat = (icon: string, n: number, one: string, many: string) => (
-    <div className="flex items-center gap-2 rounded-lg bg-white/45 px-2 py-0.5">
-      <span className="text-base leading-none">{icon}</span>
-      <span className="text-base font-extrabold leading-none">{n}</span>
+    <div className={ROW}>
+      <span className="text-center text-base leading-none">{icon}</span>
+      <span className="text-right text-base font-extrabold leading-none tabular-nums">{n}</span>
       <span className="text-[11px] leading-tight opacity-80">{n > 1 ? many : one}</span>
     </div>
   );
   const vital = (icon: string, n: number, label: string) => (
-    <div className="flex items-center gap-2 rounded-lg bg-white/45 px-2 py-0.5">
-      <span className="text-base leading-none">{icon}</span>
-      <span className="text-base font-extrabold leading-none">{n}</span>
+    <div className={ROW}>
+      <span className="text-center text-base leading-none">{icon}</span>
+      <span className="text-right text-base font-extrabold leading-none tabular-nums">{n}</span>
       <span className="text-[11px] leading-tight opacity-80">{label}</span>
     </div>
   );

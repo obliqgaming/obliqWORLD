@@ -87,7 +87,7 @@ export const EXAMPLES: Record<NarrativeStepType, { situation: string; success: s
     failure: "Une planche cède ! Tout le monde se rattrape de justesse, non sans quelques bleus.",
   },
   danger_imminent: {
-    hint: "Un danger leur tombe dessus : le groupe désigne qui protéger en priorité (ou se sacrifie). Pas de retraite possible.",
+    hint: "Un danger leur tombe dessus : le groupe désigne qui protéger en priorité.",
     situation: "Un arbre mort se fend d'un coup sec : il va s'écrouler sur le groupe !",
     success: "Vous vous jetez de côté à temps. Le tronc s'écrase dans un fracas de poussière.",
     failure: "Le tronc frôle le groupe et en frappe de plein fouet certains d'entre vous.",

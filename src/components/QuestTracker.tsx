@@ -32,7 +32,7 @@ export function QuestTracker({ sceneId, refreshKey }: { sceneId: string; refresh
     return (
       <div className={`${wrap} animate-pulse text-[#fde68a]`} style={FONT}>
         <div className="font-extrabold">✨ Boulot accompli !</div>
-        <div>🎁 Ta récompense t'attend au Boulot du Jour.</div>
+        <div>🎁 Ta récompense t'attend,<br />demande à Morsoif !</div>
       </div>
     );
   }

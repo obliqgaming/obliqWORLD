@@ -2,7 +2,7 @@
 // boîte aux lettres (l'or gagné quand les autres jouent ta rencontre) et historique.
 import { uiSound } from "../lib/ui-sounds";
 import { Coin } from "./GameIcons";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchMyGold } from "../lib/loot";
 import {
   EXAMPLES, RISK_LABEL, STATUS_LABEL, TYPE_LABEL,
@@ -13,6 +13,16 @@ import {
 const FONT = { fontFamily: "'Baloo 2', cursive" };
 const MAX = 300;
 const MIN = 10;
+
+// Met en avant (gras, souligné, violet) la phrase qui dit ce que le groupe doit décider.
+const HINT_EMPHASIS = ["le groupe désigne qui protéger en priorité", "le groupe désigne qui s'y colle"];
+function hintWithEmphasis(hint: string) {
+  for (const ph of HINT_EMPHASIS) {
+    const i = hint.indexOf(ph);
+    if (i >= 0) return <>{hint.slice(0, i)}<b className="underline decoration-2 underline-offset-2" style={{ color: "#6d28d9" }}>{ph}</b>{hint.slice(i + ph.length)}</>;
+  }
+  return hint;
+}
 
 export function EncounterEditor({ onClose }: { onClose: () => void }) {
   const [mine, setMine] = useState<CommunityEvent[]>([]);
@@ -25,6 +35,24 @@ export function EncounterEditor({ onClose }: { onClose: () => void }) {
   const [mode, setMode] = useState<"partage" | "isole">("partage");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+
+  // Brouillon gardé sur cet appareil : un clic ailleurs ou une fermeture ne fait plus perdre le texte déjà écrit.
+  const loadedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!draft) { loadedFor.current = null; return; }
+    try {
+      const raw = localStorage.getItem(`obliq-enc-text:${draft.id}`);
+      if (raw) {
+        const v = JSON.parse(raw) as { sit?: string; ok?: string; ko?: string; mode?: "partage" | "isole" };
+        setSit(v.sit ?? ""); setOk(v.ok ?? ""); setKo(v.ko ?? ""); if (v.mode) setMode(v.mode);
+      }
+    } catch { /* stockage bloqué : tant pis */ }
+    loadedFor.current = draft.id;
+  }, [draft?.id]);
+  useEffect(() => {
+    if (!draft || loadedFor.current !== draft.id) return;
+    try { localStorage.setItem(`obliq-enc-text:${draft.id}`, JSON.stringify({ sit, ok, ko, mode })); } catch { /* ignoré */ }
+  }, [draft?.id, sit, ok, ko, mode]);
 
   const reload = useCallback(async () => {
     try {
@@ -67,6 +95,7 @@ export function EncounterEditor({ onClose }: { onClose: () => void }) {
     setMsg(null);
     try {
       const e = await submitEncounter(draft.id, sit, ok, ko, mode);
+      try { localStorage.removeItem(`obliq-enc-text:${draft.id}`); } catch { /* ignoré */ }
       uiSound("success");
       setDraft(null);
       setMsg(e.status === "approved" ? "✔ Ta rencontre est publiée : d'autres expéditions pourront la tirer !" : "✔ Ta rencontre est envoyée, elle sera relue avant d'être publiée.");
@@ -107,7 +136,7 @@ export function EncounterEditor({ onClose }: { onClose: () => void }) {
   );
 
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/55 p-3" onClick={onClose}>
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/55 p-3">
       <div className="max-h-[92%] w-[min(40rem,96%)] overflow-y-auto parchment-scroll rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-4 text-[#3a2410] shadow-2xl" style={FONT} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <div className="text-lg font-extrabold">✍ Écrire une rencontre</div>
@@ -129,7 +158,7 @@ export function EncounterEditor({ onClose }: { onClose: () => void }) {
             </button>
             <span className="ml-2 text-xs font-bold">{gold > 0 ? `Tu as ${gold} flouz` : "T'as pas de flouz"}</span>
 
-            <div className="mt-4 rounded border-2 border-[#b98a54] bg-[#f6e8c4] p-2">
+            <div className={`mt-4 rounded-lg p-2 ${pending > 0 ? "border-2 border-[#b45309] bg-[#fcd34d] shadow-[0_0_0_3px_rgba(245,158,11,0.35)]" : "border-2 border-[#b98a54] bg-[#f6e8c4]"}`}>
               <div className="text-xs font-extrabold uppercase tracking-wide">📬 Boîte aux lettres</div>
               <div className="mt-1 text-sm">
                 {pending > 0 ? <>Tes rencontres t'ont rapporté <b>{pending} flouz</b>.</> : "Rien à récupérer pour l'instant."}
@@ -158,9 +187,8 @@ export function EncounterEditor({ onClose }: { onClose: () => void }) {
             <div className="mt-2 flex flex-wrap items-center gap-2 text-sm font-extrabold">
               <span className="rounded bg-[#7a4a22] px-2 py-0.5 text-[#fff3d6]">{TYPE_LABEL[draft.step_type]}</span>
               <span className="rounded bg-[#fde68a] px-2 py-0.5">{RISK_LABEL[draft.risk_level]}</span>
-              <span className="text-xs font-bold">(tirage payé : tu peux fermer et reprendre plus tard)</span>
             </div>
-            <div className="mt-1 text-xs">{ex.hint}</div>
+            <div className="mt-1 text-xs">{hintWithEmphasis(ex.hint)}</div>
             <div className="mt-2 rounded border border-[#b98a54] bg-[#f6e8c4] p-2 text-xs italic">
               Une écriture trop fainéante ou incongrue sera rejetée.
             </div>
