@@ -133,7 +133,7 @@ export function CharacterSelect({
       />
 
       <div
-        className="m-auto w-full max-w-7xl text-[#3a2210]"
+        className="m-auto w-full max-w-[65rem] text-[#3a2210]"
         style={{
           borderStyle: "solid",
           // Nouveau cadre (rectangle simple, sans lanterne/bannière qui dépassait du
@@ -162,12 +162,12 @@ export function CharacterSelect({
 
         <p className="mb-3 text-center text-[13px] font-bold leading-snug">
           <Hand className="mr-1 inline h-4 w-4 align-[-3px] text-[#7a4a22]" />
-          Ton personnage doit avoir une main (ou un membre) capable de tenir une arme :<br />place bien le repère de main sur le dessin.
+          Ton personnage doit avoir une main (ou un membre) capable de tenir une arme :<br /><span className="mr-1 inline-flex h-5 w-5 items-center justify-center rounded-full border-2 border-dashed border-[#b45309] bg-[#fed7aa]/70 align-[-5px]"><Hand className="h-3 w-3 text-[#7a4a22]" /></span>place bien le repère de main sur le dessin.
         </p>
 
-        <div className="grid gap-x-5 gap-y-4 lg:grid-cols-[16rem_minmax(0,1fr)] xl:grid-cols-[1fr_26.5rem_1fr]">
+        <div className="grid gap-x-5 gap-y-4 lg:grid-cols-[16rem_minmax(0,1fr)] xl:grid-cols-[15rem_26.5rem_15rem]">
           {/* Gauche : identité du personnage */}
-          <div className="order-2 lg:order-1 lg:col-start-1 lg:row-start-1 xl:self-center">
+          <div className="order-2 lg:order-1 lg:col-start-1 lg:row-start-1 xl:self-start">
             <p className="mb-1 text-center text-sm font-bold">Nom</p>
         <input
           value={name}
@@ -179,7 +179,7 @@ export function CharacterSelect({
             <div className="mt-4" />
         {/* Étape 1 : la famille (définitive) */}
         <p className="mb-2 text-center text-sm font-bold">Spécialisation <span className="font-medium opacity-75">(définitive)</span></p>
-        <div className="mb-2 flex flex-col items-stretch gap-2">
+        <div className="mb-2 flex flex-col items-center gap-2">
           {(
             [
               { id: "melee", label: "Mêlée", desc: "Tu te bats au corps à corps." },
@@ -191,7 +191,7 @@ export function CharacterSelect({
               type="button"
               disabled={saving || !!busy}
               onClick={() => setFamily(f.id)}
-              className="flex w-full flex-col items-center gap-0.5 rounded-lg border-2 px-3 py-1.5 text-center transition hover:-translate-y-px"
+              className="flex w-44 flex-col items-center gap-0.5 rounded-lg border-2 px-3 py-1.5 text-center transition hover:-translate-y-px"
               style={{
                 background: f.id === "melee" ? "#8f2b1d" : "#4b3a8c",
                 color: "#fff3d6",
@@ -231,7 +231,7 @@ export function CharacterSelect({
           </div>
           {formMessage && <p className="mt-2 text-center text-sm font-bold text-[#92400e]">{formMessage}</p>}
             <p className="mt-3 text-center text-[10.5px] font-semibold text-red-700/90">
-              <span className="whitespace-nowrap">Nom et dessin doivent respecter les règles de modération de Twitch :</span><br />rien d'offensant ni de choquant.
+              Nom et dessin doivent respecter les règles<br />de modération de Twitch :<br />rien d'offensant ni de choquant.
             </p>
             </div>
           </div>
