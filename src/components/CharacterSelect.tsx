@@ -2,6 +2,7 @@ import { useEffect, useState, type ChangeEvent, type MouseEvent } from "react";
 import { useDraftKey, loadDraftName, saveDraftName, loadDraftFamily, saveDraftFamily, clearDraft } from "../lib/drawing-drafts";
 import { uploadDrawingAsCharacterAsset, type AuthIdentity, type CharacterFamily, type Point, type VisualAsset } from "../lib/scenes-supabase";
 import { AccountBadge } from "./AccountBadge";
+import { Hand } from "lucide-react";
 import { DrawingCanvas } from "./DrawingCanvas";
 import { SoundControl } from "./SoundControl";
 import { claimCode } from "../lib/referral";
@@ -132,7 +133,7 @@ export function CharacterSelect({
       />
 
       <div
-        className="m-auto w-full max-w-6xl text-[#3a2210]"
+        className="m-auto w-full max-w-7xl text-[#3a2210]"
         style={{
           borderStyle: "solid",
           // Nouveau cadre (rectangle simple, sans lanterne/bannière qui dépassait du
@@ -159,22 +160,26 @@ export function CharacterSelect({
           </p>
         )}
 
-        <div className="grid gap-4 md:grid-cols-[17rem_minmax(0,1fr)]">
-          <div className="order-2 md:order-1">
-        {/* Après le dessin : le nom et la spécialisation (définitive) */}
-        <div>
-          <p className="mb-2 text-center text-sm font-bold">Donne-lui un nom et une spécialisation (définitive), puis valide ton dessin</p>
+        <p className="mb-3 text-center text-[13px] font-bold leading-snug">
+          <Hand className="mr-1 inline h-4 w-4 align-[-3px] text-[#7a4a22]" />
+          Ton personnage doit avoir une main (ou un membre) capable de tenir une arme :<br />place bien le repère de main sur le dessin.
+        </p>
+
+        <div className="grid gap-x-5 gap-y-4 lg:grid-cols-[16rem_minmax(0,1fr)] xl:grid-cols-[1fr_26.5rem_1fr]">
+          {/* Gauche : identité du personnage */}
+          <div className="order-2 lg:order-1 lg:col-start-1 lg:row-start-1 xl:self-center">
+            <p className="mb-1 text-center text-sm font-bold">Nom</p>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Nom du personnage"
           maxLength={30}
-          className="mb-4 w-full rounded-lg border-2 border-[#7a4a22]/70 bg-white/60 px-3 py-2 text-sm font-medium text-[#3a2210] outline-none placeholder:font-normal placeholder:text-[#7a4a22]/80"
+          className="w-full rounded-lg border-2 border-[#7a4a22]/70 bg-white/60 px-3 py-2 text-sm font-medium text-[#3a2210] outline-none placeholder:font-normal placeholder:text-[#7a4a22]/80"
         />
-
+            <div className="mt-4" />
         {/* Étape 1 : la famille (définitive) */}
-        <p className="mb-2 text-center text-sm font-bold">Spécialisation</p>
-        <div className="mb-4 flex flex-col items-center gap-2">
+        <p className="mb-2 text-center text-sm font-bold">Spécialisation <span className="font-medium opacity-75">(définitive)</span></p>
+        <div className="mb-2 flex flex-col items-stretch gap-2">
           {(
             [
               { id: "melee", label: "Mêlée", desc: "Tu te bats au corps à corps." },
@@ -186,7 +191,7 @@ export function CharacterSelect({
               type="button"
               disabled={saving || !!busy}
               onClick={() => setFamily(f.id)}
-              className="flex w-44 flex-col items-center gap-0.5 rounded-lg border-2 px-3 py-1.5 text-center transition hover:-translate-y-px"
+              className="flex w-full flex-col items-center gap-0.5 rounded-lg border-2 px-3 py-1.5 text-center transition hover:-translate-y-px"
               style={{
                 background: f.id === "melee" ? "#8f2b1d" : "#4b3a8c",
                 color: "#fff3d6",
@@ -201,7 +206,8 @@ export function CharacterSelect({
           ))}
         </div>
 
-          <div className="mt-3 text-center">
+            <div className="mt-3">
+<div className="mt-3 text-center">
             {!refOpen ? (
               <button type="button" onClick={() => setRefOpen(true)} className="text-xs font-bold text-[#7a4a22] underline">
                 🎁 Un ami t'a invité ? Entre son code de parrain
@@ -224,16 +230,14 @@ export function CharacterSelect({
             {refMsg && <p className="mt-1 text-xs font-bold text-[#92400e]">{refMsg}</p>}
           </div>
           {formMessage && <p className="mt-2 text-center text-sm font-bold text-[#92400e]">{formMessage}</p>}
-          <p className="mt-3 text-center text-[11px] font-semibold text-red-700/90">
-            Nom et dessin doivent respecter les règles de modération de Twitch : rien d'offensant ni de choquant.
-          </p>
-        </div>
+            <p className="mt-3 text-center text-[10.5px] font-semibold text-red-700/90">
+              <span className="whitespace-nowrap">Nom et dessin doivent respecter les règles de modération de Twitch :</span><br />rien d'offensant ni de choquant.
+            </p>
+            </div>
           </div>
-          <div className="order-1 min-w-0 md:order-2">
-        <p className="mb-3 rounded-lg border-2 border-[#7a4a22]/60 bg-[#7a4a22]/15 px-3 py-2 text-center text-sm font-bold">
-          ⚔️ Ton personnage doit avoir une main (ou un membre) capable de tenir une arme :<br />place bien le repère de main sur le dessin.
-        </p>
 
+          {/* Centre : le dessin, pile au milieu de l'écran */}
+          <div className="order-1 min-w-0 lg:col-start-2 lg:row-start-1">
         {/* Étape 2 : le dessin (obligatoire) */}
         {DEV_ALLOW_EXISTING_CHARACTERS && (
           <div className="mb-3 flex justify-center gap-2">
@@ -283,10 +287,13 @@ export function CharacterSelect({
             </button>
           </div>
         ) : draftKey ? (
-          <DrawingCanvas draftKey={draftKey} onExport={handleDrawingExported} exporting={saving || !!busy} />
+          <div className="xl:w-[40.5rem]">
+            <DrawingCanvas draftKey={draftKey} onExport={handleDrawingExported} exporting={saving || !!busy} />
+          </div>
         ) : null}
 
           </div>
+
         </div>
       </div>
     </div>
