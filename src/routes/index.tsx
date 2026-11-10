@@ -94,7 +94,7 @@ import { LegacyChoice } from "../components/LegacyChoice";
 import { fetchLegacyHeld, type LegacyHeld } from "../lib/legacy";
 import { GroupBoard } from "../components/GroupBoard";
 import { QuestTracker } from "../components/QuestTracker";
-import { useQuestAvailable } from "../lib/quests";
+import { useQuestAvailable, useQuestReady } from "../lib/quests";
 import { GroupAdBanner } from "../components/GroupAdBanner";
 import { fetchAdReminders, meetLabel, touchSeen, touchSeenPeers } from "../lib/group-ads";
 import { WelcomeModal } from "../components/WelcomeModal";
@@ -1310,6 +1310,16 @@ function Index() {
     };
   }, [scenePortals.map((p) => p.route).join(",")]);
 
+  // Le départ exige que TOUT le groupe soit physiquement au portail : si on le quitte (autre lieu, dessin au village…), on n'est plus « prêt ».
+  useEffect(() => {
+    if (!character || !openExpedition || openExpedition.status !== "lobby" || !selfReady) return;
+    if (scene.id === (openExpedition as any).portal_scene_id) return;
+    leaveExpeditionPortal(openExpedition.id, character.id)
+      .then(() => refreshExpedition(openExpedition.id))
+      .catch((e) => console.error("Auto-leave portal failed", e));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scene.id, selfReady, openExpedition?.id, openExpedition?.status]);
+
   const handleTogglePortal = async (portal: ExpeditionPortal) => {
     if (!character || expeditionLaunched) return;
     try {
@@ -2162,7 +2172,12 @@ function Index() {
   // ---------- Emotes ----------
   const [emotes, setEmotes] = useState<Record<string, EmoteKey>>({});
   const [emoteMenuOpen, setEmoteMenuOpen] = useState(false);
+  // Pendant les vues d'expédition (événement / combat) les personnages « de marche » sont cachés : la bulle de chat s'affiche sur le groupe, pas sur un double.
+  const bubbleTexts: Record<string, string> = Object.fromEntries(Object.entries(bubbles).map(([k, v]) => [k, v.text]));
+  const emoteSymbols: Record<string, string> = Object.fromEntries(Object.entries(emotes).flatMap(([k, v]) => (EMOTES[v]?.symbol ? [[k, EMOTES[v].symbol as string]] : [])));
+  const expeditionOverlay = inExpeditionScene && (!!activeCombatId || !!outcomeInfo || expeditionPhase === "event");
   const questAvailable = useQuestAvailable(`${scene.id}|${openHotspot?.id ?? ""}`);
+  const questReady = useQuestReady(`${scene.id}|${openHotspot?.id ?? ""}`);
   // Le menu des emotes se ferme dès qu'on clique ailleurs (hors menu et hors personnage).
   useEffect(() => {
     if (!emoteMenuOpen) return;
@@ -2861,7 +2876,7 @@ function Index() {
             style={{
               left: `${pos.x}%`,
               top: `${pos.y}%`,
-              zIndex: bubbles[character.id] ? 35 : depthZ(pos.y),   // le plus bas à l'écran est devant ; un personnage qui parle passe devant pour que sa bulle reste visible
+              zIndex: bubbles[character.id] && !expeditionOverlay ? 35 : depthZ(pos.y),   // le plus bas à l'écran est devant ; un personnage qui parle passe devant pour que sa bulle reste visible
               // Largeur en fraction de la largeur RÉELLE de la scène affichée
               // (pas en pixels fixes) pour que le personnage suive les
               // changements de taille de la fenêtre en mode fenêtré.
@@ -2924,7 +2939,7 @@ function Index() {
               style={{
                 left: `${peer.position.x}%`,
                 top: `${peer.position.y}%`,
-                zIndex: bubbles[peer.characterId] ? 35 : depthZ(peer.position.y) - (depthZ(peer.position.y) === depthZ(pos.y) && peer.position.y < pos.y ? 1 : 0), // même niveau : celui qui est le plus bas à l'écran passe devant (moi si je suis plus bas)
+                zIndex: bubbles[peer.characterId] && !expeditionOverlay ? 35 : depthZ(peer.position.y) - (depthZ(peer.position.y) === depthZ(pos.y) && peer.position.y < pos.y ? 1 : 0), // même niveau : celui qui est le plus bas à l'écran passe devant (moi si je suis plus bas)
                 width: sceneBoxSize.width * CHARACTER_WIDTH_RATIO,
                 transformOrigin: "50% 100%",
                 transform: `translate(-50%, -100%) scale(${computeDepthScale(peer.position.y, scene.depth_scale)})`,
@@ -3024,7 +3039,7 @@ function Index() {
         )}
 
         {character && !inExpeditionScene && hotspots.filter((h) => h.kind !== "board" && !claimedGold.has(h.id) && (!h.kind.startsWith("gold") || !activeGold || activeGold.has(h.id))).map((h) => (
-          <HotspotMarker key={h.id} hotspot={h} bubble={npcSpeech[h.id]} alert={h.kind === "quests" && questAvailable} onClick={() => walkThen(h.position, () => (h.kind.startsWith("gold") ? collectGold(h) : setOpenHotspot(h)), !!hotspotStyles?.[h.kind]?.image_url)} />
+          <HotspotMarker key={h.id} hotspot={h} bubble={npcSpeech[h.id]} alert={h.kind === "quests" && questAvailable} ready={h.kind === "quests" && questReady} onClick={() => walkThen(h.position, () => (h.kind.startsWith("gold") ? collectGold(h) : setOpenHotspot(h)), !!hotspotStyles?.[h.kind]?.image_url)} />
         ))}
         {goldFloats.map((g) => (
           <div key={g.key} className="obw-gold-float pointer-events-none absolute z-40 -translate-x-1/2 text-xl font-extrabold" style={{ left: `${g.x}%`, top: `${g.y}%`, color: g.ok ? "#fde68a" : "#fca5a5", textShadow: "0 2px 4px #000, 0 0 8px rgba(0,0,0,0.6)" }}>
@@ -3041,6 +3056,14 @@ function Index() {
           />
         )}
 
+        {character && !expeditionLaunched && !inExpeditionScene && selfReady && openExpedition?.status === "lobby" && readyCount < groupIds.length && (
+          <div
+            className="pointer-events-none absolute bottom-[14%] left-1/2 z-30 -translate-x-1/2 rounded-full bg-black/70 px-4 py-1.5 text-center text-sm font-bold text-[#fff3d6]"
+            style={{ fontFamily: "'Baloo 2', cursive" }}
+          >
+            En attente des autres joueurs ({readyCount}/{groupIds.length}) · clique sur le portail pour annuler
+          </div>
+        )}
         {character && !expeditionLaunched && !inExpeditionScene &&
           scenePortals.map((portal) => {
             const mine = !openExpedition || (openExpedition.route ?? "court") === portal.route;
@@ -3065,6 +3088,7 @@ function Index() {
             mirrorBg={bgMirrored}
             characterId={character.id}
             allies={combatAllies}
+            bubbleTexts={bubbleTexts}
             volume={volume}
             muted={muted}
             onFinished={() => void handleCombatFinished()}
@@ -3087,6 +3111,10 @@ function Index() {
             voteDeadlineMs={runStep?.vote_deadline ? new Date(runStep.vote_deadline).getTime() : null}
             onVote={handleExpeditionVote}
             allies={combatAllies}
+            bubbleTexts={bubbleTexts}
+            emoteSymbols={emoteSymbols}
+            selfCharacterId={character.id}
+            onSelfClick={() => setEmoteMenuOpen((o) => !o)}
             enemies={[]}
             turn={1}
           />
@@ -3382,7 +3410,7 @@ function Index() {
         >
           <div
             ref={chatLogRef}
-            className="no-scrollbar pointer-events-auto flex max-h-36 flex-col gap-0.5 overflow-y-auto pr-1 text-sm"
+            className={`no-scrollbar pointer-events-auto max-h-36 flex-col gap-0.5 overflow-y-auto pr-1 text-sm ${openHotspot ? "hidden" : "flex"}`}
             style={{
               fontFamily: "'Baloo 2', cursive",
               color: "#fff3d6",

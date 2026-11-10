@@ -13,7 +13,7 @@ import { MerchantPanel } from "./MerchantPanel";
 import { FarmPanel } from "./FarmPanel";
 import { QuestPanel } from "./QuestPanel";
 
-export function HotspotMarker({ hotspot, onClick, bubble, alert }: { hotspot: SceneHotspot; onClick: () => void; bubble?: string | undefined; alert?: boolean | undefined }) {
+export function HotspotMarker({ hotspot, onClick, bubble, alert, ready }: { hotspot: SceneHotspot; onClick: () => void; bubble?: string | undefined; alert?: boolean | undefined; ready?: boolean | undefined }) {
   const info = hotspotInfo(hotspot.kind);
   const styles = useHotspotStyles();
   if (!styles && hotspotInfo(hotspot.kind).kind in { forge: 1, step_editor: 1, farm: 1, merchant: 1, quests: 1 }) return null; // réglages pas encore chargés : pas de saut de taille
@@ -32,7 +32,7 @@ export function HotspotMarker({ hotspot, onClick, bubble, alert }: { hotspot: Sc
         className="pointer-events-auto absolute -translate-x-1/2 -translate-y-full"
         style={{ left: `${hotspot.position.x}%`, top: `${hotspot.position.y}%`, width: `${st.width_pct}%`, cursor: CURSOR_INTERACT, zIndex: bubble ? 36 : 11 + Math.max(0, Math.min(8, Math.floor(hotspot.position.y / (100 / 9)))) }}
       >
-        {(st.npc_name || bubble || alert) && (
+        {(st.npc_name || bubble || alert || ready) && (
           <span className="pointer-events-none absolute bottom-full left-1/2 flex -translate-x-1/2 flex-col items-center" style={{ fontFamily: "'Baloo 2', cursive" }}>
             {bubble && (
               <span
@@ -43,7 +43,10 @@ export function HotspotMarker({ hotspot, onClick, bubble, alert }: { hotspot: Sc
                 <span className="absolute left-1/2 top-full h-0 w-0 -translate-x-1/2 border-x-8 border-t-8 border-x-transparent" style={{ borderTopColor: "#fff1c2" }} />
               </span>
             )}
-            {alert && !bubble && (
+            {ready && !bubble && (
+              <span className="obw-alert text-2xl font-black leading-none" style={{ color: "#dc2626", textShadow: "0 0 6px #facc15, 0 0 12px #fde047, 0 1px 2px #000" }}>?</span>
+            )}
+            {alert && !ready && !bubble && (
               <span className="obw-alert text-2xl font-black leading-none" style={{ color: "#facc15", textShadow: "0 0 6px #b45309, 0 1px 2px #000, 0 0 10px #fde047" }}>❗</span>
             )}
             {st.npc_name && (

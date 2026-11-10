@@ -64,3 +64,27 @@ export function useQuestAvailable(reloadKey: unknown): boolean {
   if (m && !m.claimed) return false; // une quête est déjà en cours
   return !(m?.claimed && (m.claimed_day ?? "") >= today);
 }
+
+/** true quand la quête en cours est terminée et attend d'être rendue (récompense à réclamer auprès du PNJ). */
+export function useQuestReady(reloadKey: unknown): boolean {
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => {
+      void fetchQuests()
+        .then((d) => {
+          if (cancelled) return;
+          const q = d.mine && !d.mine.claimed ? d.quests.find((x) => x.quest_key === d.mine!.quest_key) : undefined;
+          setReady(!!q && d.mine!.progress >= q.goal);
+        })
+        .catch(() => {});
+    };
+    load();
+    window.addEventListener("obliq-quest-changed", load);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("obliq-quest-changed", load);
+    };
+  }, [reloadKey]);
+  return ready;
+}

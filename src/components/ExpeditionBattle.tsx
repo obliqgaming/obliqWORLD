@@ -8,7 +8,7 @@
 // bruitage, et les PV affichés ne bougent qu'au moment où le coup touche.
 import { Bag } from "./GameIcons";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ALLY_SLOTS, ENEMY_SLOTS, HpBar, PlaceholderEnemy, hpColor, type CombatAlly } from "./ExpeditionCombatView";
+import { ALLY_SLOTS, AllyBubble, ENEMY_SLOTS, orderAlliesForViewer, HpBar, PlaceholderEnemy, hpColor, type CombatAlly } from "./ExpeditionCombatView";
 import {
   fetchCombatSnapshot,
   fetchEnemyImagePool,
@@ -145,6 +145,7 @@ export function ExpeditionBattle({
   combatId,
   characterId,
   allies,
+  bubbleTexts,
   volume,
   muted,
   onFinished,
@@ -154,6 +155,7 @@ export function ExpeditionBattle({
   combatId: string;
   characterId: string;
   allies: CombatAlly[];
+  bubbleTexts?: Record<string, string>;
   volume: number;
   muted: boolean;
   /** Appelé quand le joueur ferme le panneau de fin de combat. */
@@ -633,7 +635,7 @@ export function ExpeditionBattle({
       )}
 
       {/* Groupe à gauche */}
-      {allies.slice(0, ALLY_SLOTS.length).map((a, i) => {
+      {orderAlliesForViewer(allies, characterId).map((a, i) => {
         const slot = ALLY_SLOTS[i]!;
         const hp = shownAllyHp(a);
         const dead = hp <= 0;
@@ -645,7 +647,7 @@ export function ExpeditionBattle({
           <div
             key={a.characterId}
             className="absolute"
-            style={{ left: `${slot.x}%`, top: `${slot.y}%`, height: "26%", transform: "translate(-50%, -100%)", zIndex: Math.round(slot.y), cursor: clickable ? CURSOR_INTERACT : undefined }}
+            style={{ left: `${slot.x}%`, top: `${slot.y}%`, height: "26%", transform: "translate(-50%, -100%)", zIndex: bubbleTexts?.[a.characterId] ? 90 : Math.round(slot.y), cursor: clickable ? CURSOR_INTERACT : undefined }}
             onClick={() => {
               if (clickable) {
                 setTargetAlly(a.characterId);
@@ -655,6 +657,7 @@ export function ExpeditionBattle({
               }
             }}
           >
+            {bubbleTexts?.[a.characterId] && <AllyBubble text={bubbleTexts[a.characterId]!} />}
             {lookFor("p", a.characterId) && <FxOverlay key={"fx" + current!.id} look={lookFor("p", a.characterId)!} />}
             {fl && (
               <div key={current!.id} className="obw-float pointer-events-none absolute left-1/2 top-0 z-50 text-2xl font-extrabold" style={{ color: fl.color, textShadow: "0 2px 4px #000" }}>

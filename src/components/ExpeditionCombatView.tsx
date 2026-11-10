@@ -15,6 +15,8 @@
 import { Typewriter } from "./Typewriter";
 import { shouldMirror, useImageFlips } from "../lib/image-flips";
 import { useEffect, useState } from "react";
+import { WornSprite } from "./WornSprite";
+import { fetchWornWeapons, type WornWeapon } from "../lib/weapons";
 
 export type CombatAlly = {
   characterId: string;
@@ -76,6 +78,19 @@ export const ALLY_SLOTS = [
   { x: 33, y: 60 },
   { x: 14, y: 78 },
 ];
+// Chacun voit SON personnage au premier plan : il prend l'emplacement le plus proche du spectateur ; les autres gardent leur ordre.
+export function orderAlliesForViewer<T extends { characterId: string }>(allies: T[], selfId?: string): T[] {
+  const n = Math.min(allies.length, ALLY_SLOTS.length);
+  const self = allies.find((a) => a.characterId === selfId);
+  if (!self || n === 0) return allies.slice(0, ALLY_SLOTS.length);
+  const others = allies.filter((a) => a !== self).slice(0, n - 1);
+  let front = 0;
+  for (let i = 1; i < n; i++) if (ALLY_SLOTS[i]!.y > ALLY_SLOTS[front]!.y) front = i;
+  const out: T[] = [];
+  let k = 0;
+  for (let i = 0; i < n; i++) out.push(i === front ? self : others[k++]!);
+  return out;
+}
 export const ENEMY_SLOTS = [
   { x: 70, y: 74 },
   { x: 80, y: 64 },
@@ -102,6 +117,19 @@ export function HpBar({ current, max, className = "", label }: { current: number
           {label}
         </span>
       )}
+    </div>
+  );
+}
+
+// Bulle de chat au-dessus d'un allié (dans les vues d'expédition, qui recouvrent les personnages « de marche »).
+export function AllyBubble({ text }: { text: string }) {
+  return (
+    <div
+      className="pointer-events-none absolute bottom-full left-1/2 z-[999] mb-1 w-max max-w-[220px] -translate-x-1/2 rounded-xl border border-[#7a4a22]/70 bg-[#fff3d6] px-3 py-1.5 text-center text-sm font-semibold leading-tight text-[#3a2210] shadow-lg"
+      style={{ fontFamily: "'Baloo 2', cursive" }}
+    >
+      {text}
+      <div className="absolute left-1/2 top-full h-0 w-0 -translate-x-1/2 border-x-8 border-t-8 border-x-transparent" style={{ borderTopColor: "#fff3d6" }} />
     </div>
   );
 }
@@ -133,6 +161,10 @@ export function ExpeditionCombatView({
   myVote,
   onVote,
   allies,
+  bubbleTexts,
+  emoteSymbols,
+  selfCharacterId,
+  onSelfClick,
   enemies,
   turn,
   onAction,
@@ -153,6 +185,12 @@ export function ExpeditionCombatView({
   myVote: string | null;
   onVote?: (choiceKey: string) => void;
   allies: CombatAlly[];
+  /** Texte de chat en cours, par personnage (bulle au-dessus de lui). */
+  bubbleTexts?: Record<string, string>;
+  emoteSymbols?: Record<string, string>;
+  /** Clic sur son propre personnage (ouvre le menu des emotes). */
+  selfCharacterId?: string;
+  onSelfClick?: () => void;
   enemies: CombatEnemy[];
   turn: number;
   /** Absent tant que le moteur de combat n'est pas branché : les boutons restent sélectionnables mais ne valident rien. */
@@ -174,6 +212,16 @@ export function ExpeditionCombatView({
   // ---- Arrivée d'étape : « pre » = hors écran à gauche, « go » = en marche vers sa place, « in » = en place ----
   const [stage, setStage] = useState<"pre" | "go" | "in">(() => (arrivalKey && arrivalKey !== lastArrivalKey ? "pre" : "in"));
   const [landed, setLanded] = useState<string[]>([]);
+  // Armes équipées visibles aussi hors combat : pas d'apparition/disparition quand on passe de la marche à l'événement puis au combat.
+  const [worn, setWorn] = useState<Record<string, WornWeapon>>({});
+  const allyIdsKey = allies.map((a) => a.characterId).join(",");
+  useEffect(() => {
+    let off = false;
+    fetchWornWeapons(allyIdsKey.split(",").filter(Boolean))
+      .then((w) => { if (!off) setWorn(w); })
+      .catch(() => {});
+    return () => { off = true; };
+  }, [allyIdsKey]);
   useEffect(() => {
     if (!arrivalKey) return;
     if (arrivalKey === lastArrivalKey) { setStage("in"); return; }
@@ -217,7 +265,7 @@ export function ExpeditionCombatView({
       </div>
 
       {/* Groupe à gauche */}
-      {allies.slice(0, ALLY_SLOTS.length).map((a, i) => {
+      {orderAlliesForViewer(allies, selfCharacterId).map((a, i) => {
         const slot = ALLY_SLOTS[i]!;
         const dead = a.hpCurrent <= 0;
         const leaving = walkOutIds.includes(a.characterId);
@@ -229,20 +277,30 @@ export function ExpeditionCombatView({
             className="absolute"
             style={{
               left: leaving ? "118%" : stage === "pre" ? "-14%" : `${slot.x}%`,
-              top: `${slot.y}%`, height: "26%", transform: "translate(-50%, -100%)", zIndex: Math.round(slot.y),
+              top: `${slot.y}%`, height: "26%", transform: "translate(-50%, -100%)", zIndex: bubbleTexts?.[a.characterId] ? 90 : Math.round(slot.y),
               transition: leaving ? "left 1600ms linear" : stage === "go" && arriving ? `left 1500ms linear ${i * 700}ms` : undefined,
             }}
             onTransitionEnd={(e) => { if (e.propertyName === "left" && !leaving && stage === "go") setLanded((l) => (l.includes(a.characterId) ? l : [...l, a.characterId])); }}
           >
+            {bubbleTexts?.[a.characterId] && <AllyBubble text={bubbleTexts[a.characterId]!} />}
+            {emoteSymbols?.[a.characterId] && <div className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 text-3xl" style={{ animation: "emote-symbol 1.6s ease-out infinite" }}>{emoteSymbols[a.characterId]}</div>}
             <style>{`@keyframes obw-walk{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(6deg)}}`}</style>
             <div style={{ transform: shouldMirror(flips, a.imageUrl, true) ? "scaleX(-1)" : "none", height: "100%" }}>
-              <img
-                src={a.imageUrl}
-                alt={a.name}
-                draggable={false}
-                className="h-full w-auto object-contain drop-shadow-[0_4px_6px_rgba(0,0,0,0.5)]"
-                style={{ filter: dead ? "grayscale(1) brightness(0.5)" : undefined, transformOrigin: "50% 100%", animation: walkingNow ? "auberge-hop 520ms ease-in-out infinite" : undefined }}
+<div
+                className="h-full"
+                data-emote-menu={a.characterId === selfCharacterId ? "" : undefined}
+                onClick={a.characterId === selfCharacterId && onSelfClick ? (e) => { e.stopPropagation(); onSelfClick(); } : undefined}
+                style={{ cursor: a.characterId === selfCharacterId && onSelfClick ? "pointer" : undefined }}
+              >
+                <WornSprite
+                  fit="height"
+                  src={a.imageUrl}
+                  alt={a.name}
+                  weapon={worn[a.characterId]}
+                  className="block h-full w-auto object-contain drop-shadow-[0_4px_6px_rgba(0,0,0,0.5)]"
+                  style={{ filter: dead ? "grayscale(1) brightness(0.5)" : undefined, transformOrigin: "50% 100%", animation: walkingNow ? "auberge-hop 520ms ease-in-out infinite" : undefined }}
               />
+              </div>
             </div>
             {a.companion && !dead && (
               <img src={a.companion.image_url} alt="" draggable={false} className="pointer-events-none absolute bottom-0 -right-[38%] block h-1/2 w-auto object-contain drop-shadow-[0_3px_4px_rgba(0,0,0,0.5)]" style={{ transform: shouldMirror(flips, a.companion.image_url, true) ? "scaleX(-1)" : "none", transformOrigin: "50% 100%", animation: walkingNow ? "obw-walk 250ms linear infinite" : undefined }} />

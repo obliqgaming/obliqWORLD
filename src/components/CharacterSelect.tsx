@@ -74,6 +74,12 @@ export function CharacterSelect({
         setRefMsg("Code enregistré ✔ ton parrain recevra une surprise.");
         return true;
       }
+      // Le lien de parrain a déjà enregistré un code à la connexion : ce n'est pas une erreur, et ça ne doit pas bloquer la création.
+      if ((r.reason ?? "").includes("déjà enregistré")) {
+        setRefOk(true);
+        setRefMsg("Ton code de parrain est déjà enregistré ✔");
+        return true;
+      }
       setRefMsg(r.reason ?? "Code refusé.");
     } catch (e: any) {
       setRefMsg(e?.message ?? "Connecte-toi d'abord pour utiliser un code.");
@@ -103,10 +109,10 @@ export function CharacterSelect({
   };
 
   return (
-    <div className="relative isolate flex h-screen w-screen items-center justify-center bg-[#1a0f07] p-4">
+    <div className="relative isolate flex h-screen w-screen justify-center overflow-y-auto bg-[#1a0f07] p-4">
       {/* Décor de l'auberge en fond, flouté et assombri (simple image déjà chargée par le jeu) : on voit où on arrive. */}
       {backdropUrl && (
-        <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+        <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
           <img src={backdropUrl} alt="" draggable={false} className="h-full w-full scale-105 object-cover blur-[3px]" />
           <div className="absolute inset-0 bg-black/45" />
         </div>
@@ -126,7 +132,7 @@ export function CharacterSelect({
       />
 
       <div
-        className="w-full max-w-3xl text-[#3a2210]"
+        className="m-auto w-full max-w-6xl text-[#3a2210]"
         style={{
           borderStyle: "solid",
           // Nouveau cadre (rectangle simple, sans lanterne/bannière qui dépassait du
@@ -143,7 +149,7 @@ export function CharacterSelect({
           borderImageRepeat: "stretch",
         }}
       >
-        <h2 className="mb-4 text-center text-2xl font-bold" style={{ fontFamily: "'Baloo 2', cursive" }}>
+        <h2 className="mb-3 text-center text-2xl font-bold" style={{ fontFamily: "'Baloo 2', cursive" }}>
           Crée ton personnage
         </h2>
 
@@ -153,6 +159,77 @@ export function CharacterSelect({
           </p>
         )}
 
+        <div className="grid gap-4 md:grid-cols-[17rem_minmax(0,1fr)]">
+          <div className="order-2 md:order-1">
+        {/* Après le dessin : le nom et la spécialisation (définitive) */}
+        <div>
+          <p className="mb-2 text-center text-sm font-bold">Donne-lui un nom et une spécialisation (définitive), puis valide ton dessin</p>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Nom du personnage"
+          maxLength={30}
+          className="mb-4 w-full rounded-lg border-2 border-[#7a4a22]/70 bg-white/60 px-3 py-2 text-sm font-medium text-[#3a2210] outline-none placeholder:font-normal placeholder:text-[#7a4a22]/80"
+        />
+
+        {/* Étape 1 : la famille (définitive) */}
+        <p className="mb-2 text-center text-sm font-bold">Spécialisation</p>
+        <div className="mb-4 flex flex-col items-center gap-2">
+          {(
+            [
+              { id: "melee", label: "Mêlée", desc: "Tu te bats au corps à corps." },
+              { id: "magie", label: "Magie", desc: "Tu lances des sorts." },
+            ] as { id: CharacterFamily; label: string; desc: string }[]
+          ).map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              disabled={saving || !!busy}
+              onClick={() => setFamily(f.id)}
+              className="flex w-44 flex-col items-center gap-0.5 rounded-lg border-2 px-3 py-1.5 text-center transition hover:-translate-y-px"
+              style={{
+                background: f.id === "melee" ? "#8f2b1d" : "#4b3a8c",
+                color: "#fff3d6",
+                borderColor: family === f.id ? "#fde68a" : "#3a2210",
+                boxShadow: family === f.id ? "0 0 0 2px #3a2210, 0 3px 0 #3a2210" : "0 2px 0 #3a2210",
+                filter: family === f.id || family === null ? "none" : "saturate(0.5) brightness(0.85)",
+              }}
+            >
+              <div className="flex items-center gap-1.5 text-base font-extrabold"><span className="text-lg leading-none">{f.id === "melee" ? "⚔️" : "✨"}</span>{f.label}</div>
+              <div className="text-[11px] font-medium leading-tight opacity-90">{f.desc}</div>
+            </button>
+          ))}
+        </div>
+
+          <div className="mt-3 text-center">
+            {!refOpen ? (
+              <button type="button" onClick={() => setRefOpen(true)} className="text-xs font-bold text-[#7a4a22] underline">
+                🎁 Un ami t'a invité ? Entre son code de parrain
+              </button>
+            ) : (
+              <div className="mx-auto flex max-w-xs items-center gap-2">
+                <input
+                  value={refCode}
+                  maxLength={12}
+                  disabled={refOk}
+                  onChange={(e) => { setRefCode(e.target.value.toUpperCase()); setRefMsg(null); }}
+                  placeholder="CODE DE PARRAIN"
+                  className="min-w-0 flex-1 rounded border-2 border-[#7a4a22]/70 bg-white/60 px-2 py-1 text-center text-sm font-bold tracking-widest outline-none"
+                />
+                <button type="button" disabled={refOk || !refCode.trim()} onClick={() => void submitRefCode()} className="rounded-lg bg-[#7a4a22] px-3 py-1 text-xs font-bold text-[#fff3d6] disabled:opacity-40">
+                  Valider
+                </button>
+              </div>
+            )}
+            {refMsg && <p className="mt-1 text-xs font-bold text-[#92400e]">{refMsg}</p>}
+          </div>
+          {formMessage && <p className="mt-2 text-center text-sm font-bold text-[#92400e]">{formMessage}</p>}
+          <p className="mt-3 text-center text-[11px] font-semibold text-red-700/90">
+            Nom et dessin doivent respecter les règles de modération de Twitch : rien d'offensant ni de choquant.
+          </p>
+        </div>
+          </div>
+          <div className="order-1 min-w-0 md:order-2">
         <p className="mb-3 rounded-lg border-2 border-[#7a4a22]/60 bg-[#7a4a22]/15 px-3 py-2 text-center text-sm font-bold">
           ⚔️ Ton personnage doit avoir une main (ou un membre) capable de tenir une arme :<br />place bien le repère de main sur le dessin.
         </p>
@@ -209,72 +286,7 @@ export function CharacterSelect({
           <DrawingCanvas draftKey={draftKey} onExport={handleDrawingExported} exporting={saving || !!busy} />
         ) : null}
 
-        {/* Après le dessin : le nom et la spécialisation (définitive) */}
-        <div className="mt-5 border-t-2 border-[#7a4a22]/40 pt-4">
-          <p className="mb-2 text-center text-sm font-bold">Puis donne-lui un nom et une spécialisation (définitive), et valide ton dessin</p>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Nom du personnage"
-          maxLength={30}
-          className="mb-4 w-full rounded-lg border-2 border-[#7a4a22]/70 bg-white/60 px-3 py-2 text-sm font-medium text-[#3a2210] outline-none placeholder:font-normal placeholder:text-[#7a4a22]/80"
-        />
-
-        {/* Étape 1 : la famille (définitive) */}
-        <p className="mb-2 text-center text-sm font-bold">Spécialisation</p>
-        <div className="mb-4 flex justify-center gap-3">
-          {(
-            [
-              { id: "melee", label: "Mêlée", desc: "Tu te bats au corps à corps." },
-              { id: "magie", label: "Magie", desc: "Tu lances des sorts." },
-            ] as { id: CharacterFamily; label: string; desc: string }[]
-          ).map((f) => (
-            <button
-              key={f.id}
-              type="button"
-              disabled={saving || !!busy}
-              onClick={() => setFamily(f.id)}
-              className="flex w-44 flex-col items-center gap-0.5 rounded-lg border-2 px-3 py-1.5 text-center transition hover:-translate-y-px"
-              style={{
-                background: f.id === "melee" ? "#8f2b1d" : "#4b3a8c",
-                color: "#fff3d6",
-                borderColor: family === f.id ? "#fde68a" : "#3a2210",
-                boxShadow: family === f.id ? "0 0 0 2px #3a2210, 0 3px 0 #3a2210" : "0 2px 0 #3a2210",
-                filter: family === f.id || family === null ? "none" : "saturate(0.5) brightness(0.85)",
-              }}
-            >
-              <div className="flex items-center gap-1.5 text-base font-extrabold"><span className="text-lg leading-none">{f.id === "melee" ? "⚔️" : "✨"}</span>{f.label}</div>
-              <div className="text-[11px] font-medium leading-tight opacity-90">{f.desc}</div>
-            </button>
-          ))}
-        </div>
-
-          <div className="mt-3 text-center">
-            {!refOpen ? (
-              <button type="button" onClick={() => setRefOpen(true)} className="text-xs font-bold text-[#7a4a22] underline">
-                🎁 Un ami t'a invité ? Entre son code de parrain
-              </button>
-            ) : (
-              <div className="mx-auto flex max-w-xs items-center gap-2">
-                <input
-                  value={refCode}
-                  maxLength={12}
-                  disabled={refOk}
-                  onChange={(e) => { setRefCode(e.target.value.toUpperCase()); setRefMsg(null); }}
-                  placeholder="CODE DE PARRAIN"
-                  className="min-w-0 flex-1 rounded border-2 border-[#7a4a22]/70 bg-white/60 px-2 py-1 text-center text-sm font-bold tracking-widest outline-none"
-                />
-                <button type="button" disabled={refOk || !refCode.trim()} onClick={() => void submitRefCode()} className="rounded-lg bg-[#7a4a22] px-3 py-1 text-xs font-bold text-[#fff3d6] disabled:opacity-40">
-                  Valider
-                </button>
-              </div>
-            )}
-            {refMsg && <p className="mt-1 text-xs font-bold text-[#92400e]">{refMsg}</p>}
           </div>
-          {formMessage && <p className="mt-2 text-center text-sm font-bold text-[#92400e]">{formMessage}</p>}
-          <p className="mt-3 text-center text-[11px] font-semibold text-red-700/90">
-            Nom et dessin doivent respecter les règles de modération de Twitch : rien d'offensant ni de choquant.
-          </p>
         </div>
       </div>
     </div>

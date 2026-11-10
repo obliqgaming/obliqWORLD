@@ -167,7 +167,7 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
                     <input type="range" min={-180} max={180} step={5} value={adj.rot} onChange={(e) => setAdj((a) => ({ ...a, rot: Number(e.target.value) }))} className="w-full min-w-0" />
                     <span className="text-right">{adj.rot}°</span>
                     <span>Taille</span>
-                    <input type="range" min={80} max={120} step={1} value={adj.scale} onChange={(e) => setAdj((a) => ({ ...a, scale: Number(e.target.value) }))} className="w-full min-w-0" />
+                    <input type="range" min={80} max={150} step={1} value={adj.scale} onChange={(e) => setAdj((a) => ({ ...a, scale: Number(e.target.value) }))} className="w-full min-w-0" />
                     <span className="text-right">{adj.scale}%</span>
                   </div>
                   <div className="mt-2 flex flex-wrap gap-1">
