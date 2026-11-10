@@ -57,32 +57,46 @@ export async function addMultiHotspot(sceneId: string, base: string, position: P
 
 export async function claimDailyGold(hotspotId: string): Promise<number> {
   const { data, error } = await scenesClient.rpc("daily_gold_claim", { p_hotspot_id: hotspotId });
-  window.dispatchEvent(new Event("obliq-gold-claimed"));
+  // Un tas ramassé (ou déjà ramassé / vide, d'après la base) doit disparaître tout de suite, sans dépendre d'une relecture.
+  const m = String(error?.message ?? "");
+  const hide = !error || m.includes("déjà") || m.includes("vide");
+  window.dispatchEvent(new CustomEvent("obliq-gold-claimed", { detail: hide ? hotspotId : null }));
   if (error) throw error;
   return Number(data ?? 0);
 }
 
-// Tas d'or déjà ramassés AUJOURD'HUI par ce joueur (ils disparaissent pour lui seul jusqu'au lendemain, jour UTC comme la base).
+// Tas d'or déjà ramassés AUJOURD'HUI par ce joueur (ils disparaissent pour lui seul jusqu'au lendemain, jour de Paris comme la base).
 export function useClaimedGoldToday(): Set<string> {
   const [ids, setIds] = useState<Set<string>>(new Set());
   useEffect(() => {
     let alive = true;
     let timer: number | undefined;
+    const local = new Set<string>(); // tas masqués localement aujourd'hui (filet de sécurité si la relecture en base échoue)
+    let localDay = "";
     const load = async () => {
       try {
         const uid = await ensureUserId();
-        const today = new Date().toISOString().slice(0, 10);
+        // Jour de Paris, comme la base (avant : jour UTC, décalé d'1 h la nuit → tas qui réapparaissait).
+        const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris" }).format(new Date());
         const { data } = await scenesClient.from("gold_claims").select("hotspot_id, day").eq("user_id", uid).eq("day", today);
-        if (alive) setIds(new Set((data ?? []).map((r: any) => r.hotspot_id as string)));
+        if (localDay !== today) { local.clear(); localDay = today; }
+        if (alive) setIds(new Set([...(data ?? []).map((r: any) => r.hotspot_id as string), ...local]));
       } catch {
         /* SQL 032 absent : rien n'est masqué */
       }
-      // Prochain minuit UTC : les tas réapparaissent.
+      // Prochain minuit à Paris : les tas réapparaissent (un seul minuteur, pas de requêtes répétées).
       const now = new Date();
-      const next = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 5);
+      const hms = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Paris", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }).format(now).split(":").map(Number);
+      const secLeft = 86400 - ((hms[0] ?? 0) * 3600 + (hms[1] ?? 0) * 60 + (hms[2] ?? 0)) + 5;
+      const next = now.getTime() + secLeft * 1000;
       if (alive) timer = window.setTimeout(() => void load(), Math.max(1000, next - now.getTime()));
     };
-    const reload = () => {
+    const reload = (e?: Event) => {
+      const id = (e as CustomEvent<string | null> | undefined)?.detail;
+      if (typeof id === "string") {
+        local.add(id);
+        setIds((prev) => new Set([...prev, id]));
+      }
       window.clearTimeout(timer);
       void load();
     };

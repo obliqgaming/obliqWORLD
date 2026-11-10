@@ -415,7 +415,10 @@ function Index() {
     };
     claimDailyGold(h.id)
       .then((n) => { uiSound("coin"); push(`+${n} flouz`, true); })
-      .catch((e: any) => push(e?.message?.includes("daily_gold_claim") ? "Pas encore activé" : "Déjà ramassé", false));
+      .catch((e: any) => {
+        const m = String(e?.message ?? "");
+        push(m.includes("daily_gold_claim") ? "Pas encore activé" : m.includes("vide") ? "Tas vide aujourd'hui" : m.includes("déjà") ? "Déjà ramassé" : "Impossible", false);
+      });
   };
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [talentsOpen, setTalentsOpen] = useState(false);
