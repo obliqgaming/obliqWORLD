@@ -1329,6 +1329,21 @@ function Index() {
         return;
       }
 
+      // Minimum de joueurs (réglage expedition_min_players, 3 par défaut, modifiable dans /admin > Réglages).
+      const { data: minRow } = await scenesClient
+        .from("game_settings")
+        .select("value")
+        .eq("key", "expedition_min_players")
+        .maybeSingle();
+      const minPlayers = Math.max(1, Number(minRow?.value ?? 3) || 3);
+      const joinedCount = party ? partyMembers.filter((m) => m.status === "joined").length : 1;
+      if (joinedCount < minPlayers) {
+        window.alert(
+          `Il faut un groupe d'au moins ${minPlayers} joueurs pour partir en expédition. Invite des aventuriers dans ton groupe (clique sur un joueur, puis « Inviter dans le groupe »).`,
+        );
+        return;
+      }
+
       let activeParty = party;
       if (!activeParty) {
         const ok = window.confirm(
@@ -1356,7 +1371,7 @@ function Index() {
       console.error("Portal toggle failed", e);
       const m = String((e as { message?: string })?.message ?? "");
       window.alert(
-        m.includes("niveau") || m.includes("autre portail")
+        m.includes("niveau") || m.includes("autre portail") || m.includes("joueurs")
           ? m
           : "Impossible d'entrer dans le portail pour l'instant. Réessaie dans un instant.",
       );
