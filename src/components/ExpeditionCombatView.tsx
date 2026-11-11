@@ -15,6 +15,7 @@
 import { Typewriter } from "./Typewriter";
 import { shouldMirror, useImageFlips } from "../lib/image-flips";
 import { useEffect, useState } from "react";
+import { emoteStyle, type EmoteKey } from "../lib/emotes";
 import { WornSprite } from "./WornSprite";
 import { fetchWornWeapons, type WornWeapon } from "../lib/weapons";
 
@@ -163,6 +164,7 @@ export function ExpeditionCombatView({
   allies,
   bubbleTexts,
   emoteSymbols,
+  emoteKeys,
   selfCharacterId,
   onSelfClick,
   enemies,
@@ -188,6 +190,8 @@ export function ExpeditionCombatView({
   /** Texte de chat en cours, par personnage (bulle au-dessus de lui). */
   bubbleTexts?: Record<string, string>;
   emoteSymbols?: Record<string, string>;
+  /** Emote en cours, par personnage : anime le personnage lui-même. */
+  emoteKeys?: Record<string, string>;
   /** Clic sur son propre personnage (ouvre le menu des emotes). */
   selfCharacterId?: string;
   onSelfClick?: () => void;
@@ -277,12 +281,11 @@ export function ExpeditionCombatView({
             className="absolute"
             style={{
               left: leaving ? "118%" : stage === "pre" ? "-14%" : `${slot.x}%`,
-              top: `${slot.y}%`, height: "26%", transform: "translate(-50%, -100%)", zIndex: bubbleTexts?.[a.characterId] ? 90 : Math.round(slot.y),
+              top: `${slot.y}%`, height: "26%", transform: "translate(-50%, -100%)", zIndex: Math.round(slot.y) - 50,
               transition: leaving ? "left 1600ms linear" : stage === "go" && arriving ? `left 1500ms linear ${i * 700}ms` : undefined,
             }}
             onTransitionEnd={(e) => { if (e.propertyName === "left" && !leaving && stage === "go") setLanded((l) => (l.includes(a.characterId) ? l : [...l, a.characterId])); }}
           >
-            {bubbleTexts?.[a.characterId] && <AllyBubble text={bubbleTexts[a.characterId]!} />}
             {emoteSymbols?.[a.characterId] && <div className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 text-3xl" style={{ animation: "emote-symbol 1.6s ease-out infinite" }}>{emoteSymbols[a.characterId]}</div>}
             <style>{`@keyframes obw-walk{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(6deg)}}`}</style>
             <div style={{ transform: shouldMirror(flips, a.imageUrl, true) ? "scaleX(-1)" : "none", height: "100%" }}>
@@ -290,7 +293,7 @@ export function ExpeditionCombatView({
                 className="h-full"
                 data-emote-menu={a.characterId === selfCharacterId ? "" : undefined}
                 onClick={a.characterId === selfCharacterId && onSelfClick ? (e) => { e.stopPropagation(); onSelfClick(); } : undefined}
-                style={{ cursor: a.characterId === selfCharacterId && onSelfClick ? "pointer" : undefined }}
+                style={{ cursor: a.characterId === selfCharacterId && onSelfClick ? "pointer" : undefined, ...(emoteStyle(emoteKeys?.[a.characterId] as EmoteKey | undefined) ?? {}) }}
               >
                 <WornSprite
                   fit="height"
@@ -315,6 +318,19 @@ export function ExpeditionCombatView({
         );
       })}
 
+      {/* Bulles de chat : calque au-dessus de tout, les personnages gardent leur place (pas de saut devant les autres) */}
+      {orderAlliesForViewer(allies, selfCharacterId).map((a, i) => {
+        if (!bubbleTexts?.[a.characterId]) return null;
+        const slot = ALLY_SLOTS[i]!;
+        const leaving = walkOutIds.includes(a.characterId);
+        if (leaving || stage !== "in") return null;
+        return (
+          <div key={"bubble-" + a.characterId} className="pointer-events-none absolute" style={{ left: `${slot.x}%`, top: `${slot.y}%`, height: "26%", transform: "translate(-50%, -100%)", zIndex: 29 }}>
+            <AllyBubble text={bubbleTexts[a.characterId]!} />
+          </div>
+        );
+      })}
+
       {/* Adversaires à droite */}
       {phase === "combat" && enemies.slice(0, ENEMY_SLOTS.length).map((en, i) => {
         const slot = ENEMY_SLOTS[i]!;
@@ -323,7 +339,7 @@ export function ExpeditionCombatView({
           <div
             key={en.id}
             className="absolute"
-            style={{ left: `${slot.x}%`, top: `${slot.y}%`, height: "26%", transform: "translate(-50%, -100%)", zIndex: Math.round(slot.y) }}
+            style={{ left: `${slot.x}%`, top: `${slot.y}%`, height: "26%", transform: "translate(-50%, -100%)", zIndex: Math.round(slot.y) - 50 }}
           >
             <div
               className="absolute -top-9 left-1/2 w-28 -translate-x-1/2 text-center text-[11px] font-bold text-[#fff3d6]"

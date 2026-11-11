@@ -647,7 +647,7 @@ export function ExpeditionBattle({
           <div
             key={a.characterId}
             className="absolute"
-            style={{ left: `${slot.x}%`, top: `${slot.y}%`, height: "26%", transform: "translate(-50%, -100%)", zIndex: bubbleTexts?.[a.characterId] ? 90 : Math.round(slot.y), cursor: clickable ? CURSOR_INTERACT : undefined }}
+            style={{ left: `${slot.x}%`, top: `${slot.y}%`, height: "26%", transform: "translate(-50%, -100%)", zIndex: Math.round(slot.y) - 50, cursor: clickable ? CURSOR_INTERACT : undefined }}
             onClick={() => {
               if (clickable) {
                 setTargetAlly(a.characterId);
@@ -657,7 +657,6 @@ export function ExpeditionBattle({
               }
             }}
           >
-            {bubbleTexts?.[a.characterId] && <AllyBubble text={bubbleTexts[a.characterId]!} />}
             {lookFor("p", a.characterId) && <FxOverlay key={"fx" + current!.id} look={lookFor("p", a.characterId)!} />}
             {fl && (
               <div key={current!.id} className="obw-float pointer-events-none absolute left-1/2 top-0 z-50 text-2xl font-extrabold" style={{ color: fl.color, textShadow: "0 2px 4px #000" }}>
@@ -672,16 +671,30 @@ export function ExpeditionBattle({
                   alt={a.name}
                   weapon={worn[a.characterId]}
                   className="block h-full w-auto object-contain drop-shadow-[0_4px_6px_rgba(0,0,0,0.5)]"
-                  style={{ filter: dead ? "grayscale(1) brightness(0.5)" : undefined, outline: isTargeted ? "2px solid #9effa0" : undefined }}
+                  style={{ filter: dead ? "grayscale(1) brightness(0.5)" : undefined }}
                 />
               </div>
             </div>
             {a.companion && !dead && (
               <img src={a.companion.image_url} alt="" draggable={false} className="pointer-events-none absolute bottom-0 -right-[38%] block h-1/2 w-auto object-contain drop-shadow-[0_3px_4px_rgba(0,0,0,0.5)]" style={{ transform: shouldMirror(flips, a.companion?.image_url, true) ? "scaleX(-1)" : "none" }} />
             )}
+            {isTargeted && !dead && (
+              <div className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2"><span className="block animate-bounce text-2xl leading-none text-[#9effa0]" style={{ textShadow: "0 2px 3px #000" }}>▼</span></div>
+            )}
             <div className="absolute left-1/2 top-full mt-0.5 -translate-x-1/2 whitespace-nowrap text-[11px] font-bold text-[#fff3d6]" style={{ textShadow: "0 1px 3px #000" }}>
               {a.name}
             </div>
+          </div>
+        );
+      })}
+
+      {/* Bulles de chat : calque au-dessus, les personnages gardent leur place */}
+      {orderAlliesForViewer(allies, characterId).map((a, i) => {
+        if (!bubbleTexts?.[a.characterId]) return null;
+        const slot = ALLY_SLOTS[i]!;
+        return (
+          <div key={"bubble-" + a.characterId} className="pointer-events-none absolute" style={{ left: `${slot.x}%`, top: `${slot.y}%`, height: "26%", transform: "translate(-50%, -100%)", zIndex: 29 }}>
+            <AllyBubble text={bubbleTexts[a.characterId]!} />
           </div>
         );
       })}
@@ -703,7 +716,7 @@ export function ExpeditionBattle({
           <div
             key={en.id}
             className="absolute"
-            style={{ left: enemyIn.includes(en.id) ? `${slot.x}%` : "116%", top: `${slot.y}%`, height: en.role === "boss" ? "34%" : "26%", transform: "translate(-50%, -100%)", zIndex: Math.round(slot.y), cursor: dead || !active || replaying ? undefined : CURSOR_INTERACT, transition: enemyIn.includes(en.id) && !enemyLanded.includes(en.id) ? "left 1200ms ease-out" : undefined }}
+            style={{ left: enemyIn.includes(en.id) ? `${slot.x}%` : "116%", top: `${slot.y}%`, height: en.role === "boss" ? "34%" : "26%", transform: "translate(-50%, -100%)", zIndex: Math.round(slot.y) - 50, cursor: dead || !active || replaying ? undefined : CURSOR_INTERACT, transition: enemyIn.includes(en.id) && !enemyLanded.includes(en.id) ? "left 1200ms ease-out" : undefined }}
             onTransitionEnd={(e) => { if (e.propertyName === "left") setEnemyLanded((c) => (c.includes(en.id) ? c : [...c, en.id])); }}
             onClick={() => {
               if (dead || !active || replaying || !enemyLanded.includes(en.id)) return;
@@ -723,6 +736,9 @@ export function ExpeditionBattle({
               <HpBar current={hp} max={en.pv_max} className="mt-0.5" label={`${hp}/${en.pv_max}`} />
               {!dead && !replaying && target ? <div className="mt-0.5 whitespace-nowrap text-[10px] leading-none text-[#fca5a5]">vise {target.name}</div> : null}
             </div>
+            {selected && !dead && (
+              <div className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2"><span className="block animate-bounce text-2xl leading-none text-[#fbbf24]" style={{ textShadow: "0 2px 3px #000" }}>▼</span></div>
+            )}
             {lookFor("e", en.id) && <FxOverlay key={"fx" + current!.id} look={lookFor("e", en.id)!} />}
             {fl && (
               <div key={current!.id} className="obw-float pointer-events-none absolute left-1/2 top-0 z-50 text-2xl font-extrabold" style={{ color: fl.color, textShadow: "0 2px 4px #000" }}>
@@ -730,7 +746,7 @@ export function ExpeditionBattle({
               </div>
             )}
             <div className={fx === "act" ? "obw-act-l h-full" : fx === "hit" ? "obw-hit h-full" : fx === "heal" ? "obw-heal h-full" : "h-full"}>
-              <div className="h-full" style={{ filter: dead ? "grayscale(1) brightness(0.5)" : undefined, outline: selected && !dead ? "2px dashed #fbbf24" : undefined, outlineOffset: 2, transformOrigin: "50% 100%", animation: enemyIn.includes(en.id) && !enemyLanded.includes(en.id) ? "auberge-walk 300ms linear infinite" : undefined }}>
+              <div className="h-full" style={{ filter: dead ? "grayscale(1) brightness(0.5)" : undefined, transformOrigin: "50% 100%", animation: enemyIn.includes(en.id) && !enemyLanded.includes(en.id) ? "auberge-walk 300ms linear infinite" : undefined }}>
                 {img ? <div className="h-full" style={{ transform: shouldMirror(flips, img, false) ? "scaleX(-1)" : "none" }}><WornSprite fit="height" src={img} alt={en.name} weapon={mWeapon} className="block h-full w-auto object-contain" /></div> : <PlaceholderEnemy />}
               </div>
             </div>
@@ -922,7 +938,7 @@ export function ExpeditionBattle({
 
       {/* Fin de combat */}
       {finished && (
-        <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/50">
+        <div className="absolute inset-0 z-[200] flex items-center justify-center bg-black/50">
           <div className="w-[min(26rem,90%)] rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-5 text-center text-[#3a2410] shadow-xl">
             <div className="text-xl font-extrabold">{combat!.status === "victory" ? "Victoire !" : "Le groupe est tombé…"}</div>
             <div className="mt-1 text-sm">

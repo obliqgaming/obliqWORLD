@@ -3128,6 +3128,7 @@ function Index() {
             allies={combatAllies}
             bubbleTexts={bubbleTexts}
             emoteSymbols={emoteSymbols}
+            emoteKeys={emotes}
             selfCharacterId={character.id}
             onSelfClick={() => setEmoteMenuOpen((o) => !o)}
             enemies={[]}
