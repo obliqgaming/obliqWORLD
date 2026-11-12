@@ -728,7 +728,7 @@ export function ExpeditionBattle({
             }}
           >
             <div className="absolute -top-16 left-1/2 w-44 -translate-x-1/2 text-center text-[11px] font-bold text-[#fff3d6]" style={{ textShadow: "0 1px 3px #000", opacity: enemyLanded.includes(en.id) ? 1 : 0, transition: "opacity 300ms" }}>
-              {selected && !dead && active ? <div className="-mb-0.5 text-sm leading-none text-[#fbbf24]" style={{ textShadow: "0 1px 3px #000" }}>▼ cible</div> : null}
+              {selected && !dead && active ? <div className="-mb-0.5 text-sm leading-none text-[#fbbf24]" style={{ textShadow: "0 1px 3px #000" }}><span className="inline-block animate-bounce">▼</span> cible</div> : null}
               <div className="whitespace-nowrap leading-tight">
                 {ROLE_LABEL[en.role] ? <span className="mr-1 text-[9px] uppercase tracking-widest text-[#fbbf24]">{ROLE_LABEL[en.role]} ·</span> : null}
                 {en.visual_asset_id && entry?.name ? entry.name : en.name}
@@ -736,9 +736,6 @@ export function ExpeditionBattle({
               <HpBar current={hp} max={en.pv_max} className="mt-0.5" label={`${hp}/${en.pv_max}`} />
               {!dead && !replaying && target ? <div className="mt-0.5 whitespace-nowrap text-[10px] leading-none text-[#fca5a5]">vise {target.name}</div> : null}
             </div>
-            {selected && !dead && (
-              <div className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2"><span className="block animate-bounce text-2xl leading-none text-[#fbbf24]" style={{ textShadow: "0 2px 3px #000" }}>▼</span></div>
-            )}
             {lookFor("e", en.id) && <FxOverlay key={"fx" + current!.id} look={lookFor("e", en.id)!} />}
             {fl && (
               <div key={current!.id} className="obw-float pointer-events-none absolute left-1/2 top-0 z-50 text-2xl font-extrabold" style={{ color: fl.color, textShadow: "0 2px 4px #000" }}>

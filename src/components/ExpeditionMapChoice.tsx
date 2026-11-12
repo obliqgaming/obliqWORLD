@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MAP_NODE_INFO, decideExpeditionMap, getExpeditionMap, voteExpeditionMap, type MapNodeType, type MapState } from "../lib/expedition-map";
 
+const shownType = (t: MapNodeType): MapNodeType => (t === "coffre_piege" ? "coffre" : t);
 const FONT = { fontFamily: "'Baloo 2', cursive" };
 
 export function ExpeditionMapChoice({
@@ -27,6 +28,12 @@ export function ExpeditionMapChoice({
   const doneRef = useRef(false);
   const lastDecideRef = useRef(0);
   const [err, setErr] = useState<string | null>(null);
+  const tieRef = useRef<string | null | undefined>(undefined);
+  const nodesRef = useRef<MapState["nodes"]>(undefined);
+  nodesRef.current = st?.nodes;
+  tieRef.current = st?.tiebreaker;
+  const onResolvedRef = useRef(onResolved);
+  onResolvedRef.current = onResolved;
 
   const refresh = useCallback(async () => {
     try {
@@ -69,17 +76,16 @@ export function ExpeditionMapChoice({
 
   // Décision prise : on laisse le résultat affiché un instant (surtout si égalité), puis on avance.
   useEffect(() => {
-    if (chosen === null || !st?.nodes || doneRef.current) return;
-    const node = st.nodes.find((n) => n.slot === chosen);
-    if (!node) return;
+    if (chosen === null || doneRef.current) return;
     const t = window.setTimeout(() => {
       if (doneRef.current) return;
+      const node = nodesRef.current?.find((n) => n.slot === chosen);
+      if (!node) return;
       doneRef.current = true;
-      onResolved(node.type, chosen);
-    }, st.tiebreaker ? 3500 : 2200);
+      onResolvedRef.current(node.type, chosen);
+    }, tieRef.current ? 3500 : 2200);
     return () => window.clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chosen, st?.nodes, st?.tiebreaker]);
+  }, [chosen]);
 
   const myVote = votes.find((v) => v.c === myCharacterId)?.slot ?? null;
   const canVote = chosen === null && aliveIds.includes(myCharacterId);
@@ -106,14 +112,14 @@ export function ExpeditionMapChoice({
   const chosenNode = chosen !== null ? st.nodes.find((n) => n.slot === chosen) : null;
 
   return (
-    <div className="absolute inset-0 z-[45] flex items-center justify-center bg-black/35 p-2" style={FONT}>
-      <div className="w-[min(46rem,96%)] rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6]/97 p-4 text-[#3a2410] shadow-2xl">
+    <div className="absolute left-1/2 top-[22%] z-[45] w-[min(30rem,94%)] -translate-x-1/2 rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6]/97 p-3 text-[#3a2410] shadow-xl md:left-[71%] md:top-[40%] md:w-[min(30rem,46%)]" style={FONT}>
+      <div>
         <div className="text-center text-[11px] font-bold uppercase tracking-widest text-[#7a4a22]">Embranchement</div>
         <div className="text-center text-xl font-extrabold">Quel chemin prendre ?</div>
 
         <div className="mt-3 grid grid-cols-2 gap-3">
           {st.nodes.map((n) => {
-            const info = MAP_NODE_INFO[n.type];
+            const info = MAP_NODE_INFO[shownType(n.type)];
             const voters = votes.filter((v) => v.slot === n.slot && aliveIds.includes(v.c));
             const isMine = myVote === n.slot;
             const isChosen = chosen === n.slot;
@@ -124,7 +130,7 @@ export function ExpeditionMapChoice({
                 type="button"
                 disabled={!canVote}
                 onClick={() => void vote(n.slot)}
-                className="flex min-h-[10.5rem] flex-col items-center rounded-xl border-4 px-2 py-3 text-center shadow transition-transform enabled:hover:scale-[1.02]"
+                className="flex min-h-[8rem] flex-col items-center rounded-xl border-4 px-2 py-3 text-center shadow transition-transform enabled:hover:scale-[1.02]"
                 style={{
                   background: "#fff3d6",
                   borderColor: isChosen ? "#16a34a" : isMine ? "#fde047" : info.color,
@@ -132,9 +138,9 @@ export function ExpeditionMapChoice({
                   opacity: dim ? 0.45 : 1,
                 }}
               >
-                <span className="text-5xl leading-none">{info.icon}</span>
+                <span className="text-4xl leading-none">{info.icon}</span>
                 <span className="mt-1 text-lg font-extrabold" style={{ color: info.color }}>{info.label}</span>
-                <span className="mt-1 text-xs font-semibold leading-snug">{info.text}</span>
+                <span className="mt-1 text-xs font-semibold leading-snug">{n.type === "clairiere" && st.heal_pct ? `Une pause : chacun reprend ${st.heal_pct} % de ses peps et de son jus.` : info.text}</span>
                 <span className="mt-auto flex min-h-[1.5rem] flex-wrap items-center justify-center gap-1 pt-2">
                   {voters.map((v) => (
                     <span key={v.c} className="rounded-full bg-[#7a4a22] px-2 py-0.5 text-[11px] font-bold text-[#fff3d6]">
@@ -155,8 +161,8 @@ export function ExpeditionMapChoice({
         {chosenNode && (
           <div className="mt-2 text-center text-sm font-extrabold text-[#166534]">
             {tieName
-              ? `Égalité ! Le sort désigne ${tieName} : ${MAP_NODE_INFO[chosenNode.type].icon} ${MAP_NODE_INFO[chosenNode.type].label}.`
-              : `Le groupe a choisi : ${MAP_NODE_INFO[chosenNode.type].icon} ${MAP_NODE_INFO[chosenNode.type].label}.`}
+              ? `Égalité ! Le sort désigne ${tieName} : ${MAP_NODE_INFO[shownType(chosenNode.type)].icon} ${MAP_NODE_INFO[shownType(chosenNode.type)].label}.`
+              : `Le groupe a choisi : ${MAP_NODE_INFO[shownType(chosenNode.type)].icon} ${MAP_NODE_INFO[shownType(chosenNode.type)].label}.`}
           </div>
         )}
         {err && <div className="mt-1 text-center text-xs font-bold text-[#b91c1c]">{err}</div>}
@@ -182,7 +188,7 @@ export function ExpeditionMapChoice({
               {(st.preview ?? []).map((p) => (
                 <span key={p.layer} className="flex items-center gap-0.5 rounded-lg border border-[#7a4a22]/50 bg-[#fff3d6]/70 px-1.5 py-0.5 text-lg opacity-80" title="Aperçu : pas cliquable">
                   {p.nodes.map((t, i) => (
-                    <span key={i} title={MAP_NODE_INFO[t]?.label}>{MAP_NODE_INFO[t]?.icon ?? "❔"}</span>
+                    <span key={i} title={MAP_NODE_INFO[shownType(t)]?.label}>{MAP_NODE_INFO[shownType(t)]?.icon ?? "❔"}</span>
                   ))}
                 </span>
               ))}

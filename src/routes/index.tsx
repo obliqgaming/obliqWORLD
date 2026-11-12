@@ -3193,7 +3193,7 @@ function Index() {
             sceneImageUrl={scene.image_url}
             mirrorBg={bgMirrored}
             walkOutIds={leavingIds}
-            arrivalKey={activeExpedition ? `${activeExpedition.id}:${(outcomeInfo ? stepIndex - 1 : stepIndex) + 1}` : undefined}
+            arrivalKey={activeExpedition ? `${activeExpedition.id}:${(outcomeInfo ? stepIndex - 1 : stepIndex) + 1 - (!outcomeInfo && stepIndex > 0 && (mapKey === "wait" || mapKey === "choice") ? 1 : 0)}` : undefined}
             eventNumber={(outcomeInfo ? stepIndex - 1 : stepIndex) + 1}
             progress={activeExpedition ? ((outcomeInfo ? stepIndex - 1 : stepIndex) + 1) / Math.max(1, expeditionLength(activeExpedition.route, activeExpedition.id)) : undefined}
             phase="event"
