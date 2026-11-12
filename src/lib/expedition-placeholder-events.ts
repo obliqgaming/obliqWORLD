@@ -304,10 +304,48 @@ export function buildLayout(route: ExpeditionRoute, seed: string): PlaceholderEv
 
 /** Longueur réelle d'une expédition (à ne PAS montrer aux joueurs avant la fin). */
 export function expeditionLength(route: ExpeditionRoute | null | undefined, seed: string): number {
+  const m = route === "long" ? undefined : mapRegistry.get(seed);
+  if (m?.enabled && m.layers > 0) return m.layers;
   return buildLayout(route === "long" ? "long" : "court", seed).length;
 }
 
+// ---------- Carte d'expédition (lot 2) ----------
+// Quand la carte est active (P'tite Balade, SQL 102), le déroulé ne vient plus du tirage ci-dessus mais du chemin choisi
+// par le groupe à chaque pas. Ce registre garde, pour chaque expédition : si la carte est active (null = pas encore su),
+// le nombre de pas, et le type de nœud choisi pour chaque pas.
+type MapReg = { enabled: boolean | null; layers: number; chosen: Record<number, string> };
+const mapRegistry = new Map<string, MapReg>();
+export function mapRegGet(expeditionId: string | null | undefined): MapReg | undefined {
+  return expeditionId ? mapRegistry.get(expeditionId) : undefined;
+}
+export function mapRegSet(expeditionId: string, patch: Partial<MapReg> & { choose?: [number, string] }): void {
+  const cur = mapRegistry.get(expeditionId) ?? { enabled: null, layers: 0, chosen: {} };
+  const next: MapReg = { enabled: patch.enabled ?? cur.enabled, layers: patch.layers ?? cur.layers, chosen: { ...cur.chosen } };
+  if (patch.choose) next.chosen[patch.choose[0]] = patch.choose[1];
+  mapRegistry.set(expeditionId, next);
+}
+/** Clé courte de l'état de la carte pour un pas (à mettre dans les dépendances des effets). */
+export function mapRegKey(expeditionId: string | null | undefined, idx: number): string {
+  const m = mapRegGet(expeditionId);
+  if (!m || m.enabled === null) return "wait";
+  if (!m.enabled) return "off";
+  return m.chosen[idx] ?? "choice";
+}
+const MAP_WAIT_EVENT: PlaceholderEvent = { id: "map-wait", kind: "event", typeLabel: "…", risk: "faible", situation: "", choices: [] };
+const MAP_CHOICE_EVENT: PlaceholderEvent = { id: "map-choice", kind: "event", typeLabel: "Embranchement", risk: "faible", situation: "", choices: [] };
+
 export function eventForStep(route: ExpeditionRoute | null | undefined, idx: number, seed?: string | null): PlaceholderEvent {
+  if (seed && route !== "long") {
+    const m = mapRegistry.get(seed);
+    if (!m || m.enabled === null) return MAP_WAIT_EVENT;
+    if (m.enabled) {
+      const t = m.chosen[idx];
+      if (t === "combat" || t === "elite") return byId("confrontation");
+      if (t === "boss") return byId("boss-final");
+      if (t === "rencontre") return byId("rencontre");
+      return MAP_CHOICE_EVENT;
+    }
+  }
   if (seed) {
     const list = buildLayout(route === "long" ? "long" : "court", seed);
     return list[Math.min(idx, list.length - 1)]!;

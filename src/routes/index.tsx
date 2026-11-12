@@ -121,7 +121,9 @@ import {
   type GamePower,
   type RunStat,
 } from "../lib/expedition-combat";
-import { PLACEHOLDER_EVENTS, eventForStep, expeditionLength } from "../lib/expedition-placeholder-events";
+import { PLACEHOLDER_EVENTS, eventForStep, expeditionLength, mapRegGet, mapRegSet, mapRegKey } from "../lib/expedition-placeholder-events";
+import { ExpeditionMapChoice } from "../components/ExpeditionMapChoice";
+import { getExpeditionMap, type MapState } from "../lib/expedition-map";
 import { openNarrativeStep, fetchNarrativeEvent, type NarrativeEvent } from "../lib/narrative";
 import { NarrativeStepPanel } from "../components/NarrativeStepPanel";
 import { HotspotMarker, HotspotPanel } from "../components/SceneHotspots";
@@ -1620,6 +1622,61 @@ function Index() {
 
   const currentEvent = eventForStep(activeExpedition?.route, stepIndex, activeExpedition?.id);
   const expeditionPhase = currentEvent.kind;
+
+  // ---- Carte d'expédition (SQL 102) : choix du chemin à chaque pas ; tant que l'interrupteur est à 0, rien ne change ----
+  const [mapTick, setMapTick] = useState(0);
+  void mapTick;
+  const [mapChoiceIdx, setMapChoiceIdx] = useState<number | null>(null);
+  const mapKey = mapRegKey(activeExpedition?.id, stepIndex);
+  const mapReady = !outcomeInfo && heldIdx >= stepIndex;
+  const applyMapChoice = async (expId: string, idx: number, type: string) => {
+    mapRegSet(expId, { choose: [idx, type] });
+    setMapChoiceIdx((cur) => (cur === idx ? null : cur));
+    setMapTick((t) => t + 1);
+    if (type === "coffre" || type === "coffre_piege" || type === "clairiere" || type === "sortie") {
+      // Nœud sans combat : le serveur a déjà tout appliqué et fait avancer l'étape, on relit l'expédition.
+      try {
+        const e = await fetchExpeditionById(expId);
+        if (e) setActiveExpedition(e);
+      } catch (err) {
+        console.error("map refresh failed", err);
+      }
+    }
+  };
+  useEffect(() => {
+    if (!inExpeditionScene || !character || !activeExpedition || activeExpedition.status !== "active") return;
+    if (activeExpedition.route === "long") return;
+    const expId = activeExpedition.id;
+    const idx = activeExpedition.current_step_index;
+    let cancelled = false;
+    (async () => {
+      try {
+        const known = mapRegGet(expId);
+        if (!known || known.enabled === null) {
+          let r: MapState | null = null;
+          try { r = await getExpeditionMap(expId, idx, false); } catch { r = null; } // SQL 102 pas encore lancé : ancien déroulé
+          if (cancelled) return;
+          mapRegSet(expId, { enabled: !!r?.enabled, layers: r?.layers_total ?? 0 });
+          setMapTick((t) => t + 1);
+          if (!r?.enabled) return;
+        }
+        if (!mapReady) return; // le résultat de l'étape précédente est encore affiché
+        if (mapRegGet(expId)?.chosen[idx] !== undefined) return;
+        const r = await getExpeditionMap(expId, idx, true);
+        if (cancelled) return;
+        if (r.chosen_slot !== null && r.chosen_slot !== undefined) {
+          const n = r.nodes?.find((x) => x.slot === r.chosen_slot);
+          if (n) await applyMapChoice(expId, idx, n.type);
+        } else setMapChoiceIdx(idx);
+      } catch (e) {
+        console.error("map sync failed", e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeExpedition?.id, activeExpedition?.current_step_index, activeExpedition?.status, inExpeditionScene, character?.id, mapReady, mapKey === "wait"]);
   // Ceux qui doivent voter : les membres vivants et encore dans l'expédition (un mort qui regarde n'est pas attendu).
   const participantCount = Math.max(
     1,
@@ -1646,6 +1703,7 @@ function Index() {
     setRunStep(null);
     setNarrativeEvent(null);
     setStepVotes([]);
+    if (ev.id === "map-wait" || ev.id === "map-choice") return; // carte : le chemin n'est pas encore choisi, aucune étape à créer
     (async () => {
       try {
         const { step, narrative } = await syncStep(expId, idx, ev);
@@ -1671,7 +1729,7 @@ function Index() {
       if (channel) leaveScenePresence(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeExpedition?.id, activeExpedition?.current_step_index, activeExpedition?.status, inExpeditionScene, character?.id]);
+  }, [activeExpedition?.id, activeExpedition?.current_step_index, activeExpedition?.status, inExpeditionScene, character?.id, mapKey]);
 
   // Résolution : dès que tout le monde a voté, ou à la fin du délai (les
   // absents restent passifs). Le serveur ne résout qu'une fois, sous verrou.
@@ -1849,6 +1907,7 @@ function Index() {
     const expId = activeExpedition.id;
     const idx = activeExpedition.current_step_index;
     const ev = eventForStep(activeExpedition.route, idx, activeExpedition.id);
+    if (ev.id === "map-wait") return; // on ne sait pas encore si la carte est active
     let cancelled = false;
     let outcomeShown = false;
     (async () => {
@@ -1856,9 +1915,12 @@ function Index() {
         setCombatError(null);
         let latest = await fetchLatestCombat(expId);
         if (cancelled) return;
-        if (latest?.status === "active") {
-          setActiveCombatId(latest.id);
-          return;
+        // Un combat déjà lancé (par un autre joueur, plus rapide) : on le rejoint, mais si on vient d'arriver dans l'étape
+        // on affiche d'abord le résultat de l'étape précédente, sinon il était sauté pour les joueurs les plus lents.
+        const combatAlreadyActive = latest?.status === "active";
+        if (combatAlreadyActive) {
+          const age = Date.now() - new Date(latest!.created_at).getTime();
+          if (idx === 0 || !(age < 130000)) { setActiveCombatId(latest!.id); return; } // page rechargée en plein combat : pas de résultat à rejouer
         }
         if (idx > 0) {
           const prev = await fetchStepOutcome(expId, idx - 1);
@@ -1886,6 +1948,7 @@ function Index() {
               xp: prev.outcome_xp ?? 0,
             });
           }
+          if (combatAlreadyActive) { setActiveCombatId(latest!.id); return; } // le combat est déjà lancé : on le rejoint après le résultat
           // Combat déclenché par l'issue : seulement s'il n'a pas déjà eu lieu depuis.
           if (
             prev?.outcome_triggers_combat &&
@@ -1918,7 +1981,21 @@ function Index() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeExpedition?.id, activeExpedition?.current_step_index, activeExpedition?.status, inExpeditionScene, character?.id]);
+  }, [activeExpedition?.id, activeExpedition?.current_step_index, activeExpedition?.status, inExpeditionScene, character?.id, mapKey === "wait"]);
+
+  // Carte : le chemin vient d'être choisi (combat, élite ou boss) : on lance le combat. Les autres nœuds sont gérés par le serveur ou la rencontre.
+  useEffect(() => {
+    if (!inExpeditionScene || !character || !activeExpedition || activeExpedition.status !== "active" || activeCombatId || outcomeInfo) return;
+    if (mapKey !== "combat" && mapKey !== "elite" && mapKey !== "boss") return;
+    let cancelled = false;
+    startCombat(activeExpedition.id, mapKey === "boss", false)
+      .then((c) => { if (!cancelled) setActiveCombatId(c.id); })
+      .catch((e) => { if (!cancelled) setCombatError(e instanceof Error ? e.message : String((e as { message?: string })?.message ?? e)); });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeExpedition?.id, activeExpedition?.current_step_index, activeExpedition?.status, mapKey, inExpeditionScene, character?.id]);
 
   // Le résultat a été fermé (tout le monde est passé) : l'étape suivante peut s'afficher.
   useEffect(() => {
@@ -1999,6 +2076,7 @@ function Index() {
       if (e) setActiveExpedition(e);
       if (e && e.status === "active") {
         const ev = eventForStep(e.route, e.current_step_index, e.id);
+        if (ev.id === "map-wait" || ev.id === "map-choice") return; // carte : le prochain chemin sera choisi par le groupe
         const { step, narrative } = await syncStep(e.id, e.current_step_index, ev);
         setNarrativeEvent(narrative);
         setRunStep(step);
@@ -3175,6 +3253,16 @@ function Index() {
           <div className="absolute left-1/2 top-[40%] z-40 -translate-x-1/2 rounded-full bg-black/65 px-4 py-1 text-xs font-bold text-[#fff3d6] md:left-[71%]" style={{ fontFamily: "'Baloo 2', cursive" }}>
             En attente des autres joueurs ({leavingIds.filter((id) => requiredIds.includes(id)).length}/{requiredIds.length})…
           </div>
+        )}
+        {inExpeditionScene && character && activeExpedition && activeExpedition.status === "active" && mapChoiceIdx === stepIndex && !outcomeInfo && !activeCombatId && (
+          <ExpeditionMapChoice
+            key={`${activeExpedition.id}:${stepIndex}`}
+            expeditionId={activeExpedition.id}
+            layer={stepIndex}
+            myCharacterId={character.id}
+            names={{ ...Object.fromEntries(partyMembers.map((m) => [m.character_id, m.name])), [character.id]: character.name }}
+            onResolved={(type) => void applyMapChoice(activeExpedition.id, stepIndex, type)}
+          />
         )}
         {inExpeditionScene && outcomeInfo && !iAcked && (
           <OutcomePanel
