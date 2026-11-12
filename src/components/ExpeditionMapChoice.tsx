@@ -182,7 +182,7 @@ export function ExpeditionMapChoice({
               <div className="mt-0.5 text-[11px] font-bold text-[#b91c1c]">Des pas lourds approchent…</div>
             ) : null}
           </div>
-          {(st.preview ?? []).length > 0 && (
+          {false && (st.preview ?? []).length > 0 && (
             <div className="flex items-center gap-2">
               <span className="text-[11px] font-bold uppercase tracking-wider text-[#7a4a22]">Ensuite</span>
               {(st.preview ?? []).map((p) => (
