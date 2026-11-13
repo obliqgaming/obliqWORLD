@@ -4,9 +4,11 @@ import { scenesClient } from "../lib/scenes-supabase";
 import { PHRASE_CATEGORIES, fetchAllPhrases } from "../lib/phrases";
 import { NPC_LINES } from "../lib/npc-lines";
 import { LEVEL_LINES } from "../lib/levelup";
+import { RACCORD_LINES } from "../lib/raccords";
 
 type Row = { id: string; category: string; text: string };
-const defaultsOf = (cat: string): string[] => (cat === "levelup" ? LEVEL_LINES : NPC_LINES[cat.replace("npc:", "")] ?? []);
+const defaultsOf = (cat: string): string[] =>
+  cat === "levelup" ? LEVEL_LINES : cat.startsWith("raccord:") ? RACCORD_LINES[cat.slice(8)] ?? [] : NPC_LINES[cat.replace("npc:", "")] ?? [];
 
 export function AdminPhrases() {
   const [cat, setCat] = useState(PHRASE_CATEGORIES[0]!.key);

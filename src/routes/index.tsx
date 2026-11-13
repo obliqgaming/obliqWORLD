@@ -126,6 +126,7 @@ import { ExpeditionMapChoice } from "../components/ExpeditionMapChoice";
 import { getExpeditionMap, type MapState } from "../lib/expedition-map";
 import { openNarrativeStep, fetchNarrativeEvent, type NarrativeEvent } from "../lib/narrative";
 import { NarrativeStepPanel } from "../components/NarrativeStepPanel";
+import { raccordFor } from "../lib/raccords";
 import { HotspotMarker, HotspotPanel } from "../components/SceneHotspots";
 import { LoadingScreen } from "../components/LoadingScreen";
 import { fetchLevelUpInfo, playLevelUpJingle, randomLevelLine, rememberVitals, writeSnap, type LevelUpInfo } from "../lib/levelup";
@@ -450,6 +451,7 @@ function Index() {
   const [runStep, setRunStep] = useState<ExpeditionStep | null>(null);
   const [stepVotes, setStepVotes] = useState<StepVote[]>([]);
   const [narrativeEvent, setNarrativeEvent] = useState<NarrativeEvent | null>(null);
+  const [raccordLead, setRaccordLead] = useState<string | null>(null);
   // Système de jeu (SQL 006 à 009) : PV/PM réels, combat, résultat d'événement, axe.
   const [runStats, setRunStats] = useState<RunStat[]>([]);
   const [partyCompanions, setPartyCompanions] = useState<Record<string, PartyCompanion>>({});
@@ -1730,6 +1732,23 @@ function Index() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeExpedition?.id, activeExpedition?.current_step_index, activeExpedition?.status, inExpeditionScene, character?.id, mapKey]);
+
+  // Phrase de raccord (carte seulement) : une courte ligne avant la rencontre écrite, selon le nœud précédent.
+  useEffect(() => {
+    setRaccordLead(null);
+    if (!narrativeEvent || !activeExpedition || mapKey === "off") return;
+    const reg = mapRegGet(activeExpedition.id);
+    if (!reg || reg.enabled !== true) return;
+    const idx = activeExpedition.current_step_index;
+    let cancelled = false;
+    void raccordFor(idx > 0 ? reg.chosen[idx - 1] : null, `${activeExpedition.id}:${idx}`).then((t) => {
+      if (!cancelled) setRaccordLead(t || null);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [narrativeEvent?.id, activeExpedition?.id, activeExpedition?.current_step_index]);
 
   // Résolution : dès que tout le monde a voté, ou à la fin du délai (les
   // absents restent passifs). Le serveur ne résout qu'une fois, sous verrou.
@@ -3237,6 +3256,7 @@ function Index() {
             voterCount={participantCount}
             deadlineMs={runStep.vote_deadline ? new Date(runStep.vote_deadline).getTime() : null}
             onVote={handleExpeditionVote}
+            lead={raccordLead}
           />
         )}
 

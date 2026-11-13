@@ -21,6 +21,7 @@ export function NarrativeStepPanel({
   voterCount,
   deadlineMs,
   onVote,
+  lead,
 }: {
   event: NarrativeEvent;
   players: { characterId: string; name: string }[];
@@ -30,6 +31,7 @@ export function NarrativeStepPanel({
   voterCount: number;
   deadlineMs: number | null;
   onVote: (choiceKey: string) => void;
+  lead?: string | null;
 }) {
   const [now, setNow] = useState(() => Date.now());
   const [pick, setPick] = useState<string>(myCharacterId);
@@ -71,6 +73,7 @@ export function NarrativeStepPanel({
           {RISK_LABEL[event.risk_level]}
         </span>
       </div>
+      {lead && <div className="mt-2 text-center text-xs italic leading-snug opacity-80">{lead}</div>}
       <Typewriter text={event.situation_text ?? ""} className="mt-3 whitespace-pre-line text-sm font-semibold leading-snug" />
       <AuthorLine userId={event.author_user_id} label="Rencontre écrite par" className="mt-1 text-[10px] italic opacity-60" />
 

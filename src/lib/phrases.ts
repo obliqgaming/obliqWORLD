@@ -9,6 +9,12 @@ export const PHRASE_CATEGORIES: { key: string; label: string }[] = [
   { key: "npc:farm", label: "Bourrebouc (ferme)" },
   { key: "npc:quests", label: "Morsoif (boulot du jour)" },
   { key: "levelup", label: "Montée de niveau" },
+  { key: "raccord:debut", label: "Raccord : début de l'expédition" },
+  { key: "raccord:combat", label: "Raccord : après un combat" },
+  { key: "raccord:elite", label: "Raccord : après un élite" },
+  { key: "raccord:coffre", label: "Raccord : après un coffre" },
+  { key: "raccord:clairiere", label: "Raccord : après une clairière" },
+  { key: "raccord:rencontre", label: "Raccord : après une rencontre" },
 ];
 
 let cache: Record<string, string[]> | null = null;
