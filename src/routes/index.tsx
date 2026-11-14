@@ -4,6 +4,8 @@ import {
   acceptPartyInvite,
   broadcastChatMessage,
   broadcastEmote,
+  broadcastActivity,
+  type ActivityPayload,
   type EmotePayload,
   fetchChatHistory,
   joinGroupChat,
@@ -2333,6 +2335,72 @@ function Index() {
   };
   const handleEmoteReceivedRef = useRef(handleEmoteReceived);
   handleEmoteReceivedRef.current = handleEmoteReceived;
+
+  // « est en train de dessiner » (forge, ferme…) : dès le premier trait. « est en train d'écrire » : tant que l'éditeur d'étapes
+  // de Plumobec est ouvert. Envoyé aux autres joueurs du lieu (un message à chaque changement, puis un rappel toutes les 10 s
+  // pour ceux qui arrivent après) ; un état non rafraîchi pendant 25 s est oublié.
+  const [activities, setActivities] = useState<Record<string, { kind: "draw" | "write"; at: number }>>({});
+  const drawingIds = useRef<Set<string>>(new Set());
+  const [iDraw, setIDraw] = useState(false);
+  useEffect(() => {
+    const on = (e: Event) => {
+      const d = (e as CustomEvent<{ id: string; active: boolean }>).detail;
+      if (!d) return;
+      if (d.active) drawingIds.current.add(d.id);
+      else drawingIds.current.delete(d.id);
+      setIDraw(drawingIds.current.size > 0);
+    };
+    window.addEventListener("obliq-drawing", on);
+    return () => window.removeEventListener("obliq-drawing", on);
+  }, []);
+  const myActivity: "draw" | "write" | null = iDraw ? "draw" : openHotspot?.kind === "step_editor" ? "write" : null;
+  const lastSentActivity = useRef<"draw" | "write" | null>(null);
+  useEffect(() => {
+    if (!character) return;
+    const send = () => {
+      if (!channelRef.current) return;
+      if (!myActivity && !lastSentActivity.current) return; // rien à annoncer ni à effacer
+      if (broadcastActivity(channelRef.current, { characterId: character.id, kind: myActivity })) lastSentActivity.current = myActivity;
+    };
+    send();
+    if (!myActivity) return;
+    const t = window.setInterval(send, 10000);
+    return () => window.clearInterval(t);
+  }, [myActivity, character?.id, scene.id]);
+  const handleActivityReceived = (p: ActivityPayload) => {
+    if (!p || p.characterId === character?.id) return;
+    setActivities((a) => {
+      if (!p.kind) {
+        if (!(p.characterId in a)) return a;
+        const n = { ...a };
+        delete n[p.characterId];
+        return n;
+      }
+      return { ...a, [p.characterId]: { kind: p.kind, at: Date.now() } };
+    });
+  };
+  const handleActivityReceivedRef = useRef(handleActivityReceived);
+  handleActivityReceivedRef.current = handleActivityReceived;
+  useEffect(() => {
+    setActivities({});
+    lastSentActivity.current = null;
+  }, [scene.id]);
+  useEffect(() => {
+    const t = window.setInterval(() => {
+      setActivities((a) => {
+        const now = Date.now();
+        const keep = Object.entries(a).filter(([, v]) => now - v.at < 25000);
+        return keep.length === Object.keys(a).length ? a : Object.fromEntries(keep);
+      });
+    }, 5000);
+    return () => window.clearInterval(t);
+  }, []);
+  const activityLabel = (kind: "draw" | "write" | null | undefined) =>
+    kind ? (
+      <div className="pointer-events-none absolute bottom-full left-1/2 mb-1 w-max -translate-x-1/2 whitespace-nowrap text-xs italic" style={{ fontFamily: "'Baloo 2', cursive", color: "#fff3d6", textShadow: "0 1px 3px #000, 0 0 6px rgba(0,0,0,0.8)" }}>
+        {kind === "draw" ? "est en train de dessiner" : "est en train d'écrire"}
+      </div>
+    ) : null;
   const sendEmote = (key: EmoteKey) => {
     if (!character || walking) return;
     const now = Date.now();
@@ -2442,6 +2510,7 @@ function Index() {
           }
         },
         (p) => handleEmoteReceivedRef.current(p),
+        (p) => handleActivityReceivedRef.current(p),
       );
     };
 
@@ -2943,6 +3012,19 @@ function Index() {
     );
   }
 
+  // Profondeur : tout ce qui se tient sur le sol (moi, les autres joueurs, les PNJ en image) est classé du plus haut au plus bas
+  // de l'écran ; le plus bas passe devant. Évite qu'un PNJ (ex. Aspiflouz) reste toujours devant un joueur placé sous lui.
+  const depthRank: Record<string, number> = (() => {
+    const items: { id: string; y: number }[] = [];
+    if (character) items.push({ id: "me", y: pos.y });
+    for (const [k, pr] of Object.entries(peers)) items.push({ id: `p:${k}`, y: pr.position.y });
+    for (const h of hotspots) if (hotspotStyles?.[h.kind]?.image_url) items.push({ id: `h:${h.id}`, y: h.position.y });
+    items.sort((a, b) => a.y - b.y || (a.id < b.id ? -1 : 1));
+    const out: Record<string, number> = {};
+    items.forEach((it, i) => { out[it.id] = Math.min(34, 11 + i); });
+    return out;
+  })();
+
   return (
     <div className="relative flex h-screen w-screen items-center justify-center overflow-hidden bg-black" style={ENABLE_GAME_FRAME ? { background: "radial-gradient(ellipse at center, #2a1a0e 0%, #120a05 100%)" } : undefined}>
       <LoadingScreen visible={!booted && !veilTimeout} />
@@ -2997,7 +3079,7 @@ function Index() {
             style={{
               left: `${pos.x}%`,
               top: `${pos.y}%`,
-              zIndex: bubbles[character.id] && !expeditionOverlay ? 35 : depthZ(pos.y),   // le plus bas à l'écran est devant ; un personnage qui parle passe devant pour que sa bulle reste visible
+              zIndex: bubbles[character.id] && !expeditionOverlay ? 35 : (depthRank["me"] ?? depthZ(pos.y)),   // le plus bas à l'écran est devant ; un personnage qui parle passe devant pour que sa bulle reste visible
               // Largeur en fraction de la largeur RÉELLE de la scène affichée
               // (pas en pixels fixes) pour que le personnage suive les
               // changements de taille de la fenêtre en mode fenêtré.
@@ -3045,6 +3127,7 @@ function Index() {
               <div className="pointer-events-none absolute left-1/2 top-0 text-2xl" style={{ animation: "emote-symbol 1.6s ease-out infinite" }}>{EMOTES[emotes[character.id]!].symbol}</div>
             )}
             {myPet && <PetSprite src={myPet} facingRight={facingRight} walking={walking} />}
+            {!bubbles[character.id] && activityLabel(myActivity)}
             <NameTag name={character.name} away={selfAway} showName={SHOW_NAME_LABELS} />
           </div>
         )}
@@ -3060,7 +3143,7 @@ function Index() {
               style={{
                 left: `${peer.position.x}%`,
                 top: `${peer.position.y}%`,
-                zIndex: bubbles[peer.characterId] && !expeditionOverlay ? 35 : depthZ(peer.position.y) - (depthZ(peer.position.y) === depthZ(pos.y) && peer.position.y < pos.y ? 1 : 0), // même niveau : celui qui est le plus bas à l'écran passe devant (moi si je suis plus bas)
+                zIndex: bubbles[peer.characterId] && !expeditionOverlay ? 35 : (depthRank[`p:${key}`] ?? depthZ(peer.position.y)), // même niveau : celui qui est le plus bas à l'écran passe devant (moi si je suis plus bas)
                 width: sceneBoxSize.width * CHARACTER_WIDTH_RATIO,
                 transformOrigin: "50% 100%",
                 transform: `translate(-50%, -100%) scale(${computeDepthScale(peer.position.y, scene.depth_scale)})`,
@@ -3096,6 +3179,7 @@ function Index() {
                 <div className="pointer-events-none absolute left-1/2 top-0 text-2xl" style={{ animation: "emote-symbol 1.6s ease-out infinite" }}>{EMOTES[emotes[peer.characterId]!].symbol}</div>
               )}
               {peer.pet && <PetSprite src={peer.pet} facingRight={isFacingRight} walking={isWalking} />}
+              {!bubbles[peer.characterId] && activityLabel(activities[peer.characterId]?.kind)}
               <NameTag name={peer.name} away={!!peer.away} showName={SHOW_NAME_LABELS} />
             </div>
           );
@@ -3160,7 +3244,7 @@ function Index() {
         )}
 
         {character && !inExpeditionScene && hotspots.filter((h) => h.kind !== "board" && !claimedGold.has(h.id) && (!h.kind.startsWith("gold") || !activeGold || activeGold.has(h.id))).map((h) => (
-          <HotspotMarker key={h.id} hotspot={h} bubble={npcSpeech[h.id]} alert={h.kind === "quests" && questAvailable} ready={h.kind === "quests" && questReady} onClick={() => walkThen(h.position, () => (h.kind.startsWith("gold") ? collectGold(h) : setOpenHotspot(h)), !!hotspotStyles?.[h.kind]?.image_url)} />
+          <HotspotMarker key={h.id} hotspot={h} depthZ={depthRank[`h:${h.id}`]} bubble={npcSpeech[h.id]} alert={h.kind === "quests" && questAvailable} ready={h.kind === "quests" && questReady} onClick={() => walkThen(h.position, () => (h.kind.startsWith("gold") ? collectGold(h) : setOpenHotspot(h)), !!hotspotStyles?.[h.kind]?.image_url)} />
         ))}
         {goldFloats.map((g) => (
           <div key={g.key} className="obw-gold-float pointer-events-none absolute z-40 -translate-x-1/2 text-xl font-extrabold" style={{ left: `${g.x}%`, top: `${g.y}%`, color: g.ok ? "#fde68a" : "#fca5a5", textShadow: "0 2px 4px #000, 0 0 8px rgba(0,0,0,0.6)" }}>
@@ -3500,7 +3584,7 @@ function Index() {
             onWeaponChanged={handleMyWeaponChanged}
           />
         )}
-        {character && !inExpeditionScene && !activeCombatId && <QuestTracker sceneId={scene.id} refreshKey={endBanner ? 1 : 0} />}
+        {character && !inExpeditionScene && !activeCombatId && <QuestTracker sceneId={scene.id} refreshKey={(endBanner ? 1 : 0) + (openHotspot ? 2 : 0)} />}
         <AccountBadge
           identity={authIdentity}
           onConnect={handleConnectProvider}
@@ -3543,15 +3627,16 @@ function Index() {
         >
           <div
             ref={chatLogRef}
-            className={`no-scrollbar pointer-events-auto max-h-36 flex-col gap-0.5 overflow-y-auto pr-1 text-sm ${openHotspot ? "hidden" : "flex"}`}
+            className={`no-scrollbar pointer-events-auto max-h-36 flex-col gap-0.5 overflow-y-auto pr-1 text-sm flex`}
             style={{
               fontFamily: "'Baloo 2', cursive",
               color: "#fff3d6",
               textShadow: "0 1px 0 #2b1406, 0 1px 6px rgba(0, 0, 0, 0.85)",
             }}
           >
-            {chatLog.length === 0 && <p className="opacity-70">Le t'chat est vide pour l'instant…</p>}
-            {chatLog.map((m, i) => (
+            {chatLog.length === 0 && !openHotspot && <p className="opacity-70">Le t'chat est vide pour l'instant…</p>}
+            {/* Un panneau est ouvert (forge, ferme, éditeur d'étapes…) : on garde au moins le DERNIER message visible. */}
+            {(openHotspot ? chatLog.slice(-1) : chatLog).map((m, i) => (
               <p key={i} style={m.channel === "group" ? { color: GROUP_CHAT_COLOR } : m.characterId === "system" ? { opacity: 0.75, fontStyle: "italic" } : undefined}>
                 {m.channel === "group" && <span className="mr-1 text-[11px] font-extrabold uppercase">[Groupe]</span>}
                 {m.characterId === "system" ? m.text : <><span className="font-bold" style={{ color: m.color ?? autoNameColor(m.characterId) }}>{m.name} :</span> {m.text}</>}

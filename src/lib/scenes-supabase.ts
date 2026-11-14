@@ -1057,6 +1057,8 @@ export function joinScenePresence(
   onStatusChange?: (status: string, err?: Error) => void,
   // Emotes (src/lib/emotes.ts) : message cosmétique reçu des autres joueurs du lieu.
   onEmote?: (p: EmotePayload) => void,
+  // Activité (« est en train de dessiner / d'écrire ») reçue des autres joueurs du lieu.
+  onActivity?: (p: ActivityPayload) => void,
 ): PresenceChannel {
   const channel = scenesClient.channel(`scene:${sceneId}`, {
     config: { presence: { key: userId } },
@@ -1080,6 +1082,9 @@ export function joinScenePresence(
     })
     .on("broadcast", { event: "emote" }, ({ payload }) => {
       onEmote?.(payload as EmotePayload);
+    })
+    .on("broadcast", { event: "activity" }, ({ payload }) => {
+      onActivity?.(payload as ActivityPayload);
     })
     .subscribe((status, err) => {
       if (isPresenceDebugEnabled()) console.debug(`[presence] channel status=${status} scene=${sceneId}`, err ?? "");
@@ -1134,6 +1139,12 @@ export function leaveScenePresence(channel: PresenceChannel | null) {
 // canal ouvert (voir isChannelReady) — l'appelant peut alors prévenir le
 // joueur plutôt que de le laisser croire que le message est parti.
 export type EmotePayload = { characterId: string; key: string };
+export type ActivityPayload = { characterId: string; kind: "draw" | "write" | null };
+export function broadcastActivity(channel: PresenceChannel, p: ActivityPayload): boolean {
+  if (!isChannelReady(channel)) return false;
+  channel.send({ type: "broadcast", event: "activity", payload: p });
+  return true;
+}
 export function broadcastEmote(channel: PresenceChannel, p: EmotePayload): boolean {
   if (!isChannelReady(channel)) return false;
   channel.send({ type: "broadcast", event: "emote", payload: p });

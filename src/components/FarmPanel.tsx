@@ -81,6 +81,21 @@ export function FarmPanel({ onClose }: { onClose: () => void }) {
             <button type="button" disabled={busy} className={BTN} onClick={() => void act(async () => { await shopCollect(); await reloadPending(); })}>Récupérer</button>
           </div>
         )}
+        {starters.length > 0 && (
+          <div className="mt-3 rounded border-2 border-[#16a34a] bg-white/50 p-2">
+            <div className="text-sm font-extrabold">🎁 Choisis ton premier compagnon <i>(gratuit, une seule fois)</i></div>
+            <div className="mt-1 text-xs opacity-80">Clique sur un dessin pour le voir en grand, puis sur « Choisir » pour l'adopter.</div>
+            <div className="mt-2 flex flex-wrap gap-3">
+              {starters.map((c) => (
+                <div key={c.id} className="flex flex-col items-center gap-1 rounded border border-[#7a4a22] bg-white/60 p-1">
+                  <ZoomImage src={c.image_url} alt={c.name} scale={0.75} details={<CompanionSheet name={c.name} tier={c.tier} />} className="h-24 w-24 object-contain" />
+                  <div className="max-w-[6.5rem] truncate text-xs font-bold" title={c.name}>{c.name}</div>
+                  <button type="button" disabled={busy} className={BTN} onClick={() => void act(() => claimStarterCompanion(c.id))}>Choisir</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="mt-3 flex gap-2">
           <button type="button" onClick={() => setTab("draw")} className={`rounded px-3 py-1 text-sm font-bold ${tab === "draw" ? "bg-[#7a4a22] text-[#fff3d6]" : "border border-[#7a4a22]"}`}>🎨 Dessiner</button>
           <button type="button" onClick={() => setTab("buy")} className={`rounded px-3 py-1 text-sm font-bold ${tab === "buy" ? "bg-[#7a4a22] text-[#fff3d6]" : "border border-[#7a4a22]"}`}>🛒 Acheter</button>
@@ -88,18 +103,6 @@ export function FarmPanel({ onClose }: { onClose: () => void }) {
         </div>
         {tab === "draw" && <FarmDraw onChanged={() => void reload()} />}
         {tab === "buy" && <FarmShop onChanged={() => { void reload(); window.dispatchEvent(new Event("obliq-companion-changed")); }} />}
-        {starters.length > 0 && (
-          <div className="mt-3 rounded border-2 border-[#16a34a] bg-white/50 p-2">
-            <div className="text-sm font-extrabold">🎁 Choisis ton premier compagnon <i>(gratuit, une seule fois)</i></div>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {starters.map((c) => (
-                <button key={c.id} type="button" disabled={busy} title={c.name} className="rounded border border-[#7a4a22] bg-white/60 p-1 hover:bg-[#7a4a22]/20 disabled:opacity-50" onClick={() => void act(() => claimStarterCompanion(c.id))}>
-                  <ZoomImage src={c.image_url} alt={c.name} scale={0.75} details={<CompanionSheet name={c.name} tier={c.tier} />} className="h-24 w-24 object-contain" />
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
         {msg && <div className="mt-2 text-xs font-bold text-[#92400e]">{msg}</div>}
         {list === null && <div className="mt-3 text-sm">Chargement…</div>}
         {tab === "mine" && (

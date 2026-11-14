@@ -98,6 +98,7 @@ export async function createCompanionDesign(blob: Blob, name: string): Promise<{
     throw error;
   }
   const d = data as { design: CompanionDesign; companion_id: string };
+  window.dispatchEvent(new Event("obliq-quest-changed")); // le suivi de quête se met à jour tout de suite
   return { design: d.design, companionId: d.companion_id };
 }
 

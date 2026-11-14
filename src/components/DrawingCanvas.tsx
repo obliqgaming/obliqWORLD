@@ -139,6 +139,20 @@ export function DrawingCanvas({
   const H = height ?? DEFAULT_CANVAS;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
+  // Signale aux autres joueurs « est en train de dessiner » dès le PREMIER trait (pas juste parce que l'outil est ouvert).
+  const drawIdRef = useRef(`d${Math.random().toString(36).slice(2)}`);
+  const reportedRef = useRef(false);
+  const reportDrawing = () => {
+    if (reportedRef.current) return;
+    reportedRef.current = true;
+    window.dispatchEvent(new CustomEvent("obliq-drawing", { detail: { id: drawIdRef.current, active: true } }));
+  };
+  useEffect(() => {
+    const id = drawIdRef.current;
+    return () => {
+      if (reportedRef.current) window.dispatchEvent(new CustomEvent("obliq-drawing", { detail: { id, active: false } }));
+    };
+  }, []);
   const [isDrawing, setIsDrawing] = useState(false);
   const [tool, setTool] = useState<Tool>("brush");
   const [brushSize, setBrushSize] = useState(W < 300 ? 1 : 4);
@@ -332,6 +346,7 @@ export function DrawingCanvas({
       pickColor(x, y);
       return;
     }
+    reportDrawing();
 
     if (tool === "fill") {
       pushHistory();

@@ -160,6 +160,7 @@ export async function createWeapon(blob: Blob, name: string, type: WeaponType, g
   });
   if (error) throw error;
   const d = data as { weapon: Weapon; item_id: string };
+  window.dispatchEvent(new Event("obliq-quest-changed")); // le suivi de quête (« crée une arme »…) se met à jour tout de suite
   return { weapon: d.weapon, itemId: d.item_id };
 }
 
