@@ -3012,6 +3012,9 @@ function Index() {
     );
   }
 
+  // Une interface (forge, ferme, éditeur d'étapes, sac, talents, fiche personnage) est ouverte : le tchat passe derrière.
+  const uiOpen = !!openHotspot || inventoryOpen || talentsOpen || !!inspectId;
+
   // Profondeur : tout ce qui se tient sur le sol (moi, les autres joueurs, les PNJ en image) est classé du plus haut au plus bas
   // de l'écran ; le plus bas passe devant. Évite qu'un PNJ (ex. Aspiflouz) reste toujours devant un joueur placé sous lui.
   const depthRank: Record<string, number> = (() => {
@@ -3612,7 +3615,7 @@ function Index() {
           Devient ~90% transparent après 15s sans nouveau message, et repasse
           net dès qu'on le survole (le survol relance aussi les 15s au moment
           où la souris ressort). */}
-      <div className={`pointer-events-none absolute bottom-3 left-3 ${trade || boardOpen ? "z-[60]" : "z-40"}`} style={{ ...(ENABLE_GAME_FRAME ? { left: Math.max(0, (viewport.w - sceneBoxSize.width) / 2) + 12, bottom: Math.max(0, (viewport.h - sceneBoxSize.height) / 2) + 12 } : {}), width: Math.max(150, Math.min(560, viewport.w / 2 - ((inExpeditionScene ? 1 : 4) * (inExpeditionScene ? 30 : Math.round(Math.min(60, Math.max(34, sceneBoxSize.width * 0.05)))) + 32) / 2 - 24)) }}>
+      <div className={`pointer-events-none absolute bottom-3 left-3 ${trade || boardOpen ? "z-[60]" : uiOpen ? "z-[38]" : "z-40"}`} style={{ ...(ENABLE_GAME_FRAME ? { left: Math.max(0, (viewport.w - sceneBoxSize.width) / 2) + 12, bottom: Math.max(0, (viewport.h - sceneBoxSize.height) / 2) + 12 } : {}), width: Math.max(150, Math.min(560, viewport.w / 2 - ((inExpeditionScene ? 1 : 4) * (inExpeditionScene ? 30 : Math.round(Math.min(60, Math.max(34, sceneBoxSize.width * 0.05)))) + 32) / 2 - 24)) }}>
         <div
           className="flex flex-col justify-end gap-1 px-2 py-1 transition-opacity duration-300"
           style={{
@@ -3634,9 +3637,9 @@ function Index() {
               textShadow: "0 1px 0 #2b1406, 0 1px 6px rgba(0, 0, 0, 0.85)",
             }}
           >
-            {chatLog.length === 0 && !openHotspot && <p className="opacity-70">Le t'chat est vide pour l'instant…</p>}
-            {/* Un panneau est ouvert (forge, ferme, éditeur d'étapes…) : on garde au moins le DERNIER message visible. */}
-            {(openHotspot ? chatLog.slice(-1) : chatLog).map((m, i) => (
+            {chatLog.length === 0 && !uiOpen && <p className="opacity-70">Le t'chat est vide pour l'instant…</p>}
+            {/* Une interface est ouverte (forge, ferme, sac, talents, fiche…) : le tchat passe au second plan (sous la fenêtre) et ne garde que le DERNIER message. */}
+            {(uiOpen ? chatLog.slice(-1) : chatLog).map((m, i) => (
               <p key={i} style={m.channel === "group" ? { color: GROUP_CHAT_COLOR } : m.characterId === "system" ? { opacity: 0.75, fontStyle: "italic" } : undefined}>
                 {m.channel === "group" && <span className="mr-1 text-[11px] font-extrabold uppercase">[Groupe]</span>}
                 {m.characterId === "system" ? m.text : <><span className="font-bold" style={{ color: m.color ?? autoNameColor(m.characterId) }}>{m.name} :</span> {m.text}</>}
