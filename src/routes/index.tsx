@@ -2100,7 +2100,12 @@ function Index() {
     const t = window.setTimeout(() => setOutcomeInfo(null), 45000);
     return () => window.clearTimeout(t);
   }, [iAcked, allAcked, outIdx]);
-  const bgMirrored = (outcomeInfo ? outcomeInfo.stepIndex : heldIdx) % 2 === 1;
+  // Le fond ne se retourne QUE quand j'arrive sur un nouveau nœud (écran de choix, sans combat ni résultat en cours) : jamais
+  // pendant un combat, l'écran de résultat, ni quand les autres changent de nœud.
+  const bgMirrorRef = useRef<boolean | null>(null);
+  const bgMirrorWanted = heldIdx % 2 === 1;
+  if (bgMirrorRef.current === null || (!outcomeInfo && !activeCombatId && mapReady)) bgMirrorRef.current = bgMirrorWanted;
+  const bgMirrored = bgMirrorRef.current;
 
   // Fin d'un combat gagné : on relit l'expédition et l'étape (le serveur a pu
   // faire avancer l'étape ou redonner 180 s au prochain vote).
