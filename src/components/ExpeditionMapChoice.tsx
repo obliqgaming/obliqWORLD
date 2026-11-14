@@ -71,7 +71,12 @@ export function ExpeditionMapChoice({
     if (!everyoneVoted && !timeUp) return;
     if (Date.now() - lastDecideRef.current < 1500) return;
     lastDecideRef.current = Date.now();
-    void decideExpeditionMap(expeditionId, layer).then(refresh).catch((e) => console.error("map decide failed", e));
+    void decideExpeditionMap(expeditionId, layer).then(() => { setErr(null); return refresh(); }).catch((e) => {
+      console.error("map decide failed", e);
+      // Le serveur n'a pas pu valider : on le dit clairement et on réessaie plus calmement (au lieu d'un appel toutes les 1,5 s).
+      lastDecideRef.current = Date.now() + 8000;
+      setErr("Le serveur n'a pas pu valider ce chemin. Ne quittez pas : on réessaie, et préviens Lils si ça dure.");
+    });
   }, [st, chosen, everyoneVoted, left, expeditionId, layer, refresh]);
 
   // Décision prise : on laisse le résultat affiché un instant (surtout si égalité), puis on avance.

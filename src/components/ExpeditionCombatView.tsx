@@ -72,12 +72,13 @@ const ACTIONS: { id: CombatActionId; label: string; hint: string }[] = [
 ];
 
 // Emplacements au sol (en % du décor), du plus proche du centre au plus
-// reculé : jusqu'à 4 membres / 4 ennemis, en quinconce pour ne pas se masquer.
+// reculé : jusqu'à 5 membres / 5 ennemis (le groupe est limité à 5), en quinconce pour ne pas se masquer.
 export const ALLY_SLOTS = [
   { x: 30, y: 74 },
   { x: 20, y: 64 },
   { x: 33, y: 60 },
   { x: 14, y: 78 },
+  { x: 8, y: 66 },
 ];
 // Chacun voit SON personnage au premier plan : il prend l'emplacement le plus proche du spectateur ; les autres gardent leur ordre.
 export function orderAlliesForViewer<T extends { characterId: string }>(allies: T[], selfId?: string): T[] {
@@ -97,6 +98,7 @@ export const ENEMY_SLOTS = [
   { x: 80, y: 64 },
   { x: 67, y: 60 },
   { x: 86, y: 78 },
+  { x: 92, y: 66 },
 ];
 
 export function hpColor(current: number, max: number): string {

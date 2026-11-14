@@ -43,6 +43,7 @@ import { AdminPets } from "../components/AdminPets";
 import { AdminCompanions } from "../components/AdminCompanions";
 import { AdminStepMusic } from "../components/AdminStepMusic";
 import { AdminBackup } from "../components/AdminBackup";
+import { AdminExpeditions } from "../components/AdminExpeditions";
 import { AdminBalance } from "../components/AdminBalance";
 import { AdminPhrases } from "../components/AdminPhrases";
 import { AdminSettings } from "../components/AdminSettings";
@@ -152,7 +153,7 @@ function AdminTabs() {
       setNewCounts(out);
     })();
   }, []);
-  const [tab, setTab] = useState<"scenes" | "characters" | "weapons" | "settings" | "events" | "requests" | "creatures" | "pets" | "companions" | "balance" | "phrases" | "backup">("scenes");
+  const [tab, setTab] = useState<"scenes" | "characters" | "weapons" | "settings" | "events" | "requests" | "creatures" | "pets" | "companions" | "balance" | "phrases" | "expeditions" | "backup">("scenes");
   useEffect(() => {
     if (tab in NEW_TABLES) {
       writeSeen(tab);
@@ -195,11 +196,14 @@ function AdminTabs() {
         <button type="button" onClick={() => setTab("phrases")} className={`rounded px-3 py-1 font-semibold ${tab === "phrases" ? "bg-amber-600" : "bg-neutral-800"}`}>
           Phrases
         </button>
+        <button type="button" onClick={() => setTab("expeditions")} className={`rounded px-3 py-1 font-semibold ${tab === "expeditions" ? "bg-amber-600" : "bg-neutral-800"}`}>
+          Expéditions
+        </button>
         <button type="button" onClick={() => setTab("backup")} className={`rounded px-3 py-1 font-semibold ${tab === "backup" ? "bg-amber-600" : "bg-neutral-800"}`}>
           Sauvegarde
         </button>
       </div>
-      {tab === "scenes" ? <AdminPage /> : tab === "characters" ? <AdminCharacters /> : tab === "weapons" ? <AdminWeapons /> : tab === "settings" ? <AdminSettings /> : tab === "events" ? <AdminEncounters /> : tab === "requests" ? <AdminRequests /> : tab === "creatures" ? <AdminCreatures /> : tab === "pets" ? <AdminPets /> : tab === "companions" ? <AdminCompanions /> : tab === "balance" ? <AdminBalance /> : tab === "phrases" ? <AdminPhrases /> : <AdminBackup />}
+      {tab === "scenes" ? <AdminPage /> : tab === "characters" ? <AdminCharacters /> : tab === "weapons" ? <AdminWeapons /> : tab === "settings" ? <AdminSettings /> : tab === "events" ? <AdminEncounters /> : tab === "requests" ? <AdminRequests /> : tab === "creatures" ? <AdminCreatures /> : tab === "pets" ? <AdminPets /> : tab === "companions" ? <AdminCompanions /> : tab === "balance" ? <AdminBalance /> : tab === "phrases" ? <AdminPhrases /> : tab === "expeditions" ? <AdminExpeditions /> : <AdminBackup />}
     </div>
   );
 }
