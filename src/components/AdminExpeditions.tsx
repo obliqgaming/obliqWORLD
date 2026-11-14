@@ -2,6 +2,7 @@
 // butin, comme le nœud « Sortie » : personne ne meurt, aucun combat n'est lancé). Refusé tant qu'un combat est en cours.
 import { useCallback, useEffect, useState } from "react";
 import { scenesClient } from "../lib/scenes-supabase";
+import { AdminMaintenance } from "./AdminMaintenance";
 
 type Row = {
   id: string;
@@ -49,6 +50,7 @@ export function AdminExpeditions() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-3 p-4 text-sm text-neutral-100">
+      <AdminMaintenance activeExpeditions={rows?.length ?? 0} />
       <div className="flex items-center justify-between gap-3">
         <p className="font-bold">Expéditions en cours</p>
         <button type="button" onClick={() => void load()} className="rounded bg-neutral-700 px-3 py-1 font-semibold">Actualiser</button>

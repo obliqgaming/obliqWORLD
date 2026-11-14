@@ -100,6 +100,8 @@ import { useQuestAvailable, useQuestReady } from "../lib/quests";
 import { GroupAdBanner } from "../components/GroupAdBanner";
 import { fetchAdReminders, meetLabel, touchSeen, touchSeenPeers } from "../lib/group-ads";
 import { WelcomeModal } from "../components/WelcomeModal";
+import { MaintenanceScreen } from "../components/MaintenanceScreen";
+import { useSiteStatus } from "../lib/site-status";
 import { ADMIN_USER_ID, ENABLE_GAME_FRAME, ENABLE_UNIFIED_SHEET, GAME_FRAME_SIZE, REQUIRE_PROVIDER_LOGIN } from "../lib/alpha-config";
 import { GameFrame } from "../components/GameFrame";
 import { ExpeditionPortalMarker } from "../components/ExpeditionPortal";
@@ -339,6 +341,7 @@ function Index() {
     void claimPendingReferral().finally(() => setReferralReveal(true));
   }, [authIdentity?.userId]);
   const [loginRequired, setLoginRequired] = useState(false);
+  const siteStatus = useSiteStatus();
   const loggingOutRef = useRef(false); // déconnexion en cours : plus aucune reconnexion de canal
   // Compagnon choisi à la ferme (image) : visible de tous, il marche devant son maître.
   const [myPet, setMyPet] = useState<string | null>(null);
@@ -2960,6 +2963,10 @@ function Index() {
   useEffect(() => {
     if (!booted && sceneReadyRef.current) setBooted(true);
   });
+
+  if (siteStatus?.maintenance && authIdentity?.userId !== ADMIN_USER_ID) {
+    return <MaintenanceScreen message={siteStatus.message} />;
+  }
 
   if (checkingCharacter) {
     return (
