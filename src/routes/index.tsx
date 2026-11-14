@@ -142,6 +142,7 @@ import { ClassNameModal, TalentPanel } from "../components/TalentPanel";
 import { fetchWornWeapons, type WornWeapon } from "../lib/weapons";
 import { setUiAudio, uiSound } from "../lib/ui-sounds";
 import { JINGLE_FAIL, JINGLE_SUCCESS, parseMusicList, startJingle } from "../lib/jingle";
+import { releaseAudio, resolveMusicUrl } from "../lib/music-cache";
 import { claimDailyGold, fetchSceneHotspots, useActiveGoldIds, useClaimedGoldToday, useHotspotStyles, type SceneHotspot } from "../lib/hotspots";
 import { PartyInvitePopup } from "../components/PartyInvitePopup";
 import { PartyPanel } from "../components/PartyPanel";
@@ -606,7 +607,7 @@ function Index() {
     const url = candidates[Math.floor(Math.random() * candidates.length)]!;
     lastTrackRef.current = url;
     const prev = audioRef.current;
-    const next = new Audio(url);
+    const next = new Audio(); // l'adresse est posée juste après (cache local des musiques, voir music-cache.ts)
     next.loop = list.length === 1;
     next.muted = mutedRef.current;
     next.volume = fade ? 0 : volumeRef.current;
@@ -616,18 +617,22 @@ function Index() {
       });
     }
 
-    next.play().catch(() => {
-      setNeedsInteraction(true);
-      const start = () => {
-        next.play().then(() => setNeedsInteraction(false)).catch(() => {});
-        window.removeEventListener("pointerdown", start);
-        window.removeEventListener("keydown", start);
-      };
-      window.addEventListener("pointerdown", start);
-      window.addEventListener("keydown", start);
-    });
-
     audioRef.current = next;
+
+    void resolveMusicUrl(url).then((src) => {
+      if (audioRef.current !== next) return; // une autre musique a pris la place entre-temps : on ne charge rien
+      next.src = src;
+      next.play().catch(() => {
+        setNeedsInteraction(true);
+        const start = () => {
+          next.play().then(() => setNeedsInteraction(false)).catch(() => {});
+          window.removeEventListener("pointerdown", start);
+          window.removeEventListener("keydown", start);
+        };
+        window.addEventListener("pointerdown", start);
+        window.addEventListener("keydown", start);
+      });
+    });
 
     if (fade) {
       const steps = 20;
@@ -638,11 +643,11 @@ function Index() {
         if (prev) prev.volume = Math.max(0, (1 - i / steps) * volumeRef.current);
         if (i >= steps) {
           window.clearInterval(fadeIn);
-          if (prev) prev.pause();
+          releaseAudio(prev);
         }
       }, 30);
     } else if (prev) {
-      prev.pause();
+      releaseAudio(prev);
     }
   };
 
@@ -650,7 +655,7 @@ function Index() {
     const j = jingleRef.current;
     if (!j) return;
     jingleRef.current = null;
-    j.pause();
+    releaseAudio(j);
     const pending = pendingMusicRef.current;
     pendingMusicRef.current = null;
     if (pending) {
@@ -683,14 +688,18 @@ function Index() {
         jingleRef.current = null;
       }
       audioRef.current?.pause();
-      const j = new Audio(url);
+      const j = new Audio();
       j.muted = mutedRef.current;
       j.volume = volumeRef.current;
       jingleRef.current = j;
       j.addEventListener("ended", () => {
         if (jingleRef.current === j) endJingle();
       });
-      j.play().catch(() => endJingle());
+      void resolveMusicUrl(url).then((src) => {
+        if (jingleRef.current !== j) return;
+        j.src = src;
+        j.play().catch(() => endJingle());
+      });
     };
     const onStop = () => endJingle();
     window.addEventListener("obliq-jingle", onJingle);
