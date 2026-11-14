@@ -528,6 +528,9 @@ function Index() {
 
   // ---- Chat ----
   const [chatLog, setChatLog] = useState<ChatMessage[]>([]);
+  // Tchat replié à la main (petite flèche à droite de la zone d'écriture) ; mémorisé sur cet appareil.
+  const [chatHidden, setChatHidden] = useState(() => { try { return localStorage.getItem("obliq-chat-hidden") === "1"; } catch { return false; } });
+  const setChatHiddenSaved = (v: boolean) => { setChatHidden(v); try { localStorage.setItem("obliq-chat-hidden", v ? "1" : "0"); } catch { /* ignoré */ } };
   const chatLogRef = useRef<HTMLDivElement | null>(null);
   const chatInputRef = useRef<HTMLInputElement | null>(null);
   const [emojiOpen, setEmojiOpen] = useState(false);
@@ -3622,7 +3625,10 @@ function Index() {
           Devient ~90% transparent après 15s sans nouveau message, et repasse
           net dès qu'on le survole (le survol relance aussi les 15s au moment
           où la souris ressort). */}
-      <div className={`pointer-events-none absolute bottom-3 left-3 ${trade || boardOpen ? "z-[60]" : uiOpen ? "z-[38]" : "z-40"}`} style={{ ...(ENABLE_GAME_FRAME ? { left: Math.max(0, (viewport.w - sceneBoxSize.width) / 2) + 12, bottom: Math.max(0, (viewport.h - sceneBoxSize.height) / 2) + 12 } : {}), width: Math.max(150, Math.min(560, viewport.w / 2 - ((inExpeditionScene ? 1 : 4) * (inExpeditionScene ? 30 : Math.round(Math.min(60, Math.max(34, sceneBoxSize.width * 0.05)))) + 32) / 2 - 24)) }}>
+      <div className={`pointer-events-none absolute bottom-3 left-3 ${trade || boardOpen ? "z-[60]" : uiOpen || iDraw ? "hidden" : "z-40"}`} style={{ ...(ENABLE_GAME_FRAME ? { left: Math.max(0, (viewport.w - sceneBoxSize.width) / 2) + 12, bottom: Math.max(0, (viewport.h - sceneBoxSize.height) / 2) + 12 } : {}), width: Math.max(150, Math.min(inExpeditionScene ? Math.max(150, viewport.w / 2 - 330) : 560, viewport.w / 2 - ((inExpeditionScene ? 1 : 4) * (inExpeditionScene ? 30 : Math.round(Math.min(60, Math.max(34, sceneBoxSize.width * 0.05)))) + 32) / 2 - 24)) }}>
+        {chatHidden && !trade && !boardOpen ? (
+          <button type="button" title="Afficher le tchat" onClick={() => setChatHiddenSaved(false)} className="pointer-events-auto m-1 rounded-md bg-black/45 px-2 py-1 text-lg hover:bg-black/60">💬</button>
+        ) : (
         <div
           className="flex flex-col justify-end gap-1 px-2 py-1 transition-opacity duration-300"
           style={{
@@ -3637,7 +3643,7 @@ function Index() {
         >
           <div
             ref={chatLogRef}
-            className={`no-scrollbar pointer-events-auto max-h-36 flex-col gap-0.5 overflow-y-auto pr-1 text-sm flex`}
+            className={`no-scrollbar pointer-events-auto ${inExpeditionScene ? "max-h-20" : "max-h-36"} flex-col gap-0.5 overflow-y-auto pr-1 text-sm flex`}
             style={{
               fontFamily: "'Baloo 2', cursive",
               color: "#fff3d6",
@@ -3719,8 +3725,10 @@ function Index() {
             >
               Envoyer
             </button>
+            <button type="button" title="Cacher le tchat" onClick={() => setChatHiddenSaved(true)} className="rounded-md bg-black/35 px-2 text-sm font-bold text-[#fff3d6] hover:bg-black/50">◀</button>
           </form>
         </div>
+        )}
       </div>
     </div>
   );

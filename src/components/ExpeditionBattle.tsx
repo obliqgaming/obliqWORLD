@@ -810,7 +810,7 @@ export function ExpeditionBattle({
           Journal de combat <span>{showLog ? "−" : "+"}</span>
         </button>
         {showLog && (
-          <div className="parchment-scroll max-h-48 overflow-y-auto px-2.5 pb-2 text-[11px] leading-snug">
+          <div className="parchment-scroll max-h-28 overflow-y-auto px-2.5 pb-2 text-[11px] leading-snug">
             {logLines.length === 0 ? <div className="opacity-60">Le combat commence…</div> : null}
             {logLines.map((l, i) => (
               <div key={l.id} ref={i === logLines.length - 1 ? lastLog : undefined} className="border-t border-white/10 py-0.5 first:border-0">
