@@ -1967,8 +1967,11 @@ function Index() {
             const nameMap: Record<string, string> = Object.fromEntries(partyMembers.map((m) => [m.character_id, m.name]));
             if (character) nameMap[character.id] = nameMap[character.id] ?? character.name;
             outcomeShown = true;
+            // Coffre piégé qui a blessé quelqu'un : « Échec » (pas « Réussite »), avec le son d'échec.
+            const trapHurt = mapRegGet(expId)?.chosen[idx - 1] === "coffre_piege" && ((prev.outcome_pv_loss_pct ?? 0) > 0 || (nd?.hit?.length ?? 0) > 0);
             setOutcomeInfo({
               stepIndex: idx - 1,
+              forceFail: trapHurt || undefined,
               narrative: isNarr
                 ? {
                     stepId: prev.id as string,

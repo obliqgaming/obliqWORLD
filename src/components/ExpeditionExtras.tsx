@@ -16,6 +16,8 @@ export type OutcomeInfo = {
   reward: string | null;
   triggersCombat: boolean;
   xp: number;
+  /** Coffre piégé qui a blessé quelqu'un : on affiche « Échec » (et le son d'échec), jamais « Réussite ». */
+  forceFail?: boolean | undefined;
   /** Étape narrative (rencontre écrite) : réussite/échec, dégâts nommés, potion en jeu. */
   narrative?: {
     stepId: string;
@@ -45,19 +47,21 @@ export function OutcomePanel({
         ? { label: pts ? `Tu récupères ${pts} peps` : "Le groupe récupère du peps", color: "#047857" }
         : { label: "Aucune perte de peps", color: "#5e3818" };
   const nar = outcome.narrative;
+  // Verdict affiché : une rencontre écrite a le sien ; un coffre piégé qui blesse est toujours un échec.
+  const verdict: boolean | null = outcome.forceFail ? false : nar ? nar.success : null;
   // Petit son de réussite ou d'échec à l'apparition du résultat d'une rencontre.
   useEffect(() => {
-    if (nar) uiSound(nar.success ? "success" : "fail");
+    if (verdict !== null) uiSound(verdict ? "success" : "fail");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [outcome.stepIndex]);
   return (
-    <div className="absolute left-1/2 top-[22%] z-40 w-[min(30rem,94%)] -translate-x-1/2 rounded-xl md:left-[71%] md:top-[40%] md:w-[min(30rem,46%)] border-2 border-[#7a4a22] bg-[#f1dfb6]/97 p-4 text-[#3a2410] shadow-xl" style={{ ...PANEL_FONT, borderColor: nar ? (nar.success ? "#15803d" : "#b91c1c") : "#7a4a22" }}>
-      {nar ? (
+    <div className="absolute left-1/2 top-[22%] z-40 w-[min(30rem,94%)] -translate-x-1/2 rounded-xl md:left-[71%] md:top-[40%] md:w-[min(30rem,46%)] border-2 border-[#7a4a22] bg-[#f1dfb6]/97 p-4 text-[#3a2410] shadow-xl" style={{ ...PANEL_FONT, borderColor: verdict !== null ? (verdict ? "#15803d" : "#b91c1c") : "#7a4a22" }}>
+      {verdict !== null ? (
         <div
           className="mb-1 inline-block rounded-lg px-3 py-0.5 text-2xl font-extrabold uppercase tracking-wide text-white"
-          style={{ background: nar.success ? "#15803d" : "#b91c1c", textShadow: "0 2px 0 rgba(0,0,0,0.35)" }}
+          style={{ background: verdict ? "#15803d" : "#b91c1c", textShadow: "0 2px 0 rgba(0,0,0,0.35)" }}
         >
-          {nar.success ? "✔ Réussite !" : "✘ Échec…"}
+          {verdict ? "✔ Réussite !" : "✘ Échec…"}
         </div>
       ) : (
         <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-[#7a4a22]">Résultat du vote</div>

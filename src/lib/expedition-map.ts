@@ -27,7 +27,7 @@ export const MAP_NODE_INFO: Record<MapNodeType, { icon: string; label: string; t
   combat: { icon: "⚔️", label: "Combat", text: "Des monstres barrent la route.", color: "#9a3412" },
   elite: { icon: "💀", label: "Élite", text: "Un monstre redoutable : plus dur, plus de butin.", color: "#7f1d1d" },
   rencontre: { icon: "📜", label: "Rencontre", text: "Un événement : le sort dépend du groupe et de la chance.", color: "#1d4ed8" },
-  coffre: { icon: "🧰", label: "Coffre", text: "Un coffre à ouvrir… qui sait ce qu'il y a dedans ?", color: "#a16207" },
+  coffre: { icon: "🧰", label: "Coffre", text: "Un coffre à ouvrir… attention, il pourrait être piégé !", color: "#a16207" },
   coffre_piege: { icon: "🧨", label: "Coffre piégé", text: "Flouz et potion... mais le piège peut blesser quelqu'un.", color: "#b45309" },
   clairiere: { icon: "🌿", label: "Clairière", text: "Une pause : chacun reprend un peu de peps et de jus.", color: "#15803d" },
   sortie: { icon: "🚪", label: "Sortie", text: "Rentrer au village avec le butin.", color: "#475569" },

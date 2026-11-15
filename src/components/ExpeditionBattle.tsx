@@ -174,6 +174,7 @@ export function ExpeditionBattle({
   const [stacks, setStacks] = useState<ConsumableStack[]>([]);
   const [itemsOpen, setItemsOpen] = useState(false);
   const [itemKind, setItemKind] = useState<ConsumableStack | null>(null);
+  const [sentItem, setSentItem] = useState<{ turn: number; name: string } | null>(null); // objet choisi ce tour-ci (potion, parchemin…)
   const [pool, setPool] = useState<EnemyImage[]>([]);
   const [talentDefs, setTalentDefs] = useState<GameTalent[]>([]);
   const [myTalentKeys, setMyTalentKeys] = useState<string[]>([]);
@@ -328,6 +329,7 @@ export function ExpeditionBattle({
     ? snap.players.filter((p) => p.last_submitted_turn >= turn && aliveAllies.some((a) => a.characterId === p.character_id)).length
     : 0;
   const iAmReady = (mySnapPlayer?.last_submitted_turn ?? 0) >= turn || sentTurn >= turn;
+  const itemQueued = sentItem !== null && sentItem.turn === turn && iAmReady; // l'action de ce tour = un objet, pas une attaque
 
   const aliveEnemies = useMemo(() => (snap?.enemies ?? []).filter((e) => e.pv_current > 0), [snap]);
 
@@ -335,6 +337,10 @@ export function ExpeditionBattle({
     setSelectedPower(null);
     setTargetAlly(null);
     setError(null);
+    // Nouveau tour : on repart d'une barre propre (plus de panneau « Objets » ouvert ni d'objet en attente).
+    setItemsOpen(false);
+    setItemKind(null);
+    setSentItem(null);
   }, [turn]);
   useEffect(() => {
     if (aliveEnemies.length === 0) return;
@@ -458,6 +464,7 @@ export function ExpeditionBattle({
     try {
       await submitCombatItem(combatId, characterId, st.firstId, ally);
       setSentTurn(turn);
+      setSentItem({ turn, name: CONSUMABLE_INFO[st.kind].name });
       setSelectedPower(null);
       setItemsOpen(false);
       setItemKind(null);
@@ -473,8 +480,11 @@ export function ExpeditionBattle({
     const enemy = gp && needsNoEnemy(gp) ? null : targetEnemy;
     setSelectedPower(powerKey);
     setError(null);
+    setItemsOpen(false);
+    setItemKind(null);
     try {
       await submitCombatAction(combatId, characterId, powerKey, enemy, ally);
+      setSentItem(null);
       setSentTurn(turn);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : ((e as { message?: string })?.message ?? "Erreur");
@@ -722,7 +732,8 @@ export function ExpeditionBattle({
               if (dead || !active || replaying || !enemyLanded.includes(en.id)) return;
               setTargetEnemy(en.id);
               const gp = selectedPower ? powers.find((p) => p.power_key === selectedPower) : null;
-              if (iAmReady && !(gp && needsNoEnemy(gp))) {
+              // Un objet est déjà choisi pour ce tour : cliquer un ennemi change seulement la cible affichée, sans remplacer la potion par une attaque.
+              if (iAmReady && !itemQueued && !(gp && needsNoEnemy(gp))) {
                 void submitCombatAction(combatId, characterId, selectedPower, en.id, null).catch((e) => setError(String(e?.message ?? e)));
               }
             }}
@@ -831,7 +842,7 @@ export function ExpeditionBattle({
               : myDead
                 ? "Tu es à terre — tu regardes le combat"
                 : iAmReady
-                  ? `Action envoyée — ${readyCount}/${aliveAllies.length} prêts (tu peux encore changer)`
+                  ? `${itemQueued ? `${sentItem!.name} choisi(e)` : "Action envoyée"} — ${readyCount}/${aliveAllies.length} prêts (tu peux encore changer)`
                   : `Choisis ton action, puis clique un ennemi pour le cibler — ${readyCount}/${aliveAllies.length} prêts`}
           </div>
           {error && !replaying && <div className="rounded bg-[#4a0d0d]/90 px-2 py-0.5 text-[11px] font-bold text-[#fca5a5]">{error}</div>}
@@ -842,7 +853,7 @@ export function ExpeditionBattle({
                 const info = POWER_TYPE_INFO[type];
                 const noPm = (me?.pmCurrent ?? 0) < b.cost;
                 const disabled = b.cd > 0 || noPm;
-                const activeSel = iAmReady && selectedPower === b.key;
+                const activeSel = iAmReady && !itemQueued && selectedPower === b.key;
                 const prev = previewOf(b.p);
                 const tags = effectTags(b.p);
                 return (
@@ -892,11 +903,12 @@ export function ExpeditionBattle({
                   setItemsOpen((o) => !o);
                   setItemKind(null);
                 }}
-                className="flex h-[72px] w-[72px] flex-col items-center justify-between rounded-lg px-1 pb-1 pt-1 text-[#3a2410] hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
-                style={{ fontFamily: "'Baloo 2', cursive", border: "3px solid #92400e", background: "#fff1b8" }}
+                className="relative flex h-[72px] w-[72px] flex-col items-center justify-between rounded-lg px-1 pb-1 pt-1 text-[#3a2410] hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+                style={{ fontFamily: "'Baloo 2', cursive", border: `3px solid ${itemQueued ? "#047857" : "#92400e"}`, background: itemQueued ? "#d1fae5" : "#fff1b8" }}
               >
                 <img src="/icons/powers/objets.webp" alt="" width={36} height={36} className="h-9 w-9 object-contain" draggable={false} />
-                <span className="text-[10px] font-extrabold leading-none">Objets</span>
+                <span className="w-full truncate text-center text-[10px] font-extrabold leading-none">{itemQueued ? sentItem!.name : "Objets"}</span>
+                {itemQueued && <span className="absolute -bottom-1.5 -right-1.5 rounded-full bg-[#047857] px-1 text-[10px] font-black text-white">✔</span>}
               </button>
             </div>
           )}
