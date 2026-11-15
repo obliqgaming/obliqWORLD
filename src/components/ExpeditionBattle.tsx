@@ -635,8 +635,34 @@ export function ExpeditionBattle({
         {active && !replaying && secondsLeft !== null ? ` · ${secondsLeft} s` : ""}
       </div>
 
+      {active && order.length > 0 && (
+          <div className="absolute left-1/2 top-[3rem] z-30 flex max-w-[60%] -translate-x-1/2 items-center gap-2 rounded-full bg-black/60 px-3 py-1" title="Ordre d'attaque">
+            <div className="shrink-0 text-[10px] font-bold uppercase tracking-widest text-[#fff3d6] opacity-70">Ordre</div>
+            <div className="flex flex-wrap items-center gap-1">
+              {order.map((o, i) => {
+                const ally = o.k === "p" ? allies.find((a) => a.characterId === o.id) : null;
+                const en = o.k === "e" ? snap?.enemies.find((e) => e.id === o.id) : null;
+                const entry = en ? (en.visual_asset_id ? monsterAssets[en.visual_asset_id] ?? null : pickEnemyEntry(pool, en.id)) : null;
+                const src = ally?.imageUrl ?? entry?.imageUrl ?? null;
+                const sep = i > 0 && order[i - 1]!.k !== o.k;
+                return (
+                  <span key={`${o.k}-${o.id}`} className="flex items-center gap-1">
+                    {sep && <span className="mx-0.5 h-5 w-px bg-white/40" />}
+                    <span
+                      className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-full border-2 bg-black/40"
+                      style={{ borderColor: ally?.isSelf ? "#fde68a" : o.k === "e" ? "#f87171" : "rgba(255,255,255,0.45)", opacity: 0.92 }}
+                    >
+                      {src ? <img src={src} alt="" className="h-full w-full object-contain" draggable={false} /> : <span className="text-[10px] text-white">?</span>}
+                    </span>
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
       {active && combat?.aoe_warning && !replaying && (
-        <div className="absolute left-1/2 top-14 z-30 -translate-x-1/2 rounded-lg border-2 border-[#f87171] bg-[#4a0d0d]/95 px-4 py-1.5 text-sm font-bold text-[#fff3d6]">
+        <div className="absolute left-1/2 top-[5.5rem] z-30 -translate-x-1/2 rounded-lg border-2 border-[#f87171] bg-[#4a0d0d]/95 px-4 py-1.5 text-sm font-bold text-[#fff3d6]">
           ⚠ Le Chef-Patron prépare une attaque de zone : elle touchera tout le groupe à la fin de ce tour !
         </div>
       )}
@@ -792,31 +818,6 @@ export function ExpeditionBattle({
             </div>
           );
         })}
-        {active && order.length > 0 && (
-          <div className="mt-0.5 border-t border-white/15 pt-1.5" title="Ordre d'attaque">
-            <div className="mb-1 text-[10px] font-bold uppercase tracking-widest opacity-60">Ordre d'attaque</div>
-            <div className="flex flex-wrap items-center gap-1">
-              {order.map((o, i) => {
-                const ally = o.k === "p" ? allies.find((a) => a.characterId === o.id) : null;
-                const en = o.k === "e" ? snap?.enemies.find((e) => e.id === o.id) : null;
-                const entry = en ? (en.visual_asset_id ? monsterAssets[en.visual_asset_id] ?? null : pickEnemyEntry(pool, en.id)) : null;
-                const src = ally?.imageUrl ?? entry?.imageUrl ?? null;
-                const sep = i > 0 && order[i - 1]!.k !== o.k;
-                return (
-                  <span key={`${o.k}-${o.id}`} className="flex items-center gap-1">
-                    {sep && <span className="mx-0.5 h-5 w-px bg-white/40" />}
-                    <span
-                      className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full border-2 bg-black/40"
-                      style={{ borderColor: ally?.isSelf ? "#fde68a" : o.k === "e" ? "#f87171" : "rgba(255,255,255,0.45)", opacity: 0.92 }}
-                    >
-                      {src ? <img src={src} alt="" className="h-full w-full object-contain" draggable={false} /> : <span className="text-[10px] text-white">?</span>}
-                    </span>
-                  </span>
-                );
-              })}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Journal de combat : bas droite */}
@@ -851,7 +852,7 @@ export function ExpeditionBattle({
           </div>
           {error && !replaying && <div className="rounded bg-[#4a0d0d]/90 px-2 py-0.5 text-[11px] font-bold text-[#fca5a5]">{error}</div>}
           {!myDead && !replaying && (
-            <div className="flex max-w-[44rem] flex-wrap justify-center gap-1.5 rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6]/95 p-2 shadow-lg">
+            <div className="grid grid-flow-col grid-rows-2 justify-center gap-1.5 rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6]/95 p-2 shadow-lg">
               {tiles.map((b, i) => {
                 const type = powerType(b.p, magicFamily);
                 const info = POWER_TYPE_INFO[type];

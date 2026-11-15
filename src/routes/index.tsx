@@ -2071,13 +2071,26 @@ function Index() {
     if (mapKey !== "combat" && mapKey !== "elite" && mapKey !== "boss") return;
     let cancelled = false;
     startCombat(activeExpedition.id, mapKey === "boss", false)
-      .then((c) => { if (!cancelled) setActiveCombatId(c.id); })
+      // Le combat existe côté serveur : on le rejoint même si l'effet a été relancé entre-temps (sinon « Le combat commence… » restait affiché jusqu'au F5).
+      .then((c) => { setActiveCombatId(c.id); })
       .catch((e) => { if (!cancelled) setCombatError(e instanceof Error ? e.message : String((e as { message?: string })?.message ?? e)); });
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeExpedition?.id, activeExpedition?.current_step_index, activeExpedition?.status, mapKey, inExpeditionScene, character?.id]);
+
+  // Filet de sécurité : « Le combat commence… » ne doit jamais rester plus de quelques secondes (combat_start rend le combat déjà actif au lieu d'en créer un second).
+  useEffect(() => {
+    if (!inExpeditionScene || !character || !activeExpedition || activeExpedition.status !== "active" || activeCombatId || outcomeInfo) return;
+    if (mapKey !== "combat" && mapKey !== "elite" && mapKey !== "boss") return;
+    const expId = activeExpedition.id;
+    const isBoss = mapKey === "boss";
+    const t = window.setInterval(() => {
+      startCombat(expId, isBoss, false).then((c) => setActiveCombatId(c.id)).catch(() => {});
+    }, 4000);
+    return () => window.clearInterval(t);
+  }, [activeExpedition?.id, activeExpedition?.current_step_index, activeExpedition?.status, mapKey, inExpeditionScene, character?.id, activeCombatId, !!outcomeInfo]);
 
   // Le résultat a été fermé (tout le monde est passé) : l'étape suivante peut s'afficher.
   useEffect(() => {
@@ -2207,6 +2220,7 @@ function Index() {
       try {
         const b = await fetchMyBuild(character.id);
         if (cancelled || !b) return;
+        if (b.is_alive === false) return; // un personnage tombé ne reçoit ni félicitations de niveau ni choix de spé
         const k = `obw-level-seen-${character.id}`;
         let seen = 1;
         try { seen = Number(localStorage.getItem(k) ?? "1") || 1; } catch { /* stockage indisponible */ }
@@ -2251,6 +2265,12 @@ function Index() {
     setLevelUp(null);
   };
 
+  // Nouveau personnage : on repart de zéro (ni félicitations ni choix de spé du personnage précédent).
+  useEffect(() => {
+    setLevelUp(null);
+    setAxisChoice(null);
+  }, [character?.id]);
+
   // Choix de l'axe : proposé dès qu'on est de retour hors expédition avec le niveau 3.
   useEffect(() => {
     if (!character || inExpeditionScene || activeExpedition) return;
@@ -2258,7 +2278,11 @@ function Index() {
     (async () => {
       try {
         const b = await fetchMyBuild(character.id);
-        if (cancelled || !b || !b.axis_choice_pending) return;
+        if (cancelled) return;
+        if (!b || !b.axis_choice_pending || b.is_alive === false) {
+          setAxisChoice(null); // pas de choix de spé hérité d'un autre personnage
+          return;
+        }
         const [axes, powers] = await Promise.all([fetchGameAxes(), fetchGamePowers()]);
         if (cancelled) return;
         setAxisChoice({ axes: axes.filter((a) => a.family === b.family && a.playable !== false && !a.axis_key.startsWith("apprenti")), powers });

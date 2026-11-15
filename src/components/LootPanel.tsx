@@ -117,7 +117,6 @@ export function LootPanel({
         return (
           <div key={it.id} className="mt-2 rounded border border-[#b98a54] bg-[#f6e8c4] p-2">
             <div className="flex items-center gap-2">
-              {!w && it.item_key && CONSUMABLE_INFO[it.item_key as ConsumableKind] && <div className="text-[11px]">{CONSUMABLE_INFO[it.item_key as ConsumableKind]!.text}</div>}
               {w && <img src={w.image_url} alt="" className="h-12 w-8 object-contain" />}
               {it.kind === "companion" && it.visual_asset_id && creatures[it.visual_asset_id] && <img src={creatures[it.visual_asset_id]} alt="" className="h-12 w-12 object-contain" />}
               <div className="min-w-0 flex-1">
@@ -127,6 +126,7 @@ export function LootPanel({
                     ? <span title="Les jets de dés sont d'abord pour ceux qui ont la bonne spé" className="mr-1 inline-block rounded bg-[#16a34a] px-1.5 text-[10px] font-extrabold text-white">✦ Prio spé</span>
                     : <span className="mr-1 inline-block rounded bg-[#9ca3af] px-1.5 text-[10px] font-extrabold text-white">Autre spé</span>
                 )}
+                {!w && it.item_key && CONSUMABLE_INFO[it.item_key as ConsumableKind] && <div className="text-[11px]">{CONSUMABLE_INFO[it.item_key as ConsumableKind]!.text}</div>}
                 {w && <div className="text-[11px]">{bonusText(w.bonus_damage)}{w.effect_key && EFFECT_INFO[w.effect_key] ? ` · ${EFFECT_INFO[w.effect_key]?.name}` : ""}</div>}
               </div>
               {it.status === "rolling" && <div className="text-xs font-bold tabular-nums">{left} s</div>}
