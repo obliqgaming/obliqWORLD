@@ -3440,6 +3440,7 @@ function Index() {
             deadlineMs={runStep.vote_deadline ? new Date(runStep.vote_deadline).getTime() : null}
             onVote={handleExpeditionVote}
             lead={raccordLead}
+            noRetreat={!!activeExpedition && mapRegGet(activeExpedition.id)?.enabled === true}
           />
         )}
 

@@ -22,6 +22,7 @@ export function NarrativeStepPanel({
   deadlineMs,
   onVote,
   lead,
+  noRetreat = false,
 }: {
   event: NarrativeEvent;
   players: { characterId: string; name: string }[];
@@ -32,6 +33,7 @@ export function NarrativeStepPanel({
   deadlineMs: number | null;
   onVote: (choiceKey: string) => void;
   lead?: string | null;
+  noRetreat?: boolean; // expédition à carte : pas de vote « Retraite » pendant un narratif
 }) {
   const [now, setNow] = useState(() => Date.now());
   const [pick, setPick] = useState<string>(myCharacterId);
@@ -80,13 +82,13 @@ export function NarrativeStepPanel({
       {t === "danger_imminent" && (
         <div className="mt-2 text-xs italic">Qui protéger en priorité ? Se désigner soi-même est permis. Ceux qui se sacrifient se partagent les dégâts.</div>
       )}
-      {t === "epreuve" && <div className="mt-2 text-xs italic">Qui doit relever l'épreuve ? Si la retraite l'emporte, le groupe rentre.</div>}
+      {t === "epreuve" && <div className="mt-2 text-xs italic">{noRetreat ? "Qui doit relever l'épreuve ?" : "Qui doit relever l'épreuve ? Si la retraite l'emporte, le groupe rentre."}</div>}
 
       <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
         {t === "classique" && (
           <>
             {btn("en_avant", "En avant !", "#16a34a")}
-            {btn("retraite", "Retraite !", "#b45309")}
+            {!noRetreat && btn("retraite", "Retraite !", "#b45309")}
           </>
         )}
         {t !== "classique" && (
@@ -105,7 +107,7 @@ export function NarrativeStepPanel({
             </select>
             {btn(voteForPick, t === "danger_imminent" ? "Protéger" : "Voter pour", "#16a34a")}
             {t === "danger_imminent" && btn("sacrifice", "Se sacrifier", "#7c3aed")}
-            {t === "epreuve" && btn("retraite", "Retraite !", "#b45309")}
+            {t === "epreuve" && !noRetreat && btn("retraite", "Retraite !", "#b45309")}
           </>
         )}
       </div>
