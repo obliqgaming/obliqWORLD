@@ -88,7 +88,7 @@ export async function fetchCompanionRules(): Promise<CompanionRules> {
 export async function createCompanionDesign(blob: Blob, name: string): Promise<{ design: CompanionDesign; companionId: string }> {
   const userId = await ensureUserId();
   const fileName = `companion_${userId}_${Date.now()}.png`;
-  const { error: upErr } = await scenesClient.storage.from("drawings").upload(fileName, blob, { contentType: "image/png", upsert: false });
+  const { error: upErr } = await scenesClient.storage.from("drawings").upload(fileName, blob, { contentType: "image/png", upsert: false, cacheControl: "2592000" });
   if (upErr) throw upErr;
   const { data: pub } = scenesClient.storage.from("drawings").getPublicUrl(fileName);
   const { data, error } = await scenesClient.rpc("companion_design_create", { p_name: name, p_image_url: pub.publicUrl });

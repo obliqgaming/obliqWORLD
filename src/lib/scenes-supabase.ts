@@ -391,7 +391,7 @@ export async function createScene(name: string, imageFile: File, musicUrl: strin
 
   const { error: uploadError } = await scenesClient.storage
     .from("scenes")
-    .upload(fileName, imageFile, { contentType: imageFile.type || "image/png", upsert: false });
+    .upload(fileName, imageFile, { contentType: imageFile.type || "image/png", upsert: false, cacheControl: "2592000" });
   if (uploadError) throw uploadError;
 
   const { data: pub } = scenesClient.storage.from("scenes").getPublicUrl(fileName);
@@ -971,7 +971,7 @@ export async function uploadDrawingAsCharacterAsset(
 
   const { error: uploadError } = await scenesClient.storage
     .from("drawings")
-    .upload(fileName, blob, { contentType: "image/png", upsert: false });
+    .upload(fileName, blob, { contentType: "image/png", upsert: false, cacheControl: "2592000" });
   if (uploadError) throw uploadError;
 
   const { data: pub } = scenesClient.storage.from("drawings").getPublicUrl(fileName);

@@ -39,7 +39,7 @@ export function AdminCreatures() {
     setUploading(true);
     try {
       const fileName = `creature_${Date.now()}_${Math.floor(Math.random() * 1e6)}.png`;
-      const { error: upErr } = await scenesClient.storage.from("drawings").upload(fileName, file, { contentType: "image/png", upsert: false });
+      const { error: upErr } = await scenesClient.storage.from("drawings").upload(fileName, file, { contentType: "image/png", upsert: false, cacheControl: "2592000" });
       if (upErr) throw upErr;
       const url = scenesClient.storage.from("drawings").getPublicUrl(fileName).data.publicUrl;
       const name = newName.trim() || file.name.replace(/\.png$/i, "").slice(0, 40);

@@ -147,7 +147,7 @@ export async function storeAllPrototypes(): Promise<number> {
 export async function createWeapon(blob: Blob, name: string, type: WeaponType, grip: Point): Promise<{ weapon: Weapon; itemId: string }> {
   const userId = await ensureUserId();
   const fileName = `weapon_${userId}_${Date.now()}.png`;
-  const { error: upErr } = await scenesClient.storage.from("drawings").upload(fileName, blob, { contentType: "image/png", upsert: false });
+  const { error: upErr } = await scenesClient.storage.from("drawings").upload(fileName, blob, { contentType: "image/png", upsert: false, cacheControl: "2592000" });
   if (upErr) throw upErr;
   const { data: pub } = scenesClient.storage.from("drawings").getPublicUrl(fileName);
   const { data, error } = await scenesClient.rpc("weapon_create", {

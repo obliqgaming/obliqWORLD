@@ -176,7 +176,7 @@ export async function saveHotspotStyle(st: HotspotStyle): Promise<void> {
 export async function uploadHotspotImage(kind: string, file: File): Promise<string> {
   const ext = file.name.split(".").pop()?.toLowerCase() || "png";
   const name = `hotspot_${kind}_${Date.now()}.${ext}`;
-  const { error } = await scenesClient.storage.from("scenes").upload(name, file, { contentType: file.type || "image/png", upsert: false });
+  const { error } = await scenesClient.storage.from("scenes").upload(name, file, { contentType: file.type || "image/png", upsert: false, cacheControl: "2592000" });
   if (error) throw error;
   return scenesClient.storage.from("scenes").getPublicUrl(name).data.publicUrl;
 }
