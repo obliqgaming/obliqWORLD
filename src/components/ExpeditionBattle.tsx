@@ -704,7 +704,7 @@ export function ExpeditionBattle({
         const slot = ENEMY_SLOTS[i]!;
         const hp = shownEnemyHp(en.id, en.pv_current, en.pv_max);
         const dead = hp <= 0;
-        const entry = (en.visual_asset_id ? monsterAssets[en.visual_asset_id] : null) ?? pickEnemyEntry(pool, en.id);
+        const entry = (en.visual_asset_id ? monsterAssets[en.visual_asset_id] ?? null : pickEnemyEntry(pool, en.id));
         const img = entry?.imageUrl ?? null;
         const mw = en.weapon_id ? weaponPool[en.weapon_id] ?? null : null;
         const mWeapon: WornWeapon | null = mw ? { ...mw, hand: entry?.handAnchor ?? DEFAULT_HAND, rot: entry?.handAnchor?.rot ?? 0 } : null;
@@ -784,7 +784,7 @@ export function ExpeditionBattle({
               {order.map((o, i) => {
                 const ally = o.k === "p" ? allies.find((a) => a.characterId === o.id) : null;
                 const en = o.k === "e" ? snap?.enemies.find((e) => e.id === o.id) : null;
-                const entry = en ? (en.visual_asset_id ? monsterAssets[en.visual_asset_id] : null) ?? pickEnemyEntry(pool, en.id) : null;
+                const entry = en ? (en.visual_asset_id ? monsterAssets[en.visual_asset_id] ?? null : pickEnemyEntry(pool, en.id)) : null;
                 const src = ally?.imageUrl ?? entry?.imageUrl ?? null;
                 const sep = i > 0 && order[i - 1]!.k !== o.k;
                 return (
