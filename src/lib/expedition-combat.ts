@@ -127,7 +127,7 @@ export type StepOutcome = {
   id?: string;
   step_type?: string | null;
   step_outcome?: string | null;
-  outcome_data?: { chance?: number; target?: string; hit?: { c: string; n: number }[]; potion?: boolean } | null;
+  outcome_data?: { chance?: number; target?: string; hit?: { c: string; n: number }[]; potion?: boolean; node?: string } | null;
 };
 
 export async function fetchStepOutcome(expeditionId: string, stepIndex: number): Promise<StepOutcome | null> {

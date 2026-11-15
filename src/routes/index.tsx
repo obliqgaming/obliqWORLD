@@ -1930,9 +1930,46 @@ function Index() {
     };
     void load();
     const ch = subscribeToRunStats(expId, () => void load());
+    // Filet de sécurité : si un message en direct se perd (connexion lente, onglet en arrière-plan), on relit toutes les 10 s.
+    const poll = window.setInterval(() => void load(), 10000);
     return () => {
       cancelled = true;
+      window.clearInterval(poll);
       leaveScenePresence(ch);
+    };
+  }, [activeExpedition?.id, activeExpedition?.status, inExpeditionScene]);
+
+  // Synchro : filet de sécurité de l'étape. Le changement d'étape arrive normalement en direct, mais un message perdu
+  // (connexion lente, onglet en arrière-plan, écran de carte sans écoute) laissait un joueur figé sur l'étape d'avant.
+  // On relit donc l'expédition toutes les 5 s, et tout de suite quand la fenêtre redevient visible ou que le réseau revient.
+  useEffect(() => {
+    if (!inExpeditionScene || !activeExpedition || activeExpedition.status !== "active") return;
+    const expId = activeExpedition.id;
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const e = await fetchExpeditionById(expId);
+        if (cancelled || !e) return;
+        setActiveExpedition((cur) =>
+          cur && cur.id === e.id && cur.status === e.status && cur.current_step_index === e.current_step_index ? cur : e,
+        );
+      } catch {
+        /* réseau capricieux : on réessaiera au prochain tour */
+      }
+    };
+    const timer = window.setInterval(() => void check(), 5000);
+    const onWake = () => {
+      if (document.visibilityState === "visible") void check();
+    };
+    window.addEventListener("focus", onWake);
+    window.addEventListener("online", onWake);
+    document.addEventListener("visibilitychange", onWake);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", onWake);
+      window.removeEventListener("online", onWake);
+      document.removeEventListener("visibilitychange", onWake);
     };
   }, [activeExpedition?.id, activeExpedition?.status, inExpeditionScene]);
 
@@ -1968,7 +2005,8 @@ function Index() {
             if (character) nameMap[character.id] = nameMap[character.id] ?? character.name;
             outcomeShown = true;
             // Coffre piégé qui a blessé quelqu'un : « Échec » (pas « Réussite »), avec le son d'échec.
-            const trapHurt = mapRegGet(expId)?.chosen[idx - 1] === "coffre_piege" && ((prev.outcome_pv_loss_pct ?? 0) > 0 || (nd?.hit?.length ?? 0) > 0);
+            // Le serveur note « node: coffre_piege » dans le résultat et met toujours « success » : c'est lui qu'on lit (marche aussi après un F5).
+            const trapHurt = nd?.node === "coffre_piege" && (nd?.hit?.length ?? 0) > 0;
             setOutcomeInfo({
               stepIndex: idx - 1,
               forceFail: trapHurt || undefined,
@@ -2012,7 +2050,11 @@ function Index() {
         // Le chargement de cette étape est terminé : sans résultat à afficher, on passe à l'étape tout de suite.
         if (!cancelled) {
           asyncDoneRef.current = idx;
-          if (!outcomeShown) settleHold(idx);
+          if (!outcomeShown) {
+            settleHold(idx);
+            // Je n'ai pas (ou plus) de résultat à regarder : je ne dois pas faire attendre les autres sur le leur.
+            if (idx > 0) ackOutcomeRef.current(idx - 1);
+          }
         }
       }
     })();
@@ -2056,6 +2098,21 @@ function Index() {
   const ackChannelRef = useRef<PresenceChannel | null>(null);
   const addAck = (idx: number, cid: string) =>
     setAcks((prev) => ((prev[idx] ?? []).includes(cid) ? prev : { ...prev, [idx]: [...(prev[idx] ?? []), cid] }));
+  const acksRef = useRef(acks);
+  acksRef.current = acks;
+  // Rediffuse tout ce que je sais des « OK » récents : un message en direct n'est jamais rejoué, donc un joueur arrivé en retard,
+  // rechargé ou à la connexion lente ne verrait jamais que les autres sont déjà passés (et attendait ses 45 s pour rien).
+  const resendAcks = () => {
+    const a = acksRef.current;
+    const idxs = Object.keys(a).map(Number).sort((x, y) => y - x).slice(0, 2);
+    for (const i of idxs) for (const cid of a[i] ?? []) void ackChannelRef.current?.send({ type: "broadcast", event: "ack", payload: { idx: i, cid } });
+  };
+  const ackOutcomeRef = useRef<(idx: number) => void>(() => {});
+  ackOutcomeRef.current = (idx: number) => {
+    if (!character) return;
+    addAck(idx, character.id);
+    void ackChannelRef.current?.send({ type: "broadcast", event: "ack", payload: { idx, cid: character.id } });
+  };
   useEffect(() => {
     if (!inExpeditionScene || !activeExpedition || activeExpedition.status !== "active") return;
     const ch = scenesClient
@@ -2063,7 +2120,10 @@ function Index() {
       .on("broadcast", { event: "ack" }, ({ payload }) => {
         if (payload && typeof payload.idx === "number" && typeof payload.cid === "string") addAck(payload.idx, payload.cid);
       })
-      .subscribe();
+      .on("broadcast", { event: "hello" }, () => resendAcks())
+      .subscribe((status: string) => {
+        if (status === "SUBSCRIBED") void ch.send({ type: "broadcast", event: "hello", payload: {} });
+      });
     ackChannelRef.current = ch;
     return () => {
       ackChannelRef.current = null;
@@ -2085,6 +2145,13 @@ function Index() {
   };
   const closeOutcomeRef = useRef(closeOutcome);
   closeOutcomeRef.current = closeOutcome;
+  // Tant qu'un résultat est affiché, on rediffuse les « OK » connus toutes les 3 s (rattrape tout message perdu).
+  useEffect(() => {
+    if (!outcomeInfo) return;
+    const t = window.setInterval(() => resendAcks(), 3000);
+    return () => window.clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [outIdx]);
   // Tout le monde est passé : on laisse finir la traversée (1,7 s) puis on change d'étape.
   useEffect(() => {
     if (!allAcked) return;

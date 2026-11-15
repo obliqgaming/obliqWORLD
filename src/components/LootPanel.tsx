@@ -128,7 +128,7 @@ export function LootPanel({
           </div>
         );
       })}
-      <div className="mt-2 text-[11px] italic">Le butin n'est gardé qu'au retour de l'expédition, et seulement par ceux qui sont encore debout.</div>
+      <div className="mt-2 text-[11px] italic">Ce que tu remportes est à toi tout de suite : flouz, armes, objets et compagnons.</div>
     </div>
   );
 }
