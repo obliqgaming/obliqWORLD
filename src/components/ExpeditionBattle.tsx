@@ -142,6 +142,7 @@ function FxOverlay({ look }: { look: FxLook }) {
 export function ExpeditionBattle({
   sceneImageUrl,
   mirrorBg = false,
+  reservePx = 0,
   combatId,
   characterId,
   allies,
@@ -152,6 +153,7 @@ export function ExpeditionBattle({
 }: {
   sceneImageUrl: string;
   mirrorBg?: boolean;
+  reservePx?: number; // place laissée de chaque côté (le tchat) : la barre d'actions passe sur 2 rangées plutôt que de s'étendre dessous
   combatId: string;
   characterId: string;
   allies: CombatAlly[];
@@ -533,6 +535,8 @@ export function ExpeditionBattle({
     }
     fresh.forEach((id, k) => {
       window.setTimeout(() => setEnemyIn((c) => (c.includes(id) ? c : [...c, id])), 500 + k * 1100);
+      // Filet : si la fin de l'animation d'entrée n'arrive jamais (animation interrompue), le monstre est quand même posé (barre de vie visible, plus de tremblement).
+      window.setTimeout(() => setEnemyLanded((c) => (c.includes(id) ? c : [...c, id])), 500 + k * 1100 + 1500);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enemyIdsKey, !!snap]);
@@ -739,7 +743,7 @@ export function ExpeditionBattle({
             }}
           >
             <div className="absolute -top-16 left-1/2 w-44 -translate-x-1/2 text-center text-[11px] font-bold text-[#fff3d6]" style={{ textShadow: "0 1px 3px #000", opacity: enemyLanded.includes(en.id) ? 1 : 0, transition: "opacity 300ms" }}>
-              {selected && !dead && active ? <div className="-mb-0.5 text-sm leading-none text-[#fbbf24]" style={{ textShadow: "0 1px 3px #000" }}><span className="inline-block animate-bounce">▼</span> cible</div> : null}
+              {selected && !dead && active ? <div className="-mb-0.5 text-sm font-extrabold leading-none text-[#ef4444]" style={{ textShadow: "0 1px 3px #000" }}><span className="inline-block animate-bounce">▼</span> cible</div> : null}
               <div className="whitespace-nowrap leading-tight">
                 {ROLE_LABEL[en.role] ? <span className="mr-1 text-[9px] uppercase tracking-widest text-[#fbbf24]">{ROLE_LABEL[en.role]} ·</span> : null}
                 {en.visual_asset_id && entry?.name ? entry.name : en.name}
@@ -835,7 +839,7 @@ export function ExpeditionBattle({
 
       {/* Actions : bas centre */}
       {active && (
-        <div className="absolute bottom-4 left-1/2 z-30 flex max-w-[78%] -translate-x-1/2 flex-col items-center gap-1.5">
+        <div className="absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 flex-col items-center gap-1.5" style={{ maxWidth: reservePx > 0 ? `calc(100% - ${2 * reservePx}px)` : "78%" }}>
           <div className="rounded-full bg-black/60 px-3 py-0.5 text-[10px] font-bold uppercase tracking-widest text-[#fff3d6]/80">
             {replaying
               ? "Résolution du tour…"
@@ -967,6 +971,7 @@ export function ExpeditionBattle({
                 characterId={me.characterId}
                 names={Object.fromEntries(allies.map((a) => [a.characterId, a.name]))}
                 gold={combat!.gold_reward ?? 0}
+                family={build?.family ?? null}
                 onSettled={setLootSettled}
               />
             )}

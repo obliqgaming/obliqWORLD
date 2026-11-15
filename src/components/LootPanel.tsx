@@ -14,6 +14,7 @@ export function LootPanel({
   characterId,
   names,
   gold,
+  family,
   onSettled,
 }: {
   expeditionId: string;
@@ -22,6 +23,7 @@ export function LootPanel({
   characterId: string;
   names: Record<string, string>;
   gold: number;
+  family?: string | null;
   onSettled: (settled: boolean) => void;
 }) {
   const [items, setItems] = useState<LootItem[]>([]);
@@ -30,6 +32,10 @@ export function LootPanel({
   const [creatures, setCreatures] = useState<Record<string, string>>({});
   const [now, setNow] = useState(() => Date.now());
   const resolving = useRef(false);
+  // Tant que le butin n'est pas lu une première fois, on ne le déclare pas « réglé » (sinon « Continuer » s'allumait trop tôt).
+  const [loaded, setLoaded] = useState(false);
+  // Mon choix tout de suite à l'écran, sans attendre le retour du serveur.
+  const [picked, setPicked] = useState<Record<string, boolean>>({});
 
   const reload = useCallback(async () => {
     try {
@@ -40,6 +46,8 @@ export function LootPanel({
       setCreatures(d.creatures);
     } catch (e) {
       console.error("loot load failed", e);
+    } finally {
+      setLoaded(true);
     }
   }, [expeditionId, combatId, stepId]);
 
@@ -53,8 +61,8 @@ export function LootPanel({
 
   const rolling = items.filter((i) => i.status === "rolling");
   useEffect(() => {
-    onSettled(items.length === 0 || rolling.length === 0);
-  }, [items, rolling.length, onSettled]);
+    onSettled(loaded && (items.length === 0 || rolling.length === 0));
+  }, [items, rolling.length, loaded, onSettled]);
 
   // Minuteur local (seulement tant qu'un objet est en jeu).
   useEffect(() => {
@@ -80,6 +88,20 @@ export function LootPanel({
       });
   }, [now, rolling, rolls, expeditionId, reload]);
 
+  const respond = (lootId: string, wants: boolean) => {
+    setPicked((p) => ({ ...p, [lootId]: wants }));
+    lootRespond(lootId, characterId, wants)
+      .then(reload)
+      .catch((e) => {
+        console.error("loot respond failed", e);
+        setPicked((p) => {
+          const n = { ...p };
+          delete n[lootId];
+          return n;
+        });
+      });
+  };
+
   if (gold <= 0 && items.length === 0) return null;
 
   return (
@@ -100,20 +122,26 @@ export function LootPanel({
               {it.kind === "companion" && it.visual_asset_id && creatures[it.visual_asset_id] && <img src={creatures[it.visual_asset_id]} alt="" className="h-12 w-12 object-contain" />}
               <div className="min-w-0 flex-1">
                 {w ? <RarityName name={w.name} rarity={w.rarity} pill /> : it.kind === "companion" ? <span className="font-bold">🐾 Compagnon ({it.item_key === "large" ? "grand" : it.item_key === "medium" ? "moyen" : "petit"})</span> : <span className="font-bold">{it.item_key && CONSUMABLE_INFO[it.item_key as ConsumableKind] ? `${CONSUMABLE_INFO[it.item_key as ConsumableKind]!.icon} ${CONSUMABLE_INFO[it.item_key as ConsumableKind]!.name}` : "Objet"}</span>}
+                {w && family && (w.weapon_type === "magic" || w.weapon_type === "blunt_slash") && (
+                  (w.weapon_type === "magic") === (family === "magie")
+                    ? <span title="Les jets de dés sont d'abord pour ceux qui ont la bonne spé" className="mr-1 inline-block rounded bg-[#16a34a] px-1.5 text-[10px] font-extrabold text-white">✦ Prio spé</span>
+                    : <span className="mr-1 inline-block rounded bg-[#9ca3af] px-1.5 text-[10px] font-extrabold text-white">Autre spé</span>
+                )}
                 {w && <div className="text-[11px]">{bonusText(w.bonus_damage)}{w.effect_key && EFFECT_INFO[w.effect_key] ? ` · ${EFFECT_INFO[w.effect_key]?.name}` : ""}</div>}
               </div>
               {it.status === "rolling" && <div className="text-xs font-bold tabular-nums">{left} s</div>}
             </div>
-            {it.status === "rolling" && mine && (
-              mine.wants === null ? (
-                <div className="mt-1 flex gap-2">
-                  <button type="button" onClick={() => void lootRespond(it.id, characterId, true).then(reload)} className="rounded border-2 border-[#166534] bg-[#16a34a] px-3 py-0.5 text-xs font-bold text-white">Pour moi</button>
-                  <button type="button" onClick={() => void lootRespond(it.id, characterId, false).then(reload)} className="rounded border-2 border-[#7a4a22] bg-[#d9bf8c] px-3 py-0.5 text-xs font-bold">Pas pour moi</button>
+            {it.status === "rolling" && mine && (() => {
+              const sel = mine.wants ?? picked[it.id] ?? null;
+              const sty = (on: boolean, base: string) => `rounded border-2 px-3 py-0.5 text-xs font-bold transition ${base} ${on ? "ring-4 ring-[#1d4ed8] ring-offset-1 ring-offset-[#f6e8c4] scale-105" : sel !== null ? "opacity-60" : ""}`;
+              return (
+                <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                  <button type="button" aria-pressed={sel === true} onClick={() => respond(it.id, true)} className={sty(sel === true, "border-[#166534] bg-[#16a34a] text-white")}>{sel === true ? "✔ " : ""}Pour moi</button>
+                  <button type="button" aria-pressed={sel === false} onClick={() => respond(it.id, false)} className={sty(sel === false, "border-[#7a4a22] bg-[#d9bf8c]")}>{sel === false ? "✔ " : ""}Pas pour moi</button>
+                  {sel !== null && <span className="text-[11px] italic">en attente des autres…</span>}
                 </div>
-              ) : (
-                <div className="mt-1 text-xs">Ton choix : <b>{mine.wants ? "pour moi" : "pas pour moi"}</b> — en attente des autres…</div>
-              )
-            )}
+              );
+            })()}
             {it.status === "rolling" && !mine && <div className="mt-1 text-xs italic">Ce n'est pas pour toi (autre famille d'armes).</div>}
             {it.status !== "rolling" && (
               <div className="mt-1 text-xs">
@@ -128,7 +156,7 @@ export function LootPanel({
           </div>
         );
       })}
-      <div className="mt-2 text-[11px] italic">Ce que tu remportes est à toi tout de suite : flouz, armes, objets et compagnons.</div>
+            <div className="mt-2 text-[11px] italic">Ce que tu remportes est à toi tout de suite : flouz, armes, objets et compagnons.</div>
     </div>
   );
 }

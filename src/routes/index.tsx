@@ -367,6 +367,7 @@ function Index() {
       live = false;
     };
   }, [noCharacter, loginRequired]);
+  const [fallenMin, setFallenMin] = useState(false); // fenêtre « tu es tombé·e » réduite pour continuer à regarder l'expédition
   const [deadBusy, setDeadBusy] = useState(false);
   const [deadError, setDeadError] = useState<string | null>(null);
   // Journal visible à l'écran (dernières lignes), pour diagnostiquer sans
@@ -1011,7 +1012,7 @@ function Index() {
     scrollChatDown();
     const t = window.setTimeout(scrollChatDown, 60);
     return () => window.clearTimeout(t);
-  }, [chatLog, character?.id]);
+  }, [chatLog, character?.id, chatHidden]);
   useEffect(() => {
     const h = () => {
       if (document.visibilityState === "visible") window.setTimeout(scrollChatDown, 30);
@@ -3379,6 +3380,7 @@ function Index() {
             sceneImageUrl={scene.image_url}
             combatId={activeCombatId}
             mirrorBg={bgMirrored}
+            reservePx={Math.max(150, viewport.w / 2 - 330) + 28}
             characterId={character.id}
             allies={combatAllies}
             bubbleTexts={bubbleTexts}
@@ -3442,12 +3444,19 @@ function Index() {
         )}
 
         {inExpeditionScene && character && !activeCombatId && !outcomeInfo && expeditionPhase === "combat" && (
-          <div
-            className="absolute left-1/2 top-1/2 z-30 -translate-x-1/2 -translate-y-1/2 rounded-lg border-2 border-[#7a4a22]/70 bg-[#2b1406]/95 px-5 py-3 text-center text-sm font-bold text-[#fff3d6]"
-            style={{ fontFamily: "'Baloo 2', cursive" }}
-          >
-            {combatError ? `Le combat n'a pas pu démarrer : ${combatError}` : "Le combat commence…"}
-          </div>
+          <>
+            {/* Même décor (même sens) que l'écran du choix et du combat : sans ça, le décor « de base » apparaissait un instant. */}
+            <div className="absolute inset-0 z-20 select-none overflow-hidden" onClick={(e) => e.stopPropagation()}>
+              <img src={scene.image_url} alt="" className="absolute inset-0 h-full w-full object-cover" style={{ transform: bgMirrored ? "scaleX(-1)" : undefined }} draggable={false} />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-black/20" />
+            </div>
+            <div
+              className="absolute left-1/2 top-1/2 z-30 -translate-x-1/2 -translate-y-1/2 rounded-lg border-2 border-[#7a4a22]/70 bg-[#2b1406]/95 px-5 py-3 text-center text-sm font-bold text-[#fff3d6]"
+              style={{ fontFamily: "'Baloo 2', cursive" }}
+            >
+              {combatError ? `Le combat n'a pas pu démarrer : ${combatError}` : "Le combat commence…"}
+            </div>
+          </>
         )}
 
         {inExpeditionScene && outcomeInfo && iAcked && !allAcked && (
@@ -3483,8 +3492,21 @@ function Index() {
         )}
 
         {inExpeditionScene && character && activeExpedition && !endBanner && !deadInfo && (statOf(character.id)?.pv_current ?? 1) <= 0 && (
-          <div className="absolute left-3 top-16 z-40 w-[min(19rem,46%)] rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6]/97 p-3 text-[#3a2410] shadow-xl" style={{ fontFamily: "'Baloo 2', cursive" }}>
-            <div className="text-sm font-extrabold">🕯️ Tu es tombé·e</div>
+          fallenMin ? (
+            <button
+              type="button"
+              onClick={() => setFallenMin(false)}
+              className="absolute left-1/2 top-16 z-40 -translate-x-1/2 rounded-full border-2 border-[#7a4a22] bg-[#f1dfb6]/95 px-3 py-1 text-xs font-extrabold text-[#3a2410] shadow-lg"
+              style={{ fontFamily: "'Baloo 2', cursive" }}
+            >
+              🕯️ Tu es tombé·e — agrandir
+            </button>
+          ) : (
+          <div className="absolute left-1/2 top-1/2 z-40 w-[min(22rem,80%)] -translate-x-1/2 -translate-y-1/2 rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6]/97 p-3 text-[#3a2410] shadow-xl" style={{ fontFamily: "'Baloo 2', cursive" }}>
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-sm font-extrabold">🕯️ Tu es tombé·e</div>
+              <button type="button" title="Réduire pour continuer à regarder" onClick={() => setFallenMin(true)} className="rounded border border-[#7a4a22]/60 px-2 text-xs font-bold leading-5 hover:bg-[#7a4a22]/15">Réduire —</button>
+            </div>
             <p className="mt-1 text-xs leading-snug">
               Tes alliés peuvent peut-être te ressusciter au feu de camp avec une <b>larme de vie</b> — c'est très rare.
               Sinon, ton esprit sera relâché à la fin de l'expédition, ou dès que tu le décides.
@@ -3508,6 +3530,7 @@ function Index() {
               Relâcher mon esprit
             </button>
           </div>
+          )
         )}
 
         {endBanner && <EndBanner
