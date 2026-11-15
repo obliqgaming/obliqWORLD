@@ -175,7 +175,7 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
               )}
               {drawStatus && (
                 <div className="mb-2 text-xs font-bold text-[#92400e]">
-                  ⚒ Une seule arme forgée par jour (minuit, heure de Paris) · aujourd'hui : {Math.min(drawStatus.done, drawStatus.per_day)}/{drawStatus.per_day}
+                  ⚒ Forge une arme : <b>une par jour</b> · aujourd'hui {Math.min(drawStatus.done, drawStatus.per_day)}/{drawStatus.per_day}
                 </div>
               )}
               <div className="mb-2 flex flex-wrap gap-2">
