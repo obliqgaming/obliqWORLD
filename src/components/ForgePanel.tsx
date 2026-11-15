@@ -11,7 +11,7 @@ import { WornSprite } from "./WornSprite";
 import type { Point } from "../lib/scenes-supabase";
 import {
   EFFECT_INFO, RARITY_INFO, bonusText, WEAPON_H, WEAPON_TYPES, WEAPON_W, DEFAULT_HAND,
-  createWeapon, equipItem, weaponFits, weaponKindLabel, fetchHandAnchor, fetchMyItems, itemDisplayName,
+  createWeapon, claimStarterWeapon, fetchStarterWeaponOptions, fetchWeaponDrawStatus, equipItem, weaponFits, weaponKindLabel, fetchHandAnchor, fetchMyItems, itemDisplayName,
   type Weapon, type WeaponItem, type WeaponType, type WornWeapon,
 } from "../lib/weapons";
 import { RarityName } from "./InventoryPanel";
@@ -43,6 +43,17 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
     if (repairOpen) void reloadRepair();
   }, [repairOpen]);
   const [gold, setGold] = useState(0);
+  const [starterOpts, setStarterOpts] = useState<Weapon[]>([]);
+  const [drawStatus, setDrawStatus] = useState<{ done: number; per_day: number } | null>(null);
+  const reloadStarter = async () => {
+    if (!character) return setStarterOpts([]);
+    setStarterOpts(await fetchStarterWeaponOptions(character.id));
+  };
+  useEffect(() => {
+    void reloadStarter();
+    void fetchWeaponDrawStatus().then(setDrawStatus);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [character?.id]);
   useEffect(() => {
     void fetchForgeCost().then(setCost);
     void fetchMyGold().then(setGold);
@@ -108,6 +119,7 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
       clearDraft(draftKey);
       setName("");
       void fetchMyGold().then(setGold);
+      void fetchWeaponDrawStatus().then(setDrawStatus);
     });
   }
 
@@ -134,6 +146,38 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
         ) : (
           <div className="mt-3 grid gap-4 md:grid-cols-[1fr_14rem]">
             <div>
+              {starterOpts.length > 0 && (
+                <div className="mb-3 rounded-lg border-2 border-[#16a34a] bg-[#e7f5d8] p-2">
+                  <div className="text-sm font-extrabold">🎁 Ton arme de départ, gratuite</div>
+                  <div className="text-xs">Choisis-en <b>une</b> parmi ces armes communes de ta spécialisation. Elle disparaît d'ici une fois choisie.</div>
+                  <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-5">
+                    {starterOpts.map((w) => (
+                      <div key={w.id} className="flex flex-col items-center rounded border border-[#7a4a22]/50 bg-white/60 p-1 text-center">
+                        <ZoomImage src={w.image_url} details={<WeaponSheet name={w.name} rarity={w.rarity} weaponType={w.weapon_type} bonus={w.bonus_damage} effect={w.effect_key} authorId={w.author_user_id} />} className="h-14 w-full object-contain" />
+                        <div className="w-full truncate text-[11px] font-bold" title={w.name}>{w.name}</div>
+                        <div className="text-[10px]">{bonusText(w.bonus_damage)}</div>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          className="mt-1 rounded border-2 border-[#166534] bg-[#16a34a] px-2 py-0.5 text-[11px] font-extrabold text-white disabled:opacity-50"
+                          onClick={() => void act(async () => {
+                            if (!character) return;
+                            await claimStarterWeapon(character.id, w.id);
+                            await reloadStarter();
+                          }, `« ${w.name} » est dans ton sac !`)}
+                        >
+                          Choisir
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {drawStatus && (
+                <div className="mb-2 text-xs font-bold text-[#92400e]">
+                  ⚒ Une seule arme forgée par jour (minuit, heure de Paris) · aujourd'hui : {Math.min(drawStatus.done, drawStatus.per_day)}/{drawStatus.per_day}
+                </div>
+              )}
               <div className="mb-2 flex flex-wrap gap-2">
                 <input value={name} maxLength={40} onChange={(e) => setName(e.target.value)} placeholder="Nom de l'arme" className="min-w-0 flex-1 rounded border border-[#7a4a22] bg-white/70 px-2 py-1 text-sm" />
                 <select value={type} onChange={(e) => { typeTouched.current = true; setType(e.target.value as WeaponType); }} className="rounded border border-[#7a4a22] bg-white/70 px-2 py-1 text-sm">

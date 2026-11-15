@@ -144,7 +144,30 @@ export async function storeAllPrototypes(): Promise<number> {
   return Number(data ?? 0);
 }
 
+// Arme de départ gratuite (SQL 123) : 15 armes communes de ma famille, une seule choisie, une seule fois par personnage.
+export async function fetchStarterWeaponOptions(characterId: string): Promise<Weapon[]> {
+  const { data, error } = await scenesClient.rpc("starter_weapon_options", { p_character_id: characterId });
+  if (error) return [];
+  return (Array.isArray(data) ? data : []) as Weapon[];
+}
+
+export async function claimStarterWeapon(characterId: string, weaponId: string): Promise<string> {
+  const { data, error } = await scenesClient.rpc("starter_weapon_claim", { p_character_id: characterId, p_weapon_id: weaponId });
+  if (error) throw error;
+  return data as string;
+}
+
+/** Armes forgées aujourd'hui / par jour (null si le SQL 123 n'est pas lancé). */
+export async function fetchWeaponDrawStatus(): Promise<{ done: number; per_day: number } | null> {
+  const { data, error } = await scenesClient.rpc("weapon_draw_status");
+  if (error || !data) return null;
+  return data as { done: number; per_day: number };
+}
+
 export async function createWeapon(blob: Blob, name: string, type: WeaponType, grip: Point): Promise<{ weapon: Weapon; itemId: string }> {
+  // Limite du jour vérifiée AVANT d'envoyer l'image (sinon un fichier inutile resterait dans le stockage).
+  const st = await fetchWeaponDrawStatus();
+  if (st && st.done >= st.per_day) throw new Error("Tu as déjà forgé une arme aujourd'hui. Reviens demain !");
   const userId = await ensureUserId();
   const fileName = `weapon_${userId}_${Date.now()}.png`;
   const { error: upErr } = await scenesClient.storage.from("drawings").upload(fileName, blob, { contentType: "image/png", upsert: false, cacheControl: "2592000" });
