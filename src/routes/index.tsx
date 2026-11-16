@@ -2087,7 +2087,7 @@ function Index() {
     const expId = activeExpedition.id;
     const isBoss = mapKey === "boss";
     const t = window.setInterval(() => {
-      startCombat(expId, isBoss, false).then((c) => setActiveCombatId(c.id)).catch(() => {});
+      startCombat(expId, isBoss, false).then((c) => { setCombatError(null); setActiveCombatId(c.id); }).catch((e) => setCombatError(e instanceof Error ? e.message : String((e as { message?: string })?.message ?? e)));
     }, 4000);
     return () => window.clearInterval(t);
   }, [activeExpedition?.id, activeExpedition?.current_step_index, activeExpedition?.status, mapKey, inExpeditionScene, character?.id, activeCombatId, !!outcomeInfo]);
