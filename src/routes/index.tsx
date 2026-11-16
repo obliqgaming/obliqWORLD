@@ -2078,7 +2078,7 @@ function Index() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeExpedition?.id, activeExpedition?.current_step_index, activeExpedition?.status, mapKey, inExpeditionScene, character?.id]);
+  }, [activeExpedition?.id, activeExpedition?.current_step_index, activeExpedition?.status, mapKey, inExpeditionScene, character?.id, !!outcomeInfo, activeCombatId]);
 
   // Filet de sécurité : « Le combat commence… » ne doit jamais rester plus de quelques secondes (combat_start rend le combat déjà actif au lieu d'en créer un second).
   useEffect(() => {

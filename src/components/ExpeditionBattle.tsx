@@ -80,6 +80,7 @@ function isAllyPower(p: GamePower): boolean {
 }
 function needsNoEnemy(p: GamePower): boolean {
   const prm = p.params;
+  if (p.power_key === "provocation") return false; // la Provocation frappe la cible choisie (sinon le serveur prenait l'ennemi le plus faible)
   return NO_TARGET_KEYS.has(p.power_key) || !!prm && (prm["redirect_single_target"] !== undefined || prm["pm_gain"] !== undefined || isSelfOnly(p) || isAllyPower(p));
 }
 
