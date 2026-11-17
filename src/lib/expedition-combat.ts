@@ -58,12 +58,13 @@ export type MyBuild = {
   level: number;
   axis_key: string | null;
   axis_choice_pending: boolean;
+  is_alive?: boolean | null;
 };
 
 export async function fetchMyBuild(characterId: string): Promise<MyBuild | null> {
   const { data, error } = await scenesClient
     .from("character_build")
-    .select("character_id, family, level, axis_key, axis_choice_pending")
+    .select("character_id, family, level, axis_key, axis_choice_pending, is_alive")
     .eq("character_id", characterId)
     .maybeSingle();
   if (error) throw error;
@@ -90,7 +91,11 @@ export function powersForBuild(
   for (const t of talents) if (build.axis_key && !build.axis_choice_pending && t.axis_key === build.axis_key && t.rank === 1) owned.add(t.talent_key);
   const fromTalents = new Set(talents.filter((t) => owned.has(t.talent_key) && t.power_key).map((t) => t.power_key as string));
   return powers.filter(
-    (p) => (p.kind === "common" && p.family === build.family && p.unlock_level <= build.level) || fromTalents.has(p.power_key),
+    (p) =>
+      (p.kind === "common" && p.family === build.family && p.unlock_level <= build.level
+        && (!p.axis_key || p.axis_key === build.axis_key)                              // sort commun propre à une classe (ex. Camouflage du Trappeur)
+        && !(p.power_key === "souffle" && build.axis_key === "trappeur"))              // le Trappeur n'a pas le Souffle du Guerrier : il a le Camouflage
+      || fromTalents.has(p.power_key),
   );
 }
 
