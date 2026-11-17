@@ -58,7 +58,7 @@ export function CompanionSheet({ name, rarity, tier, prototype, hp, hpMax, restL
         {tier && <Pill label={TIER_INFO[tier].label} color={TIER_INFO[tier].color} />}
       </div>
       {hp != null && <div className="text-xs font-bold">❤ {hpMax != null ? `${hp}/${hpMax}` : hp} peps</div>}
-      <div className="text-xs">Prend <b>la moitié des dégâts</b> que tu reçois.</div>
+      <div className="text-xs">Prend <b>la moitié des dégâts</b> que les monstres te font en combat.</div>
       {restLeft != null && restLeft > 0 && <div className="text-xs font-bold text-[#7a3a0e]">💤 Se repose encore {restLeft} expédition{restLeft > 1 ? "s" : ""}</div>}
       {extra}
       {authorId && <AuthorLine userId={authorId} label="Dessiné par" className="text-xs" />}

@@ -108,7 +108,7 @@ export function FarmPanel({ onClose }: { onClose: () => void }) {
         {tab === "mine" && (
           <div className="mt-3 rounded-lg bg-white/35 p-2.5 text-sm leading-snug">
             <div className="font-extrabold">🐾 Un compagnon t'accompagne en expédition</div>
-            <div className="mt-1">Il prend <b>la moitié des dégâts</b> que tu reçois.</div>
+            <div className="mt-1">Il prend <b>la moitié des dégâts</b> que les monstres te font en combat.</div>
             <div>💤 À 0 peps, il se repose : <b>3</b> expéditions (petit), <b>6</b> (moyen) ou <b>9</b> (grand).</div>
             <div className="mt-1 text-xs opacity-80">Où en trouver : en butin sur les monstres, à l'onglet Acheter, ou en les dessinant.</div>
           </div>
