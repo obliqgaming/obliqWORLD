@@ -1,5 +1,6 @@
 // Éditeur de rencontres : tirage payant (type + risque au hasard), écriture en 3 textes,
 // boîte aux lettres (l'or gagné quand les autres jouent ta rencontre) et historique.
+import { ModerationReminder } from "./AdventureWarnings";
 import { uiSound } from "../lib/ui-sounds";
 import { Coin } from "./GameIcons";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -147,11 +148,11 @@ export function EncounterEditor({ onClose }: { onClose: () => void }) {
           <>
             <div className="mt-2 space-y-1 text-sm">
               <div>🎲 Tu <b>tires au hasard</b> un type de rencontre et un niveau de risque.</div>
-              <div>✍ Tu écris <b>la situation</b> et <b>les deux issues</b>.</div>
+              <div>✍ Tu écris <b>la situation</b> et <b>les deux issues</b> : <b>une rencontre par jour</b>.</div>
               <div><Coin /> Chaque fois que des aventuriers la jouent, <b>tu gagnes du flouz</b> <i>(dans ta boîte aux lettres)</i>.</div>
             </div>
-            <div className="mt-2 rounded border border-[#b98a54] bg-[#f6e8c4] p-2 text-xs italic">
-              Une écriture trop fainéante ou incongrue sera rejetée.
+            <div className="mt-2 rounded border border-[#b98a54] bg-[#f6e8c4] p-2">
+              <ModerationReminder />
             </div>
             <button type="button" disabled={busy || gold < cost} onClick={() => void draw()} className="mt-3 rounded-lg border-2 border-[#166534] bg-[#16a34a] px-4 py-1.5 text-sm font-extrabold text-white disabled:opacity-50">
               🎲 Tirer une rencontre ({cost} flouz)

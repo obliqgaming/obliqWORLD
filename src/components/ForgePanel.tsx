@@ -1,5 +1,6 @@
 // Forge v1 : dessiner une arme (canvas 170 × 150), voir en direct comment elle
 // se tient dans la main de son personnage, la forger, l'équiper ou la ranger.
+import { ModerationReminder } from "./AdventureWarnings";
 import { RARITY_TIER, RevealModal } from "./RevealModal";
 import { useDraftKey, loadDraftName, saveDraftName, clearDraft } from "../lib/drawing-drafts";
 import { ZoomImage } from "./ZoomImage";
@@ -178,6 +179,7 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
                   ⚒ Forge une arme : <b>une par jour</b> · aujourd'hui {Math.min(drawStatus.done, drawStatus.per_day)}/{drawStatus.per_day}
                 </div>
               )}
+              <ModerationReminder className="mb-2" />
               <div className="mb-2 flex flex-wrap gap-2">
                 <input value={name} maxLength={40} onChange={(e) => setName(e.target.value)} placeholder="Nom de l'arme" className="min-w-0 flex-1 rounded border border-[#7a4a22] bg-white/70 px-2 py-1 text-sm" />
                 <select value={type} onChange={(e) => { typeTouched.current = true; setType(e.target.value as WeaponType); }} className="rounded border border-[#7a4a22] bg-white/70 px-2 py-1 text-sm">

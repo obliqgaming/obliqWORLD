@@ -100,6 +100,7 @@ import { useQuestAvailable, useQuestReady } from "../lib/quests";
 import { GroupAdBanner } from "../components/GroupAdBanner";
 import { fetchAdReminders, meetLabel, touchSeen, touchSeenPeers } from "../lib/group-ads";
 import { WelcomeModal } from "../components/WelcomeModal";
+import { AdventureWarnings, WARNINGS_VERSION } from "../components/AdventureWarnings";
 import { MaintenanceScreen } from "../components/MaintenanceScreen";
 import { useSiteStatus } from "../lib/site-status";
 import { ADMIN_USER_ID, ENABLE_GAME_FRAME, ENABLE_UNIFIED_SHEET, GAME_FRAME_SIZE, REQUIRE_PROVIDER_LOGIN } from "../lib/alpha-config";
@@ -349,6 +350,8 @@ function Index() {
   const myGearRef = useRef(0);
   const [helpOpen, setHelpOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [warningsGate, setWarningsGate] = useState(false);   // « Avant de partir à l'aventure » : à accepter
+  const [warningsView, setWarningsView] = useState(false);   // relecture via l'icône 📖
   const [boardOpen, setBoardOpen] = useState(false);
   const [welcomeOpen, setWelcomeOpen] = useState(false);
   const [deadInfo, setDeadInfo] = useState<{ name: string; cause: string | null; summary?: DeathSummary } | null>(null);
@@ -1024,6 +1027,36 @@ function Index() {
       window.removeEventListener("focus", h);
     };
   }, []);
+
+  // Avertissements « Avant de partir à l'aventure » : à accepter une fois par compte (et à chaque version majeure).
+  // Mémorisé dans le compte (métadonnées de connexion, aucune table) et dans le navigateur.
+  useEffect(() => {
+    const uid = authIdentity?.userId;
+    if (!uid) return;
+    let off = false;
+    const key = `obliqworld-warnings:${uid}`;
+    (async () => {
+      let ok = false;
+      try { ok = Number(localStorage.getItem(key) ?? 0) >= WARNINGS_VERSION; } catch { /* ignoré */ }
+      if (!ok) {
+        try {
+          const { data } = await scenesClient.auth.getSession();
+          const v = Number((data.session?.user?.user_metadata as { warnings_version?: number } | undefined)?.warnings_version ?? 0);
+          ok = v >= WARNINGS_VERSION;
+          if (ok) { try { localStorage.setItem(key, String(v)); } catch { /* ignoré */ } }
+        } catch { /* ignoré */ }
+      }
+      if (!off && !ok) setWarningsGate(true);
+    })();
+    return () => { off = true; };
+  }, [authIdentity?.userId]);
+
+  const acceptWarnings = () => {
+    setWarningsGate(false);
+    const uid = authIdentity?.userId;
+    if (uid) { try { localStorage.setItem(`obliqworld-warnings:${uid}`, String(WARNINGS_VERSION)); } catch { /* ignoré */ } }
+    void scenesClient.auth.updateUser({ data: { warnings_version: WARNINGS_VERSION } }).catch(() => { /* ignoré : le navigateur s'en souvient */ });
+  };
 
   // Message d'accueil : une seule fois par navigateur, dès qu'on a un personnage.
   useEffect(() => {
@@ -3680,6 +3713,20 @@ function Index() {
             ❤️
           </button>
         )}
+        {character && !activeCombatId && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setWarningsView(true);
+            }}
+            title="Avant de partir à l'aventure (avertissements, charte, Discord)"
+            className="absolute right-5 top-44 z-30 px-1 text-2xl leading-none transition-transform hover:scale-110"
+            style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.7))", cursor: CURSOR_DEFAULT }}
+          >
+            📖
+          </button>
+        )}
         {character && !inExpeditionScene && !activeCombatId && !boardOpen && <GroupAdBanner onOpen={() => setBoardOpen(true)} />}
         {boardOpen && character && !inExpeditionScene && (
           <GroupBoard character={{ id: character.id, name: character.name }} onClose={() => setBoardOpen(false)} onInvite={(id) => void handleInvitePeer(id)} />
@@ -3687,7 +3734,9 @@ function Index() {
         {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
         {referralReveal && character && !inExpeditionScene && <ReferralReveal onDone={() => setReferralReveal(false)} />}
         {helpOpen && character && <HelpDialog expeditionId={activeExpedition?.id ?? null} stepId={runStep?.id ?? null} onClose={() => setHelpOpen(false)} />}
-        {welcomeOpen && character && (
+        {warningsGate && <AdventureWarnings mode="gate" onAccept={acceptWarnings} />}
+        {warningsView && <AdventureWarnings mode="view" onClose={() => setWarningsView(false)} />}
+        {welcomeOpen && character && !warningsGate && (
           <WelcomeModal
             name={character.name}
             onClose={() => {
