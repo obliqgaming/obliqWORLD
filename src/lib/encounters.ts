@@ -50,6 +50,13 @@ export async function collectEncounterGold(): Promise<number> {
   return Number(data ?? 0);
 }
 
+/** Rencontres tirées aujourd'hui / par jour (null si le SQL 143 n'est pas lancé). */
+export async function fetchEncounterDrawStatus(): Promise<{ done: number; per_day: number } | null> {
+  const { data, error } = await scenesClient.rpc("community_event_draw_status");
+  if (error || !data) return null;
+  return data as { done: number; per_day: number };
+}
+
 export async function fetchEncounterCost(): Promise<number> {
   const { data } = await scenesClient.from("game_settings").select("value").eq("key", "community_event_cost").maybeSingle();
   return Number((data as { value?: number } | null)?.value ?? 6);

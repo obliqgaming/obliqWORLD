@@ -7,7 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchMyGold } from "../lib/loot";
 import {
   EXAMPLES, RISK_LABEL, STATUS_LABEL, TYPE_LABEL,
-  collectEncounterGold, fetchEncounterCost, fetchMyEncounters, startEncounterDraw, submitEncounter,
+  collectEncounterGold, fetchEncounterCost, fetchEncounterDrawStatus, fetchMyEncounters, startEncounterDraw, submitEncounter,
   type CommunityEvent,
 } from "../lib/encounters";
 
@@ -29,6 +29,7 @@ export function EncounterEditor({ onClose }: { onClose: () => void }) {
   const [mine, setMine] = useState<CommunityEvent[]>([]);
   const [gold, setGold] = useState(0);
   const [cost, setCost] = useState(6);
+  const [drawStatus, setDrawStatus] = useState<{ done: number; per_day: number } | null>(null);
   const [draft, setDraft] = useState<CommunityEvent | null>(null);
   const [sit, setSit] = useState("");
   const [ok, setOk] = useState("");
@@ -61,6 +62,7 @@ export function EncounterEditor({ onClose }: { onClose: () => void }) {
       setMine(list);
       setGold(await fetchMyGold());
       setCost(await fetchEncounterCost());
+      setDrawStatus(await fetchEncounterDrawStatus());
       setDraft((d) => d ?? list.find((e) => e.status === "drafting") ?? null);
     } catch (e: any) {
       setMsg(e?.message?.includes("community_events") ? "Lance d'abord le SQL 022 dans Supabase." : (e?.message ?? "Erreur de chargement"));
@@ -154,7 +156,13 @@ export function EncounterEditor({ onClose }: { onClose: () => void }) {
             <div className="mt-2 rounded border border-[#b98a54] bg-[#f6e8c4] p-2">
               <ModerationReminder />
             </div>
-            <button type="button" disabled={busy || gold < cost} onClick={() => void draw()} className="mt-3 rounded-lg border-2 border-[#166534] bg-[#16a34a] px-4 py-1.5 text-sm font-extrabold text-white disabled:opacity-50">
+            {drawStatus && (
+              <div className="mt-2 text-xs font-bold text-[#92400e]">
+                ✍ Une rencontre <b>par jour</b> · aujourd'hui {Math.min(drawStatus.done, drawStatus.per_day)}/{drawStatus.per_day}
+                {drawStatus.done >= drawStatus.per_day && <span> — Tu as déjà tiré une rencontre aujourd'hui. Reviens demain !</span>}
+              </div>
+            )}
+            <button type="button" disabled={busy || gold < cost || (drawStatus !== null && drawStatus.done >= drawStatus.per_day)} onClick={() => void draw()} className="mt-3 rounded-lg border-2 border-[#166534] bg-[#16a34a] px-4 py-1.5 text-sm font-extrabold text-white disabled:opacity-50">
               🎲 Tirer une rencontre ({cost} flouz)
             </button>
             <span className="ml-2 text-xs font-bold">{gold > 0 ? `Tu as ${gold} flouz` : "T'as pas de flouz"}</span>
