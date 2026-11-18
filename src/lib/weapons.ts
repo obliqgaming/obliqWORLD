@@ -15,33 +15,37 @@ export const WEAPON_TYPES: { key: WeaponType; label: string }[] = [
 ];
 
 export type Rarity = "common" | "uncommon" | "rare" | "epic" | "legendary";
-export const RARITY_INFO: Record<Rarity, { label: string; color: string; chance: string }> = {
-  common: { label: "Commune", color: "#4ade80", chance: "72 %" },
-  uncommon: { label: "Inhabituelle", color: "#2dd4bf", chance: "—" },
-  rare: { label: "Rare", color: "#60a5fa", chance: "22 %" },
-  epic: { label: "Épique", color: "#c084fc", chance: "6 %" },
-  legendary: { label: "Légendaire", color: "#f87171", chance: "à venir" },
+export const RARITY_INFO: Record<Rarity, { label: string; color: string }> = {
+  common: { label: "Commune", color: "#4ade80" },
+  uncommon: { label: "Inhabituelle", color: "#2dd4bf" },
+  rare: { label: "Rare", color: "#60a5fa" },
+  epic: { label: "Épique", color: "#c084fc" },
+  legendary: { label: "Légendaire", color: "#fbbf24" },
 };
+
+// Textes des effets d'armes. Les valeurs doivent suivre la table game_effets_armes (SQL 145).
 export const EFFECT_INFO: Record<string, { name: string; text: string }> = {
   // Inhabituelle
   entrainant: { name: "Entraînant", text: "+1 jus récupéré à chaque attaque de base" },
-  vif: { name: "Vif", text: "+2 Vitesse" },
-  robuste: { name: "Robuste", text: "+1 Défense" },
-  // Rare
-  saignement: { name: "Saignement", text: "l'attaque de base empoisonne la cible (1 dégât par tour, 2 tours)" },
-  siphon: { name: "Siphon", text: "+1 peps à chaque attaque de base" },
+  robuste: { name: "Robuste", text: "+6 Défense" },
+  costaud: { name: "Costaud", text: "+8 % de peps max pendant l'expédition" },
+  perforant: { name: "Perforant", text: "ignore 8 points de Défense de la cible" },
   concentre: { name: "Concentré", text: "tes pouvoirs coûtent 1 jus de moins" },
-  perforant: { name: "Perforant", text: "ignore 5 points de Défense de la cible" },
+  // Rare
+  saignement: { name: "Saignement", text: "l'attaque de base fait saigner la cible (1 dégât en plus)" },
+  garde: { name: "Garde", text: "−1 dégât sur les coups de 4 dégâts ou plus que tu reçois" },
+  execution: { name: "Exécution", text: "dégâts doublés sur une cible sous 35 % de peps" },
+  eclat: { name: "Éclat", text: "+50 % de dégâts sur une cible sous la moitié de ses peps" },
+  frenesie: { name: "Frénésie", text: "−1 tour de recharge sur ton pouvoir le plus long" },
   // Épique
   frappe_lourde: { name: "Frappe lourde", text: "25 % de chance de doubler les dégâts" },
-  eclat: { name: "Éclat", text: "+50 % de dégâts sur une cible sous la moitié de ses peps" },
-  garde: { name: "Garde", text: "−1 dégât sur les coups de 3 dégâts ou plus que tu reçois" },
-  frenesie: { name: "Frénésie", text: "−1 tour de recharge sur ton pouvoir le plus long" },
-  // Légendaire
   second_coup: { name: "Second coup", text: "20 % de chance de frapper deux fois" },
-  execution: { name: "Exécution", text: "dégâts doublés sur une cible sous 25 % de peps" },
-  vol_de_vie: { name: "Vol de vie", text: "tu soignes la moitié des dégâts infligés" },
+  // Légendaire
+  vol_de_vie: { name: "Vol de vie", text: "tu soignes 15 % des dégâts infligés" },
   echo: { name: "Écho", text: "ton premier pouvoir de chaque combat ne coûte rien et n'a pas de recharge" },
+  // Anciens effets (plus tirés, gardés pour d'éventuelles armes déjà existantes)
+  vif: { name: "Vif", text: "+2 Vitesse" },
+  siphon: { name: "Siphon", text: "+1 peps à chaque attaque de base" },
 };
 
 export function bonusText(n: number): string {

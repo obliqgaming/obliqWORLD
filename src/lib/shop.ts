@@ -17,7 +17,7 @@ export type Listing = {
 
 export type PriceRange = { min: number; max: number };
 
-export async function fetchShop(): Promise<{ listings: Listing[]; ranges: Record<Rarity, PriceRange>; authorPct: number }> {
+export async function fetchShop(): Promise<{ listings: Listing[]; ranges: Record<Rarity, PriceRange>; minLevels: Record<Rarity, number>; authorPct: number }> {
   const uid = await ensureUserId();
   const { data, error } = await scenesClient
     .from("weapon_listings")
@@ -28,6 +28,7 @@ export async function fetchShop(): Promise<{ listings: Listing[]; ranges: Record
   const rows = ((data ?? []) as any[]).filter((r) => r.weapon);
   const names = await fetchAuthorNames(rows.map((r) => r.author_user_id as string));
   const ranges = {} as Record<Rarity, PriceRange>;
+  const minLevels = {} as Record<Rarity, number>;
   let authorPct = 20;
   const { data: st } = await scenesClient.from("game_settings").select("key, value").like("key", "shop_%");
   const s: Record<string, number> = {};
@@ -35,11 +36,12 @@ export async function fetchShop(): Promise<{ listings: Listing[]; ranges: Record
   authorPct = s["shop_author_pct"] ?? 20;
   for (const k of ["common", "uncommon", "rare", "epic", "legendary"] as Rarity[]) {
     ranges[k] = { min: s[`shop_price_min_${k}`] ?? 6, max: s[`shop_price_max_${k}`] ?? 15 };
+    minLevels[k] = s[`shop_min_level_${k}`] ?? 1;
   }
   const listings: Listing[] = rows.map((r) => ({ ...r, authorName: names[r.author_user_id] ?? null, mine: r.author_user_id === uid }));
   // En stock d'abord, puis les épuisées.
   listings.sort((a, b) => Number(b.stock_left > 0) - Number(a.stock_left > 0));
-  return { listings, ranges, authorPct };
+  return { listings, ranges, minLevels, authorPct };
 }
 
 export async function shopBuy(weaponId: string): Promise<void> {

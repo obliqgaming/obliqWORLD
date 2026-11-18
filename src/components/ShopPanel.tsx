@@ -14,6 +14,7 @@ const BTN = "rounded-lg border-2 border-[#7a4a22] bg-[#7a4a22] px-3 py-1 text-xs
 export function ShopPanel({ gold, family, onGoldChange, onBought }: { gold: number; family: "melee" | "magie" | null; onGoldChange: () => void; onBought: () => void }) {
   const [listings, setListings] = useState<Listing[] | null>(null);
   const [ranges, setRanges] = useState<Record<Rarity, PriceRange> | null>(null);
+  const [minLevels, setMinLevels] = useState<Record<Rarity, number> | null>(null);
   const [pct, setPct] = useState(20);
   const [prices, setPrices] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -24,6 +25,7 @@ export function ShopPanel({ gold, family, onGoldChange, onBought }: { gold: numb
       const r = await fetchShop();
       setListings(r.listings);
       setRanges(r.ranges);
+      setMinLevels(r.minLevels);
       setPct(r.authorPct);
     } catch (e: any) {
       setMsg(e?.message?.includes("weapon_listings") ? "La boutique n'est pas encore activée (SQL 029)." : (e?.message ?? "Erreur"));
@@ -73,6 +75,7 @@ export function ShopPanel({ gold, family, onGoldChange, onBought }: { gold: numb
           {w.effect_key && EFFECT_INFO[w.effect_key] && (
             <div><b>{EFFECT_INFO[w.effect_key]!.name}</b> : {EFFECT_INFO[w.effect_key]!.text}</div>
           )}
+          {(minLevels?.[w.rarity] ?? 1) > 1 && <div className="font-bold text-[#7a3a0e]">🔒 Niveau {minLevels![w.rarity]} requis pour l'acheter</div>}
           <div className="opacity-70">{l.authorName ? `par ${l.authorName} · ` : ""}{sold ? "plus en stock" : `${l.stock_left}/${l.stock_total} en stock`}</div>
           {!fits && !l.mine && <div className="font-bold text-[#7a3a0e]">⚠ Pas portable par ta spécialisation (elle resterait dans ton inventaire).</div>}
           {sold && <div className="rounded bg-[#991b1b] px-2 py-1 text-center text-xs font-extrabold text-white">Plus en stock<div className="text-[10px] font-semibold">Tu peux toujours la trouver en expédition !</div></div>}
