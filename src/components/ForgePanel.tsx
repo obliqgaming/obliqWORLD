@@ -1,6 +1,7 @@
 // Forge v1 : dessiner une arme (canvas 170 × 150), voir en direct comment elle
 // se tient dans la main de son personnage, la forger, l'équiper ou la ranger.
 import { ModerationReminder } from "./AdventureWarnings";
+import { CreationNotes, CreationStatus } from "./CreationNotes";
 import { RARITY_TIER, RevealModal } from "./RevealModal";
 import { useDraftKey, loadDraftName, saveDraftName, clearDraft } from "../lib/drawing-drafts";
 import { ZoomImage } from "./ZoomImage";
@@ -174,11 +175,7 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
                   </div>
                 </div>
               )}
-              {drawStatus && (
-                <div className="mb-2 text-xs font-bold text-[#92400e]">
-                  ⚒ Forge une arme : <b>une par jour</b> · aujourd'hui {Math.min(drawStatus.done, drawStatus.per_day)}/{drawStatus.per_day}
-                </div>
-              )}
+              <CreationStatus icon="⚒" action="Forge une arme" one="une" status={drawStatus} />
               <ModerationReminder className="mb-2" />
               <div className="mb-2 flex flex-wrap gap-2">
                 <input value={name} maxLength={40} onChange={(e) => setName(e.target.value)} placeholder="Nom de l'arme" className="min-w-0 flex-1 rounded border border-[#7a4a22] bg-white/70 px-2 py-1 text-sm" />
@@ -252,7 +249,11 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
                   weapon={preview ? worn({ imageUrl: preview.url, grip: preview.anchor, width: WEAPON_W, height: WEAPON_H }) : null}
                 />
               </div>
-              <div className="mt-3 space-y-1 text-xs"><div>⚔ Ton <b>prototype</b> est obtenu tout de suite <i>(toujours commun)</i>.</div><div>🎲 La <b>rareté du modèle</b> est tirée au hasard à la validation : <i>les exemplaires puissants se gagnent en butin.</i></div></div>
+              <CreationNotes>
+                <div>⚔ Ton <b>prototype</b> est obtenu tout de suite <i>(toujours commun)</i>.</div>
+                <div>🎲 La <b>rareté du modèle</b> est tirée au hasard à la validation : <i>les exemplaires puissants se gagnent en butin.</i></div>
+                <div>🌲 Elle pourra aussi être brandie par une créature de la forêt.</div>
+              </CreationNotes>
             </div>
           </div>
         )}

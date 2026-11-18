@@ -72,6 +72,13 @@ export type CompanionRules = { cost: number; perDay: number; hp: Record<Rarity, 
 
 const RARS: Rarity[] = ["common", "uncommon", "rare", "epic", "legendary"];
 
+/** Compagnons dessinés aujourd'hui / par jour (null si le SQL 144 n'est pas lancé). */
+export async function fetchCompanionDrawStatus(): Promise<{ done: number; per_day: number } | null> {
+  const { data, error } = await scenesClient.rpc("companion_draw_status");
+  if (error || !data) return null;
+  return data as { done: number; per_day: number };
+}
+
 export async function fetchCompanionRules(): Promise<CompanionRules> {
   const { data } = await scenesClient.from("game_settings").select("key, value").or("key.like.companion_%,key.eq.shop_author_pct");
   const s: Record<string, number> = {};

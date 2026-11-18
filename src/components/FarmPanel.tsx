@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { FarmDraw, FarmShop } from "./FarmDraw";
 import { RARITY_INFO } from "../lib/weapons";
 import { Coin } from "./GameIcons";
+import { CreationPrice } from "./CreationNotes";
 import { Pill } from "./InventoryPanel";
 import { shopCollect } from "../lib/shop";
 import { TIER_INFO, claimStarterCompanion, fetchCompanionRules, fetchCompanionShop, fetchMyCompanions, fetchStarterChoices, releaseCompanion, setActiveCompanion, type Companion, type StarterCompanion } from "../lib/companions";
@@ -23,6 +24,7 @@ export function FarmPanel({ onClose }: { onClose: () => void }) {
   // Or des ventes de MES compagnons, à récupérer depuis n'importe quel onglet.
   const [pending, setPending] = useState(0);
   const [authorPct, setAuthorPct] = useState<number | null>(null);
+  const [economy, setEconomy] = useState<{ cost: number; gold: number } | null>(null);
   const reloadPending = async () => {
     try {
       const l = await fetchCompanionShop();
@@ -72,7 +74,7 @@ export function FarmPanel({ onClose }: { onClose: () => void }) {
     <div className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto overflow-x-hidden parchment-scroll bg-black/55 p-2" onClick={(e) => e.stopPropagation()} style={{ fontFamily: "'Baloo 2', cursive" }}>
       <div className="max-h-full w-[min(40rem,98%)] overflow-y-auto overflow-x-hidden parchment-scroll rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-3 text-[#3a2410] shadow-xl">
         <div className="flex items-center justify-between">
-          <div className="text-xl font-extrabold">🐾 La Ferme des Jetés en Pâture</div>
+          <div className="text-xl font-extrabold">🐾 La Ferme des Jetés en Pâture{tab === "draw" && economy && <CreationPrice verb="Dessiner" cost={economy.cost} gold={economy.gold} />}</div>
           <button type="button" onClick={onClose} className="rounded border border-[#7a4a22] px-3 py-0.5 text-xs font-bold hover:bg-[#7a4a22]/15">Fermer</button>
         </div>
         {pending > 0 && (
@@ -101,7 +103,7 @@ export function FarmPanel({ onClose }: { onClose: () => void }) {
           <button type="button" onClick={() => setTab("buy")} className={`rounded px-3 py-1 text-sm font-bold ${tab === "buy" ? "bg-[#7a4a22] text-[#fff3d6]" : "border border-[#7a4a22]"}`}>🛒 Acheter</button>
           <button type="button" onClick={() => setTab("mine")} className={`rounded px-3 py-1 text-sm font-bold ${tab === "mine" ? "bg-[#7a4a22] text-[#fff3d6]" : "border border-[#7a4a22]"}`}>🐾 Mes compagnons</button>
         </div>
-        {tab === "draw" && <FarmDraw onChanged={() => void reload()} />}
+        {tab === "draw" && <FarmDraw onChanged={() => void reload()} onEconomy={setEconomy} />}
         {tab === "buy" && <FarmShop onChanged={() => { void reload(); window.dispatchEvent(new Event("obliq-companion-changed")); }} />}
         {msg && <div className="mt-2 text-xs font-bold text-[#92400e]">{msg}</div>}
         {list === null && <div className="mt-3 text-sm">Chargement…</div>}

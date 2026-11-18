@@ -1,5 +1,6 @@
 // Ferme : dessiner un compagnon (SQL 048) et acheter ceux des autres joueurs.
 import { ModerationReminder } from "./AdventureWarnings";
+import { CreationNotes, CreationStatus } from "./CreationNotes";
 import { useEffect, useRef, useState } from "react";
 import { ZoomImage } from "./ZoomImage";
 import { CompanionSheet } from "./ItemSheets";
@@ -13,15 +14,16 @@ import { RARITY_INFO, type Rarity } from "../lib/weapons";
 import { fetchMyGold } from "../lib/loot";
 import { shopCollect } from "../lib/shop";
 import {
-  COMPANION_H, COMPANION_W, companionSetPrice, companionShopBuy, createCompanionDesign, fetchCompanionRules, fetchCompanionShop,
+  COMPANION_H, COMPANION_W, companionSetPrice, companionShopBuy, createCompanionDesign, fetchCompanionDrawStatus, fetchCompanionRules, fetchCompanionShop,
   type CompanionDesign, type CompanionListing, type CompanionRules,
 } from "../lib/companions";
 
 const BTN = "rounded-lg border-2 border-[#7a4a22] bg-[#7a4a22] px-3 py-1 text-xs font-bold text-[#fff3d6] hover:bg-[#5e3818] disabled:opacity-50";
 
-export function FarmDraw({ onChanged }: { onChanged: () => void }) {
+export function FarmDraw({ onChanged, onEconomy }: { onChanged: () => void; onEconomy?: (e: { cost: number; gold: number }) => void }) {
   const [rules, setRules] = useState<CompanionRules | null>(null);
   const [gold, setGold] = useState(0);
+  const [drawStatus, setDrawStatus] = useState<{ done: number; per_day: number } | null>(null);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -30,7 +32,12 @@ export function FarmDraw({ onChanged }: { onChanged: () => void }) {
   useEffect(() => {
     void fetchCompanionRules().then(setRules);
     void fetchMyGold().then(setGold);
+    void fetchCompanionDrawStatus().then(setDrawStatus);
   }, []);
+  // Le prix et le solde s'affichent dans le titre de la Ferme, comme à la Forge.
+  useEffect(() => {
+    if (rules) onEconomy?.({ cost: rules.cost, gold });
+  }, [rules, gold]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const draftKey = useDraftKey("companion");
   useEffect(() => {
@@ -56,6 +63,7 @@ export function FarmDraw({ onChanged }: { onChanged: () => void }) {
       setCanvasKey((k) => k + 1);
       setResult(design);
       void fetchMyGold().then(setGold);
+      void fetchCompanionDrawStatus().then(setDrawStatus);
       onChanged();
     } catch (e: any) {
       uiSound("error");
@@ -68,12 +76,13 @@ export function FarmDraw({ onChanged }: { onChanged: () => void }) {
 
   return (
     <div className="mt-3">
-      <div className="rounded-lg bg-white/35 p-2.5 text-sm leading-snug">
-        <div className="font-extrabold">🎨 Dessine un compagnon : <b>{rules?.cost ?? 6} <Coin /></b>, <b>un par jour</b> <span className="font-semibold">· tu as <b>{gold}</b> <Coin /></span></div>
-        <div className="mt-1">✨ Sa <b>rareté est tirée au sort</b> à la validation (plus elle est haute, plus il a de peps). Tu reçois tout de suite ton <b>prototype</b>.</div>
+      <CreationStatus icon="🎨" action="Dessine un compagnon" one="un" status={drawStatus} />
+      <ModerationReminder className="mb-2" />
+      <CreationNotes className="mb-2">
+        <div>🐾 Ton <b>prototype</b> est obtenu tout de suite <i>(dans « Mes compagnons »)</i>.</div>
+        <div>🎲 La <b>rareté du modèle</b> est tirée au hasard à la validation : <i>plus elle est haute, plus il a de peps.</i></div>
         <div>🌲 Il pourra aussi apparaître comme créature dans la forêt.</div>
-        <ModerationReminder className="mt-1" />
-      </div>
+      </CreationNotes>
       <input value={name} maxLength={40} onChange={(e) => setName(e.target.value)} placeholder="Nom du compagnon" className="mt-2 w-full rounded border border-[#7a4a22] bg-white/70 px-2 py-1 text-sm" />
       <div className="mt-2">
         {draftKey && <DrawingCanvas key={canvasKey} draftKey={draftKey} width={COMPANION_W} height={COMPANION_H} noAnchor exportLabel={`Valider (${rules?.cost ?? 6} flouz)`} exporting={busy} onExport={(b) => void handleExport(b)} />}

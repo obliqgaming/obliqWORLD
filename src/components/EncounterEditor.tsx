@@ -1,6 +1,7 @@
 // Éditeur de rencontres : tirage payant (type + risque au hasard), écriture en 3 textes,
 // boîte aux lettres (l'or gagné quand les autres jouent ta rencontre) et historique.
 import { ModerationReminder } from "./AdventureWarnings";
+import { CreationNotes, CreationPrice, CreationStatus } from "./CreationNotes";
 import { uiSound } from "../lib/ui-sounds";
 import { Coin } from "./GameIcons";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -142,30 +143,22 @@ export function EncounterEditor({ onClose }: { onClose: () => void }) {
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/55 p-3">
       <div className="max-h-[92%] w-[min(40rem,96%)] overflow-y-auto parchment-scroll rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-4 text-[#3a2410] shadow-2xl" style={FONT} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
-          <div className="text-lg font-extrabold">✍ Écrire une rencontre</div>
+          <div className="text-xl font-extrabold">✍ Écrire une rencontre{cost > 0 && <CreationPrice verb="Écrire" cost={cost} gold={gold} />}</div>
           <button type="button" onClick={onClose} className="rounded border border-[#7a4a22] px-2 text-sm font-bold">Fermer</button>
         </div>
 
         {!draft && (
           <>
-            <div className="mt-2 space-y-1 text-sm">
-              <div>🎲 Tu <b>tires au hasard</b> un type de rencontre et un niveau de risque.</div>
-              <div>✍ Tu écris <b>la situation</b> et <b>les deux issues</b> : <b>une rencontre par jour</b>.</div>
-              <div><Coin /> Chaque fois que des aventuriers la jouent, <b>tu gagnes du flouz</b> <i>(dans ta boîte aux lettres)</i>.</div>
-            </div>
-            <div className="mt-2 rounded border border-[#b98a54] bg-[#f6e8c4] p-2">
-              <ModerationReminder />
-            </div>
-            {drawStatus && (
-              <div className="mt-2 text-xs font-bold text-[#92400e]">
-                ✍ Une rencontre <b>par jour</b> · aujourd'hui {Math.min(drawStatus.done, drawStatus.per_day)}/{drawStatus.per_day}
-                {drawStatus.done >= drawStatus.per_day && <span> — Tu as déjà tiré une rencontre aujourd'hui. Reviens demain !</span>}
-              </div>
-            )}
+            <CreationStatus icon="✍" action="Écris une rencontre" one="une" status={drawStatus} className="mt-2 mb-2" />
+            <ModerationReminder className="mb-2" />
+            <CreationNotes className="mt-2">
+              <div>🎲 Le <b>type</b> et le <b>niveau de risque</b> sont <b>tirés au hasard</b> à chaque tirage : <i>tu écris ensuite la situation et les deux issues.</i></div>
+              <div>🪙 Chaque fois qu'elle est jouée, <b>tu gagnes du flouz</b> <i>(dans ta boîte aux lettres)</i>.</div>
+              <div>🌲 Elle pourra aussi être jouée par d'autres aventuriers en expédition.</div>
+            </CreationNotes>
             <button type="button" disabled={busy || gold < cost || (drawStatus !== null && drawStatus.done >= drawStatus.per_day)} onClick={() => void draw()} className="mt-3 rounded-lg border-2 border-[#166534] bg-[#16a34a] px-4 py-1.5 text-sm font-extrabold text-white disabled:opacity-50">
               🎲 Tirer une rencontre ({cost} flouz)
             </button>
-            <span className="ml-2 text-xs font-bold">{gold > 0 ? `Tu as ${gold} flouz` : "T'as pas de flouz"}</span>
 
             <div className={`mt-4 rounded-lg p-2 ${pending > 0 ? "border-2 border-[#b45309] bg-[#fcd34d] shadow-[0_0_0_3px_rgba(245,158,11,0.35)]" : "border-2 border-[#b98a54] bg-[#f6e8c4]"}`}>
               <div className="text-xs font-extrabold uppercase tracking-wide">📬 Boîte aux lettres</div>
