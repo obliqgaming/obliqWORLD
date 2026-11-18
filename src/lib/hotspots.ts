@@ -102,12 +102,20 @@ export function useClaimedGoldToday(): Set<string> {
     };
     void load();
     window.addEventListener("obliq-gold-claimed", reload);
-    document.addEventListener("visibilitychange", reload);
+    // Au retour sur l'onglet : relecture seulement si la dernière date de plus de 10 min (avant : 2 lectures à chaque changement d'onglet).
+    let lastLoad = Date.now();
+    const onVisible = () => {
+      if (document.visibilityState !== "visible" || Date.now() - lastLoad < 10 * 60_000) return;
+      lastLoad = Date.now();
+      window.clearTimeout(timer);
+      void load();
+    };
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       alive = false;
       window.clearTimeout(timer);
       window.removeEventListener("obliq-gold-claimed", reload);
-      document.removeEventListener("visibilitychange", reload);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, []);
   return ids;
