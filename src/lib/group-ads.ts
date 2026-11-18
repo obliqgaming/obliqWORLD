@@ -51,7 +51,15 @@ export const meetLabel = (iso: string | null) => {
 
 // « Vus aujourd'hui » (SQL 074).
 export type SeenPlayer = { character_id: string; name: string; level: number | null; class_name: string | null; last_seen_at: string; is_me: boolean };
-export const touchSeen = (characterId: string) => rpc("seen_touch", { p_character_id: characterId });
+// « Vu aujourd'hui » n'a pas besoin d'être précis à la minute : au plus une écriture toutes les 5 min par personnage
+// (avant : à chaque changement de lieu et à chaque retour sur l'onglet).
+const lastSeenTouch = new Map<string, number>();
+export const touchSeen = (characterId: string) => {
+  const now = Date.now();
+  if (now - (lastSeenTouch.get(characterId) ?? 0) < 5 * 60_000) return Promise.resolve(null);
+  lastSeenTouch.set(characterId, now);
+  return rpc("seen_touch", { p_character_id: characterId });
+};
 export async function fetchSeenToday(): Promise<SeenPlayer[]> {
   return ((await rpc("seen_today_list")) ?? []) as SeenPlayer[];
 }

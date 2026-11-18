@@ -14,18 +14,20 @@ export async function fetchSiteStatus(): Promise<SiteStatus | null> {
   }
 }
 
-/** Vérifie au chargement, toutes les 60 s et au retour sur l'onglet. En cas d'erreur : on ne bloque personne. */
+/** Vérifie au chargement, toutes les 5 min (onglet visible seulement) et au retour sur l'onglet. En cas d'erreur : on ne bloque personne. */
 export function useSiteStatus(): SiteStatus | null {
   const [s, setS] = useState<SiteStatus | null>(null);
   useEffect(() => {
     let alive = true;
+    let last = 0;
     const run = async () => {
+      last = Date.now();
       const r = await fetchSiteStatus();
       if (alive && r) setS(r);
     };
     void run();
-    const t = window.setInterval(run, 60000);
-    const vis = () => { if (document.visibilityState === "visible") void run(); };
+    const t = window.setInterval(() => { if (document.visibilityState === "visible") void run(); }, 5 * 60_000);
+    const vis = () => { if (document.visibilityState === "visible" && Date.now() - last > 30_000) void run(); };
     document.addEventListener("visibilitychange", vis);
     return () => { alive = false; window.clearInterval(t); document.removeEventListener("visibilitychange", vis); };
   }, []);

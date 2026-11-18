@@ -83,13 +83,13 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
     } catch (e: any) {
       setMsg(e?.message ?? "Erreur de chargement");
     }
-  }, [character]);
+  }, [character?.id]); // l'objet « character » change à chaque rafraîchissement de l'écran : on ne relit que si le personnage change
 
   useEffect(() => {
     void reload();
     if (character) void fetchHandAnchor(character.visualAssetId).then((h) => h && setHand(h));
     if (character) void fetchMyBuild(character.id).then((b) => setFamily(b?.family ?? null)).catch(() => {});
-  }, [reload, character]);
+  }, [reload, character?.id, character?.visualAssetId]);
 
   const lock = useRef(false);
   async function act(fn: () => Promise<void>) {

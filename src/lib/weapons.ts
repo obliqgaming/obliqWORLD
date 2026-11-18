@@ -1,5 +1,6 @@
 // Forge v1 (SQL 014) : armes dessinées, équipement, affichage sur les personnages.
 import { scenesClient, ensureUserId, type Point } from "./scenes-supabase";
+import { sharedFetch } from "./request-cache";
 
 export const WEAPON_W = 200;
 export const WEAPON_H = 320;
@@ -202,9 +203,15 @@ export async function fetchEquippedItemId(characterId: string): Promise<string |
   return ((data as { equipped_item_id: string | null } | null)?.equipped_item_id) ?? null;
 }
 
+// L'ancre de main d'un personnage ne change pas pendant la partie : on la garde en mémoire (rechargée à chaque ouverture du jeu).
+const handAnchors = new Map<string, Point>();
 export async function fetchHandAnchor(visualAssetId: string): Promise<Point | null> {
+  const known = handAnchors.get(visualAssetId);
+  if (known) return known;
   const { data } = await scenesClient.from("visual_assets").select("hand_anchor").eq("id", visualAssetId).maybeSingle();
-  return ((data as { hand_anchor: Point | null } | null)?.hand_anchor) ?? null;
+  const h = ((data as { hand_anchor: Point | null } | null)?.hand_anchor) ?? null;
+  if (h) handAnchors.set(visualAssetId, h);
+  return h;
 }
 
 /** Armes portées par une liste de personnages (id personnage → arme). Ceux sans arme sont absents. */
@@ -246,16 +253,19 @@ export function weaponKindLabel(t: WeaponType): string {
 
 /** Arme au hasard mais stable pour un monstre (même résultat chez tous les joueurs). */
 /** Armes (modèles) visibles, indexées par id : le serveur choisit l'arme de chaque monstre (combat_enemies.weapon_id). */
-export async function fetchWeaponsById(): Promise<Record<string, Omit<WornWeapon, "hand">>> {
-  const { data, error } = await scenesClient
-    .from("weapons")
-    .select("id, image_url, grip_anchor, width, height")
-    .eq("hidden", false)
-    .limit(500);
-  if (error) return {};
-  const out: Record<string, Omit<WornWeapon, "hand">> = {};
-  for (const w of (data ?? []) as any[]) out[w.id] = { imageUrl: w.image_url, grip: w.grip_anchor, width: w.width, height: w.height };
-  return out;
+export function fetchWeaponsById(): Promise<Record<string, Omit<WornWeapon, "hand">>> {
+  // Relue à chaque début de combat par chaque joueur : on la réutilise 3 min (la liste ne change qu'à la création d'une arme).
+  return sharedFetch("weapons:by-id", 3 * 60_000, async () => {
+    const { data, error } = await scenesClient
+      .from("weapons")
+      .select("id, image_url, grip_anchor, width, height")
+      .eq("hidden", false)
+      .limit(500);
+    if (error) throw error; // l'échec n'est pas mémorisé : le prochain combat réessaie
+    const out: Record<string, Omit<WornWeapon, "hand">> = {};
+    for (const w of (data ?? []) as any[]) out[w.id] = { imageUrl: w.image_url, grip: w.grip_anchor, width: w.width, height: w.height };
+    return out;
+  }).catch(() => ({} as Record<string, Omit<WornWeapon, "hand">>));
 }
 
 export function hashOf(key: string): number {

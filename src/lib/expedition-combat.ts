@@ -2,6 +2,7 @@
 // choix de l'axe, issue des événements (SQL 006 à 009). Tout est écrit par des
 // fonctions serveur : le navigateur ne fait que lire et envoyer ses choix.
 import { scenesClient, type PresenceChannel } from "./scenes-supabase";
+import { sharedFetch } from "./request-cache";
 import { vocabText } from "./vocab";
 
 // ---------- Données de réglage (lecture seule) ----------
@@ -61,14 +62,17 @@ export type MyBuild = {
   is_alive?: boolean | null;
 };
 
-export async function fetchMyBuild(characterId: string): Promise<MyBuild | null> {
-  const { data, error } = await scenesClient
-    .from("character_build")
-    .select("character_id, family, level, axis_key, axis_choice_pending, is_alive")
-    .eq("character_id", characterId)
-    .maybeSingle();
-  if (error) throw error;
-  return (data as MyBuild | null) ?? null;
+export function fetchMyBuild(characterId: string): Promise<MyBuild | null> {
+  // Plusieurs écrans la demandent au même moment (félicitations, choix de spé, fiche) : une seule lecture pour tous.
+  return sharedFetch(`build:${characterId}`, 2000, async () => {
+    const { data, error } = await scenesClient
+      .from("character_build")
+      .select("character_id, family, level, axis_key, axis_choice_pending, is_alive")
+      .eq("character_id", characterId)
+      .maybeSingle();
+    if (error) throw error;
+    return (data as MyBuild | null) ?? null;
+  });
 }
 
 export async function chooseAxis(characterId: string, axisKey: string): Promise<void> {

@@ -1,5 +1,6 @@
 // Quête quotidienne (SQL 041) : une quête par jour, choisie parmi 5 à un lieu « Quêtes ».
 import { scenesClient, ensureUserId } from "./scenes-supabase";
+import { sharedFetch, forgetShared } from "./request-cache";
 import { useEffect, useState } from "react";
 
 export type Quest = { quest_key: string; title: string; description: string; goal: number; sort: number };
@@ -13,13 +14,20 @@ export type BoosterResult = { xp?: number } & (
 
 export async function fetchQuests(): Promise<{ quests: Quest[]; mine: MyQuest | null }> {
   const uid = await ensureUserId();
+  // La liste des quêtes ne change presque jamais : gardée 10 min. L'avancement du joueur est relu, mais une seule fois
+  // quand plusieurs écrans le demandent ensemble (il y en a trois au changement de lieu).
   const [q, m] = await Promise.all([
-    scenesClient.from("game_quests").select("quest_key, title, description, goal, sort").eq("active", true).order("sort"),
-    scenesClient.from("player_quests").select("quest_key, progress, claimed, claimed_day").eq("user_id", uid).maybeSingle(),
+    sharedFetch("quests:list", 10 * 60_000, async () =>
+      scenesClient.from("game_quests").select("quest_key, title, description, goal, sort").eq("active", true).order("sort")),
+    sharedFetch(`quests:mine:${uid}`, 3000, async () =>
+      scenesClient.from("player_quests").select("quest_key, progress, claimed, claimed_day").eq("user_id", uid).maybeSingle()),
   ]);
   if (q.error) throw q.error;
   return { quests: (q.data ?? []) as Quest[], mine: (m.data as MyQuest | null) ?? null };
 }
+
+// Dès qu'une quête change (acceptée, rendue, abandonnée, progression), on oublie la lecture mémorisée.
+if (typeof window !== "undefined") window.addEventListener("obliq-quest-changed", () => forgetShared("quests:mine:"));
 
 export async function acceptQuest(key: string): Promise<void> {
   const { error } = await scenesClient.rpc("quest_accept", { p_key: key });

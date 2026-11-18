@@ -1965,7 +1965,7 @@ function Index() {
     void load();
     const ch = subscribeToRunStats(expId, () => void load());
     // Filet de sécurité : si un message en direct se perd (connexion lente, onglet en arrière-plan), on relit toutes les 10 s.
-    const poll = window.setInterval(() => void load(), 10000);
+    const poll = window.setInterval(() => { if (document.visibilityState === "visible") void load(); }, 10000);
     return () => {
       cancelled = true;
       window.clearInterval(poll);
@@ -1991,7 +1991,7 @@ function Index() {
         /* réseau capricieux : on réessaiera au prochain tour */
       }
     };
-    const timer = window.setInterval(() => void check(), 5000);
+    const timer = window.setInterval(() => { if (document.visibilityState === "visible") void check(); }, 5000);
     const onWake = () => {
       if (document.visibilityState === "visible") void check();
     };

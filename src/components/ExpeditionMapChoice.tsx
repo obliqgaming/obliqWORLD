@@ -48,7 +48,7 @@ export function ExpeditionMapChoice({
   // Lecture régulière (pas de temps réel pour cette fenêtre : quelques secondes de vote seulement).
   useEffect(() => {
     void refresh();
-    const t = window.setInterval(() => void refresh(), 2000);
+    const t = window.setInterval(() => { if (document.visibilityState === "visible") void refresh(); }, 2000);
     return () => window.clearInterval(t);
   }, [refresh]);
   useEffect(() => {

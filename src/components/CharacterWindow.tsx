@@ -76,11 +76,15 @@ export function CharacterWindow({
     return () => { alive = false; };
   }, [characterId]);
 
-  useEffect(() => {
-    if (!mine) return;
+  const reloadWallet = useCallback(() => {
     void fetchMyConsumables().then(setStacks);
     void fetchMyGold().then(setGold);
-  }, [mine]);
+  }, []);
+  const myCharId = mine?.character?.id;
+  useEffect(() => {
+    if (!myCharId) return;
+    reloadWallet();
+  }, [myCharId, reloadWallet]);
   const reload = useCallback(async () => {
     if (!character) return;
     try {
@@ -89,13 +93,13 @@ export function CharacterWindow({
     } catch (e: any) {
       setMsg(e?.message ?? "Erreur de chargement");
     }
-  }, [character]);
+  }, [character?.id]); // l'objet « character » change à chaque rafraîchissement de l'écran : on ne relit que si le personnage change
   useEffect(() => {
     if (!character) return;
     void reload();
     void fetchHandAnchor(character.visualAssetId).then((h) => h && setHand(h));
     void fetchMyBuild(character.id).then((b) => setFamily(b?.family ?? null)).catch(() => {});
-  }, [reload, character]);
+  }, [reload, character?.id, character?.visualAssetId]);
 
   async function act(fn: () => Promise<void>) {
     if (lock.current) return;
@@ -106,6 +110,7 @@ export function CharacterWindow({
       await fn();
       uiSound("ok");
       await reload();
+      reloadWallet(); // or / consommables : relus après chaque action (avant, c'était un effet de bord du rafraîchissement)
       mine?.onWeaponChanged();
     } catch (e: any) {
       uiSound("error");

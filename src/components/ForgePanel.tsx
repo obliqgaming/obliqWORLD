@@ -81,7 +81,7 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
     if (character) void fetchHandAnchor(character.visualAssetId).then((h) => h && setHand(h));
     // Par défaut, le type d'arme de ta spécialisation (tu ne peux équiper que celui-là).
     if (character) void fetchMyBuild(character.id).then((b) => { if (b) { setFamily(b.family === "magie" ? "magie" : "melee"); if (!typeTouched.current) setType(b.family === "magie" ? "magic" : "blunt_slash"); } }).catch(() => {});
-  }, [character]);
+  }, [character?.id, character?.visualAssetId]); // l'objet « character » change à chaque rafraîchissement : on ne relit que si le personnage change
 
   const worn = (w: { imageUrl: string; grip: Point; width: number; height: number }): WornWeapon => ({ ...w, hand });
 
