@@ -52,9 +52,17 @@ export function CharacterWindow({
   useEffect(() => {
     let alive = true;
     setVitals(null);
-    // Peps / jus max réels d'une expédition : table game_axes (selon l'axe, ou « apprenti » avant le niveau 3) × pv_scale / pm_scale,
-    // exactement comme expedition_init_stats. (character_build ne stocke pas de jus.)
+    // Peps / jus max RÉELS (classe × niveau × arme Costaud) : calculés par le serveur (character_vitals, SQL 148),
+    // avec la même formule que le départ d'une expédition.
     void (async () => {
+      const { data: v, error: ve } = await scenesClient.rpc("character_vitals", { p_character_id: characterId });
+      const row = Array.isArray(v) ? (v[0] as { pv_max: number; pm_max: number } | undefined) : undefined;
+      if (!alive) return;
+      if (!ve && row) {
+        setVitals({ pvMax: Number(row.pv_max), pmMax: Number(row.pm_max) });
+        return;
+      }
+      // Secours (SQL 148 pas encore lancé) : valeurs de base de la classe, sans le gain par niveau.
       const { data } = await scenesClient.from("character_build").select("family, axis_key").eq("character_id", characterId).maybeSingle();
       if (!alive || !data) return;
       const r = data as { family: string | null; axis_key: string | null };
