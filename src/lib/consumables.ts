@@ -7,7 +7,7 @@ export const CONSUMABLE_INFO: Record<ConsumableKind, { name: string; icon: strin
   potion_soin: { name: "Potion de peps", icon: "🧪", text: "Rend 25 % de tes points de peps max (toi ou un allié)." },
   potion_mana: { name: "Potion de jus", icon: "💧", text: "Rend 25 % de tes points de jus max." },
   potion_resistance: { name: "Fiole de caillou", icon: "🏺", text: "Dégâts subis réduits de moitié pendant 2 tours." },
-  parchemin_degats: { name: "Parchemin de force", icon: "📜", text: "+1 dégât pendant 3 tours." },
+  parchemin_degats: { name: "Parchemin de force", icon: "📜", text: "+5 dégâts à chaque coup pendant 3 tours." },
   ration: { name: "Casse-croûte", icon: "🍖", text: "Au feu de camp : rend 55 % des points de peps et de jus max. Un seul par personne." },
   festin: { name: "Festin", icon: "🍲", text: "Au feu de camp : rend 85 % des points de peps et de jus max à TOUT le groupe. Un seul par camp." },
   larme_vie: { name: "Larme de vie", icon: "💧", text: "Au feu de camp : ressuscite un allié tombé dans cette expédition (50 % de ses points de peps)." },

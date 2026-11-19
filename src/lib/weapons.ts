@@ -32,8 +32,8 @@ export const EFFECT_INFO: Record<string, { name: string; text: string }> = {
   perforant: { name: "Perforant", text: "ignore 8 points de Défense de la cible" },
   concentre: { name: "Concentré", text: "tes pouvoirs coûtent 1 jus de moins" },
   // Rare
-  saignement: { name: "Saignement", text: "l'attaque de base fait saigner la cible (1 dégât en plus)" },
-  garde: { name: "Garde", text: "−1 dégât sur les coups de 4 dégâts ou plus que tu reçois" },
+  saignement: { name: "Saignement", text: "l'attaque de base fait saigner la cible (5 dégâts en plus, ignore la Défense)" },
+  garde: { name: "Garde", text: "−5 dégâts sur les coups de 20 dégâts ou plus que tu reçois" },
   execution: { name: "Exécution", text: "dégâts doublés sur une cible sous 35 % de peps" },
   eclat: { name: "Éclat", text: "+50 % de dégâts sur une cible sous la moitié de ses peps" },
   frenesie: { name: "Frénésie", text: "−1 tour de recharge sur ton pouvoir le plus long" },
@@ -45,7 +45,7 @@ export const EFFECT_INFO: Record<string, { name: string; text: string }> = {
   echo: { name: "Écho", text: "ton premier pouvoir de chaque combat ne coûte rien et n'a pas de recharge" },
   // Anciens effets (plus tirés, gardés pour d'éventuelles armes déjà existantes)
   vif: { name: "Vif", text: "+2 Vitesse" },
-  siphon: { name: "Siphon", text: "+1 peps à chaque attaque de base" },
+  siphon: { name: "Siphon", text: "+5 peps à chaque attaque de base" },
 };
 
 export function bonusText(n: number): string {

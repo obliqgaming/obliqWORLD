@@ -276,7 +276,7 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
                 <div className="text-sm"><b>{EFFECT_INFO[result.effect_key]!.name}</b> : {EFFECT_INFO[result.effect_key]!.text}</div>
               )}
               <div className="mt-3 rounded border border-[#7a4a22]/50 bg-white/40 p-2 text-xs">
-                Ce n'est qu'un <b>prototype</b> : il est <b>commun</b> (+1 dégât, pas d'effet, durabilité de 4 combats). Les exemplaires de cette puissance se trouvent en butin.
+                Ce n'est qu'un <b>prototype</b> : il est <b>commun</b> (pas d'effet, durabilité de 4 combats). Les exemplaires de cette puissance se trouvent en butin.
               </div>
               <button type="button" onClick={() => { setResult(null); onClose(); }} className={`${BTN} mt-3`}>OK</button>
             </div>

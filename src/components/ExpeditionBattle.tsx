@@ -170,6 +170,9 @@ export function ExpeditionBattle({
   const [powers, setPowers] = useState<GamePower[]>([]);
   const [axes, setAxes] = useState<GameAxis[]>([]);
   const [settings, setSettings] = useState<Record<string, number>>({});
+  // Force gagnée avec le niveau et bonus de l'arme équipée, lus tels que le combat les applique (pour les dégâts prévus).
+  const [forceMult, setForceMult] = useState(1);
+  const [weaponBonus, setWeaponBonus] = useState(0);
   const [worn, setWorn] = useState<Record<string, WornWeapon>>({});
   const [monsterAssets, setMonsterAssets] = useState<Record<string, EnemyImage>>({});
   const [weaponPool, setWeaponPool] = useState<Record<string, Omit<WornWeapon, "hand">>>({});
@@ -253,6 +256,16 @@ export function ExpeditionBattle({
         setAxes(a);
         setSettings(st);
         setPool(imgs);
+        try {
+          const [fm, wb] = await Promise.all([
+            scenesClient.rpc("combat_force_mult", { p_character_id: characterId }),
+            scenesClient.rpc("combat_weapon_bonus", { p_character_id: characterId }),
+          ]);
+          if (!fm.error && fm.data != null) setForceMult(Number(fm.data));
+          if (!wb.error && wb.data != null) setWeaponBonus(Number(wb.data));
+        } catch {
+          // l'estimation reste approximative si ces deux lectures échouent
+        }
         setWeaponPool(await fetchWeaponsById());
         setWorn(await fetchWornWeapons(allies.map((x) => x.characterId)));
       } catch (e) {
@@ -399,8 +412,8 @@ export function ExpeditionBattle({
 
   const dmgVs = (mult: number, ignore = 0): number | null => {
     if (!myAxis || !targetEnemyRow) return null;
-    const raw = myAxis.force * pvScale * mult;
-    return Math.max(1, Math.round((raw * 100) / (100 + Number(targetEnemyRow.defense) * (1 - ignore))));
+    const raw = myAxis.force * pvScale * forceMult * mult;
+    return Math.max(1, Math.round((raw * 100) / (100 + Number(targetEnemyRow.defense) * (1 - ignore)))) + weaponBonus;
   };
   const previewOf = (p: GamePower | null): string => {
     if (!myAxis) return "";
@@ -408,6 +421,10 @@ export function ExpeditionBattle({
       const d = dmgVs(myAxis.axis_key === "mage" || myAxis.axis_key === "apprenti_magie" ? 0.8 : 1, myAxis.axis_key === "chasseur" ? 0.3 : 0);
       return d !== null ? `≈ ${d} dégâts` : "";
     }
+    const pct = (x: number) => `${(Math.round(x * 1000) / 10).toString().replace(".", ",")} %`;
+    if (p.power_key === "soins_sacres") return `soigne ${pct(settings["heal_pct_soins_sacres"] ?? 0.25)} des peps max`;
+    if (p.power_key === "souffle") return `te soigne de ${pct(settings["heal_pct_souffle"] ?? 0.2)} des peps max`;
+    if (p.power_key === "soin_groupe") return `soigne chacun de ${pct((settings["heal_pct_soins_sacres"] ?? 0.25) / 2)} des peps max`;
     const heal = pnum(p, "heal");
     if (heal !== undefined) return `+${Math.max(1, Math.round(heal * pvScale))} peps`;
     const pmGain = pnum(p, "pm_gain");
