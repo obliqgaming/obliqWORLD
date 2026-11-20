@@ -104,9 +104,22 @@ export function weaponFits(type: WeaponType, family: "melee" | "magie" | null | 
 }
 
 /** Un prototype est toujours commun (+1 dégât, pas d'effet) : l'effet du modèle se gagne en butin. */
+/** Bonus de dégâts d'un prototype : lu une fois dans les réglages (weapon_prototype_bonus), comme le fait le combat. */
+let protoBonus = 3;
+let protoBonusLoaded = false;
+export async function loadProtoBonus(): Promise<void> {
+  if (protoBonusLoaded) return;
+  try {
+    const { data } = await scenesClient.from("game_settings").select("value").eq("key", "weapon_prototype_bonus").maybeSingle();
+    const v = Number((data as { value?: number } | null)?.value);
+    if (Number.isFinite(v)) protoBonus = v;
+    protoBonusLoaded = true;
+  } catch { /* on garde la valeur par défaut */ }
+}
+
 export function itemStats(it: WeaponItem): { rarity: Rarity; bonus: number; effect: string | null } {
   return it.is_prototype
-    ? { rarity: "common", bonus: 1, effect: null }
+    ? { rarity: "common", bonus: protoBonus, effect: null }
     : { rarity: it.weapon.rarity, bonus: it.weapon.bonus_damage, effect: it.weapon.effect_key };
 }
 
@@ -119,6 +132,7 @@ const ITEM_COLS = "id, weapon_id, is_prototype, durability, durability_max, adju
 /** Armes du sac (les prototypes rangés à la forge n'y sont pas : SQL 092). */
 export async function fetchMyItems(): Promise<WeaponItem[]> {
   const uid = await ensureUserId();
+  await loadProtoBonus();
   let r = await scenesClient.from("weapon_items").select(ITEM_COLS).eq("owner_user_id", uid).eq("stored", false).eq("legacy_hold", false).order("created_at", { ascending: false });
   if (r.error) r = await scenesClient.from("weapon_items").select(ITEM_COLS).eq("owner_user_id", uid).eq("stored", false).order("created_at", { ascending: false });
   if (r.error) {
