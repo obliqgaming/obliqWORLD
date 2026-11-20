@@ -37,8 +37,11 @@ export function TravelMerchantPanel({ expeditionId }: { expeditionId: string }) 
 
   return (
     <div className="absolute right-2 top-14 z-30 w-[min(21rem,50%)] max-h-[80%] overflow-y-auto rounded-lg border-2 border-[#7a4a22] bg-[#f1dfb6]/95 p-3 text-[#3a2410] shadow-xl" style={{ fontFamily: "'Baloo 2', cursive" }} onClick={(e) => e.stopPropagation()}>
-      <div className="text-base font-extrabold">🛒 Boursejoufflue, marchand itinérant</div>
-      <div className="text-xs leading-snug">
+      <div className="flex items-center gap-2">
+        <img src="/npc/boursejoufflue.webp" alt="Boursejoufflue" className="h-16 w-auto shrink-0" draggable={false} />
+        <div className="text-base font-extrabold leading-tight">🛒 Boursejoufflue, marchand itinérant</div>
+      </div>
+      <div className="mt-1 text-xs leading-snug">
         « Prix doublés, mais pas de file d'attente ! » Tu paies avec les <b>flouz trouvés pendant cette expédition</b> : <b>{st?.gold ?? 0} flouz</b>. Comme le butin, ce que tu achètes est perdu si tu meurs.
       </div>
       <div className="mt-2 space-y-1.5">
