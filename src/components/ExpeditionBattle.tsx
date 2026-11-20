@@ -43,6 +43,23 @@ import { leaveScenePresence, scenesClient, type PresenceChannel } from "../lib/s
 
 const ROLE_LABEL: Record<string, string> = { chef: "Chef de meute", boss: "Chef-Patron", add: "Invoqué", normal: "" };
 
+/** Techniques des monstres (posées par le serveur dans combat_enemies.status.techs) : nom court + explication au survol. */
+const TECH_INFO: Record<string, { label: string; info: string }> = {
+  enrage: { label: "Enragé", info: "Sous la moitié de ses PV, il frappe plus fort." },
+  perce_armure: { label: "Perce-armure", info: "Ses coups ignorent une partie de ta Défense." },
+  charge: { label: "Charge", info: "Un tour sur trois, il porte un coup bien plus puissant." },
+  regeneration: { label: "Régénération", info: "Il récupère des PV à chaque tour : tape fort et vite." },
+  cri_ralliement: { label: "Cri de ralliement", info: "Quand il est blessé, ses alliés frappent plus fort jusqu'à la fin du combat." },
+  appel_aide: { label: "Appel à l'aide", info: "Quand il est très blessé, un renfort arrive." },
+  escorte: { label: "Escorte", info: "Il arrive accompagné de gardes." },
+  coup_marque: { label: "Coup marqué", info: "Il annonce un coup sur un joueur, puis frappe très fort au tour suivant. Une Provocation le détourne." },
+  phase2: { label: "Rage", info: "Sous la moitié de ses PV, il frappe plus fort et ses attaques de zone reviennent plus souvent." },
+};
+function enemyTechs(status: Record<string, unknown> | null | undefined): string[] {
+  const t = status?.["techs"];
+  return Array.isArray(t) ? t.filter((x): x is string => typeof x === "string" && !!TECH_INFO[x]) : [];
+}
+
 const EVENT_MS = 1050; // durée d'une action rejouée
 const LAND_MS = 380; // instant où le coup touche (peps qui bougent, bruit)
 
@@ -793,6 +810,11 @@ export function ExpeditionBattle({
                 {en.visual_asset_id && entry?.name ? entry.name : en.name}
               </div>
               <HpBar current={hp} max={en.pv_max} className="mt-0.5" label={`${hp}/${en.pv_max}`} />
+              {!dead && enemyTechs(en.status).length > 0 ? (
+                <div className="pointer-events-auto mt-0.5 flex flex-wrap justify-center gap-x-1 text-[9px] font-bold leading-none text-[#fbbf24]">
+                  {enemyTechs(en.status).map((k) => <span key={k} title={TECH_INFO[k]!.info} className="cursor-help whitespace-nowrap rounded bg-black/40 px-1 py-0.5">✦ {TECH_INFO[k]!.label}</span>)}
+                </div>
+              ) : null}
               {!dead && !replaying && target ? <div className="mt-0.5 whitespace-nowrap text-[10px] leading-none text-[#fca5a5]">vise {target.name}</div> : null}
             </div>
             {lookFor("e", en.id) && <FxOverlay key={"fx" + current!.id} look={lookFor("e", en.id)!} />}
