@@ -40,6 +40,7 @@ import {
   fetchExpeditionById,
   subscribeToExpeditionRun,
   isExpeditionSceneName,
+  isSafariSceneName,
   fetchPartyMembers,
   fetchScene,
   fetchSceneByName,
@@ -111,6 +112,8 @@ import { ExpeditionBattle } from "../components/ExpeditionBattle";
 import { Pasture } from "../components/Pasture";
 import { WeaponDisplay } from "../components/WeaponDisplay";
 import { CampPanel } from "../components/CampPanel";
+import { TripotPanel } from "../components/TripotPanel";
+import { TravelMerchantPanel } from "../components/TravelMerchantPanel";
 import { AxisChoiceModal, EndBanner, LevelUpBanner, LevelUpModal, OutcomePanel, type OutcomeInfo } from "../components/ExpeditionExtras";
 import {
   chooseAxis,
@@ -1638,15 +1641,18 @@ function Index() {
 
   // Chaque client téléporte SON personnage (pas d'écriture sur les autres).
   useEffect(() => {
-    if (!character || !activeExpedition || activeExpedition.status !== "active" || inExpeditionScene || teleportingRef.current) return;
+    if (!character || !activeExpedition || activeExpedition.status !== "active" || teleportingRef.current) return;
+    // Déjà dans une scène d'expédition : on ne bouge que si c'est une expédition longue et qu'on n'est pas dans la scène du Safari.
+    if (inExpeditionScene && !(activeExpedition.route === "long" && !isSafariSceneName(scene.name))) return;
     teleportingRef.current = true;
-    fetchExpeditionScene()
+    fetchExpeditionScene(activeExpedition.route)
       .then(async (expScene) => {
         if (!expScene) {
           setExpeditionSceneMissing(true);
           return;
         }
         setExpeditionSceneMissing(false);
+        if (expScene.id === scene.id) return;   // déjà dans la bonne scène (pas de scène du Safari : on reste dans « expedition »)
         await teleportToScene(expScene, { x: 50, y: 70 });
       })
       .catch((e) => console.error("Teleport to expedition scene failed", e))
@@ -1654,11 +1660,11 @@ function Index() {
         teleportingRef.current = false;
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeExpedition?.id, inExpeditionScene, character?.id]);
+  }, [activeExpedition?.id, inExpeditionScene, character?.id, scene.id]);
 
   // Étape narrative (rencontre écrite) si une rencontre approuvée existe, sinon ancienne étape d'exemple.
   const syncStep = async (expId: string, idx: number, ev: (typeof PLACEHOLDER_EVENTS)[number]) => {
-    if (ev.kind === "event" && ev.id !== "camp") {
+    if (ev.kind === "event" && ev.id !== "camp" && ev.id !== "tripot" && ev.id !== "marchand") {
       try {
         const ns = await openNarrativeStep(expId, idx);
         if (ns && ns.community_event_id) {
@@ -1698,7 +1704,6 @@ function Index() {
   };
   useEffect(() => {
     if (!inExpeditionScene || !character || !activeExpedition || activeExpedition.status !== "active") return;
-    if (activeExpedition.route === "long") return;
     const expId = activeExpedition.id;
     const idx = activeExpedition.current_step_index;
     let cancelled = false;
@@ -3482,6 +3487,14 @@ function Index() {
               return { characterId: a.characterId, name: a.name, pv: st?.pv_current ?? 0, pvMax: st?.pv_max ?? 0, pm: st?.pm_current ?? 0, pmMax: st?.pm_max ?? 0, gone: !!st?.left_expedition_at };
             })}
           />
+        )}
+
+        {inExpeditionScene && character && activeExpedition && !activeCombatId && currentEvent.id === "tripot" && runStep && !outcomeInfo && (
+          <TripotPanel expeditionId={activeExpedition.id} characterId={character.id} />
+        )}
+
+        {inExpeditionScene && character && activeExpedition && !activeCombatId && currentEvent.id === "marchand" && runStep && !outcomeInfo && (
+          <TravelMerchantPanel expeditionId={activeExpedition.id} />
         )}
 
         {inExpeditionScene && character && !activeCombatId && expeditionPhase === "event" && narrativeEvent && runStep && !outcomeInfo && (

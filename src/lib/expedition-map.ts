@@ -2,7 +2,7 @@
 // Tout est décidé par des fonctions serveur ; le navigateur affiche, vote et demande la décision quand le temps est écoulé.
 import { scenesClient } from "./scenes-supabase";
 
-export type MapNodeType = "combat" | "elite" | "rencontre" | "coffre" | "coffre_piege" | "clairiere" | "sortie" | "boss";
+export type MapNodeType = "combat" | "elite" | "rencontre" | "coffre" | "coffre_piege" | "clairiere" | "sortie" | "boss" | "camp" | "tripot" | "marchand";
 
 export type MapState = {
   enabled: boolean;
@@ -30,6 +30,9 @@ export const MAP_NODE_INFO: Record<MapNodeType, { icon: string; label: string; t
   coffre: { icon: "🧰", label: "Coffre", text: "Un coffre à ouvrir… attention, il pourrait être piégé !", color: "#a16207" },
   coffre_piege: { icon: "🧨", label: "Coffre piégé", text: "Flouz et potion... mais le piège peut blesser quelqu'un.", color: "#b45309" },
   clairiere: { icon: "🌿", label: "Clairière", text: "Une pause : chacun reprend un peu de peps et de jus.", color: "#15803d" },
+  camp: { icon: "🔥", label: "Feu de camp", text: "On s'arrête : chacun peut manger pour reprendre des forces, puis le groupe repart.", color: "#c2410c" },
+  tripot: { icon: "🎲", label: "Tripot", text: "Un tripot clandestin : mise, si tu veux, les flouz trouvés pendant l'expédition.", color: "#7c2d12" },
+  marchand: { icon: "🛒", label: "Marchand itinérant", text: "Boursejoufflue vend ses marchandises (prix doublés).", color: "#0f766e" },
   sortie: { icon: "🚪", label: "Sortie", text: "Rentrer au village avec le butin.", color: "#475569" },
   boss: { icon: "👑", label: "Boss final", text: "Le combat final.", color: "#6d28d9" },
 };

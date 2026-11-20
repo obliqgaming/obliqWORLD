@@ -703,13 +703,21 @@ function normalizeSceneName(name: string): string {
 // Vrai pour la scène de combat/expédition (nommée "expedition" ou
 // "expédition" dans /admin, accents et casse ignorés).
 export function isExpeditionSceneName(name: string | null | undefined): boolean {
-  return !!name && normalizeSceneName(name) === "expedition";
+  return !!name && (normalizeSceneName(name) === "expedition" || isSafariSceneName(name));
 }
 
-export async function fetchExpeditionScene(): Promise<Scene | null> {
+// Scène dédiée au Grand Safari (SQL 157), nommée "Expédition Safari" dans /admin.
+export function isSafariSceneName(name: string | null | undefined): boolean {
+  return !!name && normalizeSceneName(name) === "expedition safari";
+}
+
+export async function fetchExpeditionScene(route?: "court" | "long" | null): Promise<Scene | null> {
   const { data, error } = await scenesClient.from("scenes").select("*");
   if (error) throw error;
-  const row = (data ?? []).find((r: any) => isExpeditionSceneName(r.name));
+  // Expédition longue : scène du Safari si elle existe, sinon la scène « expedition » habituelle.
+  const row =
+    (route === "long" ? (data ?? []).find((r: any) => isSafariSceneName(r.name)) : undefined) ??
+    (data ?? []).find((r: any) => normalizeSceneName(r.name) === "expedition");
   return row ? normalizeScene(row) : null;
 }
 

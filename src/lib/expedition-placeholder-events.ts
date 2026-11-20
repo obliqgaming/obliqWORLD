@@ -198,6 +198,24 @@ export const CAMP_EVENT: PlaceholderEvent = {
   choices: [{ key: "repartir", label: "Reprendre la route", outcome: { text: "Vous laissez le feu derrière vous et reprenez la route.", pvLoss: 0 } }],
 };
 
+export const TRIPOT_EVENT: PlaceholderEvent = {
+  id: "tripot",
+  kind: "event",
+  typeLabel: "Tripot",
+  risk: "faible",
+  situation: "Au détour d'un sentier, une cabane de fortune : des dés qui roulent, des rires étouffés. Un tripot clandestin, au cœur de la forêt.",
+  choices: [{ key: "repartir", label: "Reprendre la route", outcome: { text: "Vous quittez le tripot, les poches plus ou moins lourdes, et reprenez la route.", pvLoss: 0 } }],
+};
+
+export const MARCHAND_EVENT: PlaceholderEvent = {
+  id: "marchand",
+  kind: "event",
+  typeLabel: "Marchand itinérant",
+  risk: "faible",
+  situation: "Une charrette brinquebalante, une lanterne qui grince : Boursejoufflue, le marchand itinérant, déballe ses trésors au bord du chemin.",
+  choices: [{ key: "repartir", label: "Reprendre la route", outcome: { text: "Vous saluez Boursejoufflue et reprenez la route.", pvLoss: 0 } }],
+};
+
 export const MINI_BOSS_EVENT: PlaceholderEvent = {
   id: "mini-boss",
   kind: "combat",
@@ -304,7 +322,7 @@ export function buildLayout(route: ExpeditionRoute, seed: string): PlaceholderEv
 
 /** Longueur réelle d'une expédition (à ne PAS montrer aux joueurs avant la fin). */
 export function expeditionLength(route: ExpeditionRoute | null | undefined, seed: string): number {
-  const m = route === "long" ? undefined : mapRegistry.get(seed);
+  const m = mapRegistry.get(seed);
   if (m?.enabled && m.layers > 0) return m.layers;
   return buildLayout(route === "long" ? "long" : "court", seed).length;
 }
@@ -335,7 +353,7 @@ const MAP_WAIT_EVENT: PlaceholderEvent = { id: "map-wait", kind: "event", typeLa
 const MAP_CHOICE_EVENT: PlaceholderEvent = { id: "map-choice", kind: "event", typeLabel: "Embranchement", risk: "faible", situation: "", choices: [] };
 
 export function eventForStep(route: ExpeditionRoute | null | undefined, idx: number, seed?: string | null): PlaceholderEvent {
-  if (seed && route !== "long") {
+  if (seed) {
     const m = mapRegistry.get(seed);
     if (!m || m.enabled === null) return MAP_WAIT_EVENT;
     if (m.enabled) {
@@ -343,6 +361,9 @@ export function eventForStep(route: ExpeditionRoute | null | undefined, idx: num
       if (t === "combat" || t === "elite") return byId("confrontation");
       if (t === "boss") return byId("boss-final");
       if (t === "rencontre") return byId("rencontre");
+      if (t === "camp") return CAMP_EVENT;
+      if (t === "tripot") return TRIPOT_EVENT;
+      if (t === "marchand") return MARCHAND_EVENT;
       return MAP_CHOICE_EVENT;
     }
   }
