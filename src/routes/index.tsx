@@ -1611,13 +1611,13 @@ function Index() {
     const isBoss = ev.id === "boss-final" || ev.id === "mini-boss";
     const inCombat = !outcomeInfo && (!!activeCombatId || ev.kind === "combat");
     const danger = !outcomeInfo && ((runStep as any)?.step_type === "danger_imminent" || (runStep as any)?.step_type === "epreuve");
-    const kind = !activeExpedition ? null : inCombat ? (isBoss ? "boss" : "combat") : danger ? "danger" : "narrative";
-    const spec = (kind ? (scene as any)[`music_${kind}`] : "") || scene.music_url;
+    const kind = !activeExpedition ? null : inCombat ? (isBoss ? "boss" : "combat") : ev.id === "marchand" && !outcomeInfo ? "marchand" : danger ? "danger" : "narrative";
+    const spec = (kind ? (scene as any)[`music_${kind}`] : "") || (kind === "marchand" ? (scene as any).music_narrative : "") || scene.music_url;
     if (spec === stepMusicRef.current) return;
     stepMusicRef.current = spec;
     playMusic(spec, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inExpeditionScene, scene.id, activeExpedition?.id, activeExpedition?.current_step_index, activeCombatId, !!outcomeInfo, heldIdx, (runStep as any)?.step_type, scene.music_url, (scene as any).music_narrative, (scene as any).music_combat, (scene as any).music_danger, (scene as any).music_boss]);
+  }, [inExpeditionScene, scene.id, activeExpedition?.id, activeExpedition?.current_step_index, activeCombatId, !!outcomeInfo, heldIdx, (runStep as any)?.step_type, scene.music_url, (scene as any).music_narrative, (scene as any).music_combat, (scene as any).music_danger, (scene as any).music_boss, (scene as any).music_marchand]);
 
   // Lancement détecté (statut 'active') : on mémorise l'expédition.
   useEffect(() => {

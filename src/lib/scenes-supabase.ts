@@ -81,6 +81,7 @@ export type Scene = {
   music_combat?: string;
   music_danger?: string;
   music_boss?: string;
+  music_marchand?: string;   // SQL 160 : musique du Marchand itinérant (Safari)
   depth_scale: DepthScale | null;
   // La zone marchable est une LISTE de pièces : chaque pièce est son propre
   // polygone. Ça évite d'avoir à dessiner un unique polygone géant qui longe

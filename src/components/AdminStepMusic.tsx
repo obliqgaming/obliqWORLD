@@ -8,6 +8,7 @@ const TYPES = [
   { key: "music_combat", label: "⚔ Combat" },
   { key: "music_danger", label: "⚠ Danger (danger imminent, épreuve)" },
   { key: "music_boss", label: "👑 Chef-Patron et mini Chef-Patron" },
+  { key: "music_marchand", label: "🛒 Marchand itinérant (Safari) — vide = musique narrative" },
 ] as const;
 type Key = (typeof TYPES)[number]["key"];
 
@@ -17,6 +18,7 @@ export function AdminStepMusic({ scene, files }: { scene: Scene; files: MusicFil
     music_combat: scene.music_combat ?? "",
     music_danger: scene.music_danger ?? "",
     music_boss: scene.music_boss ?? "",
+    music_marchand: scene.music_marchand ?? "",
   }));
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -27,7 +29,7 @@ export function AdminStepMusic({ scene, files }: { scene: Scene; files: MusicFil
     setMsg(null);
     const { error } = await scenesClient.from("scenes").update(vals).eq("id", scene.id);
     setBusy(false);
-    if (error) setMsg(error.message.includes("music_") ? "Lance d'abord le SQL 050." : error.message);
+    if (error) setMsg(error.message.includes("music_") ? "Lance d'abord les SQL 050 et 160." : error.message);
     else {
       TYPES.forEach((t) => ((scene as any)[t.key] = vals[t.key]));
       setMsg("Musiques d'expédition enregistrées ✅");
