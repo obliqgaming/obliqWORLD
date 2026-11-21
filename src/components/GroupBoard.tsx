@@ -1,5 +1,6 @@
 // Tableau « cherche un groupe » : annonces des joueurs, inscription d'un clic, invitation d'un clic par l'auteur.
 import { PanelIcon } from "./GameIcons";
+import { backdropClose } from "@/lib/backdrop";
 import { useEffect, useState } from "react";
 import { leaveScenePresence } from "../lib/scenes-supabase";
 import {
@@ -58,7 +59,7 @@ export function GroupBoard({ character, onClose, onInvite }: { character: { id: 
   const mySignup = (adId: string) => signups.some((s) => s.ad_id === adId && s.user_id === me);
 
   return (
-    <div className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/55 p-2" style={FONT} onClick={(e) => e.stopPropagation()}>
+    <div className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/55 p-2" style={FONT} {...backdropClose(onClose)}>
       <div className="max-h-full w-[min(40rem,98%)] overflow-y-auto parchment-scroll rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-4 text-[#3a2410] shadow-xl">
         <div className="flex items-center justify-between">
           <div className="text-xl font-extrabold"><PanelIcon src="/icons/group.png" />Le Panneau des Aventuriers</div>

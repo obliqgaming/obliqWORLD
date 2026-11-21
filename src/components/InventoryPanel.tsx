@@ -1,6 +1,7 @@
 // Inventaire v1 : les armes que je porte sur moi, équiper / ranger / jeter.
 // (Pas de changement d'arme en combat : on équipe au village.)
 import { uiSound } from "../lib/ui-sounds";
+import { backdropClose } from "@/lib/backdrop";
 import { ZoomImage } from "./ZoomImage";
 import { WeaponSheet } from "./ItemSheets";
 import { Coin, Bag, WEAPON_FONT } from "./GameIcons";
@@ -129,7 +130,7 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
     setAdj((a) => ({ ...a, dx: Math.max(-60, Math.min(60, a.dx + ddx)), dy: Math.max(-60, Math.min(60, a.dy + ddy)) }));
   };
   return (
-    <div className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto parchment-scroll bg-black/55 p-2" onClick={(e) => e.stopPropagation()} style={{ fontFamily: "'Baloo 2', cursive" }}>
+    <div className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto parchment-scroll bg-black/55 p-2" {...backdropClose(onClose)} style={{ fontFamily: "'Baloo 2', cursive" }}>
       <div className="max-h-full w-[min(46rem,98%)] overflow-y-auto parchment-scroll rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-4 text-[#3a2410] shadow-xl">
         <div className="flex items-center justify-between">
           <div className="text-xl font-extrabold"><Bag /> Inventaire <span className="ml-2 text-sm text-[#92400e]"><Coin /> {gold > 0 ? `${gold} flouz` : "pas de flouz"}</span></div>

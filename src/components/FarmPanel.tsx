@@ -1,6 +1,7 @@
 // La ferme : tes compagnons (créatures gagnées en butin). Un seul t'accompagne en expédition ;
 // il prend la moitié des dégâts que tu reçois. À 0 PV il s'enfuit et se repose quelques expéditions.
 import { uiSound } from "../lib/ui-sounds";
+import { backdropClose } from "@/lib/backdrop";
 import { ZoomImage } from "./ZoomImage";
 import { CompanionSheet } from "./ItemSheets";
 import { useEffect, useRef, useState } from "react";
@@ -71,7 +72,7 @@ export function FarmPanel({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto overflow-x-hidden parchment-scroll bg-black/55 p-2" onClick={(e) => e.stopPropagation()} style={{ fontFamily: "'Baloo 2', cursive" }}>
+    <div className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto overflow-x-hidden parchment-scroll bg-black/55 p-2" {...backdropClose(onClose)} style={{ fontFamily: "'Baloo 2', cursive" }}>
       <div className="max-h-full w-[min(40rem,98%)] overflow-y-auto overflow-x-hidden parchment-scroll rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-3 text-[#3a2410] shadow-xl">
         <div className="flex items-center justify-between">
           <div className="text-xl font-extrabold">🐾 La Ferme des Jetés en Pâture{tab === "draw" && economy && <CreationPrice verb="Dessiner" cost={economy.cost} gold={economy.gold} />}</div>

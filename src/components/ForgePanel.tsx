@@ -1,6 +1,7 @@
 // Forge v1 : dessiner une arme (canvas 170 × 150), voir en direct comment elle
 // se tient dans la main de son personnage, la forger, l'équiper ou la ranger.
 import { ModerationReminder } from "./AdventureWarnings";
+import { backdropClose } from "@/lib/backdrop";
 import { CreationNotes, CreationStatus } from "./CreationNotes";
 import { RARITY_TIER, RevealModal } from "./RevealModal";
 import { useDraftKey, loadDraftName, saveDraftName, clearDraft } from "../lib/drawing-drafts";
@@ -126,7 +127,7 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
   }
 
   return (
-    <div className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto overflow-x-hidden parchment-scroll bg-black/55 p-2" onClick={(e) => e.stopPropagation()} style={{ fontFamily: "'Baloo 2', cursive" }}>
+    <div className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto overflow-x-hidden parchment-scroll bg-black/55 p-2" {...backdropClose(onClose)} style={{ fontFamily: "'Baloo 2', cursive" }}>
       <div className="max-h-full w-[min(56rem,98%)] overflow-y-auto overflow-x-hidden parchment-scroll rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-4 text-[#3a2410] shadow-xl">
         <div className="flex items-center justify-between">
           <div className="text-xl font-extrabold">⚒ La Forge du Manchot{(tab === "forge" ? cost > 0 : true) && <span className="ml-2 text-sm text-[#92400e]">{tab === "forge" && cost > 0 ? <>Forger coûte {cost} flouz · tu as {gold} <Coin /></> : <>Tu as {gold} <Coin /></>}</span>}</div>

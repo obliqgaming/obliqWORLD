@@ -1,6 +1,7 @@
 // Lieu « Quêtes » : une quête par jour parmi 5. Une fois acceptée elle reste jusqu'à être accomplie ; la récompense
 // est une surprise (or, potion, parchemin, arme, compagnon). Progression automatique (SQL 041).
 import { uiSound } from "../lib/ui-sounds";
+import { backdropClose } from "@/lib/backdrop";
 import { Coin, QuestIcon } from "./GameIcons";
 import { useEffect, useRef, useState } from "react";
 import { acceptQuest, claimQuest, fetchQuests, type BoosterResult, type MyQuest, type Quest } from "../lib/quests";
@@ -101,7 +102,7 @@ export function QuestPanel({ onClose }: { onClose: () => void }) {
   const ready = !!(mine && current && mine.progress >= current.goal);
 
   return (
-    <div className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto parchment-scroll bg-black/55 p-2" onClick={(e) => e.stopPropagation()} style={{ fontFamily: "'Baloo 2', cursive" }}>
+    <div className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto parchment-scroll bg-black/55 p-2" {...backdropClose(onClose)} style={{ fontFamily: "'Baloo 2', cursive" }}>
       <div className="max-h-full w-[min(34rem,98%)] overflow-y-auto parchment-scroll rounded-xl border-2 border-[#7a4a22] bg-[#f1dfb6] p-4 text-[#3a2410] shadow-xl">
         <div className="flex items-center justify-between">
           <div className="text-xl font-extrabold"><QuestIcon /> Boulot du jour</div>

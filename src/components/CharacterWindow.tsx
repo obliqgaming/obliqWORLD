@@ -35,6 +35,8 @@ export function CharacterWindow({
   const [err, setErr] = useState<string | null>(null);
   const [vitals, setVitals] = useState<{ pvMax: number | null; pmMax: number | null } | null>(null);
   const [tab, setTab] = useState<Tab>("weapons");
+  // Barre d'XP (mon personnage seulement) : XP actuelle et seuil du niveau suivant.
+  const [xpInfo, setXpInfo] = useState<{ xp: number; from: number; to: number | null } | null>(null);
   // Données de mon sac (inutilisées en lecture seule)
   const [gold, setGold] = useState(0);
   const [stacks, setStacks] = useState<ConsumableStack[]>([]);
@@ -84,6 +86,17 @@ export function CharacterWindow({
     return () => { alive = false; };
   }, [characterId]);
 
+  useEffect(() => {
+    if (!mine?.character?.id || mine.character.id !== characterId) { setXpInfo(null); return; }
+    let alive = true;
+    void (async () => {
+      const { data, error } = await scenesClient.rpc("character_xp_progress", { p_character_id: characterId });
+      const row = Array.isArray(data) ? (data[0] as { xp: number; from_xp: number; to_xp: number | null } | undefined) : undefined;
+      if (!alive || error || !row) return; // SQL 163 pas encore lancé : pas de barre, rien ne casse
+      setXpInfo({ xp: Number(row.xp), from: Number(row.from_xp), to: row.to_xp === null ? null : Number(row.to_xp) });
+    })().catch(() => {});
+    return () => { alive = false; };
+  }, [characterId, mine?.character?.id]);
   const reloadWallet = useCallback(() => {
     void fetchMyConsumables().then(setStacks);
     void fetchMyGold().then(setGold);
@@ -196,6 +209,14 @@ export function CharacterWindow({
                     <div className="truncate text-sm font-extrabold">{spec}{d.class_name ? <span className="font-bold opacity-70"> · « {d.class_name} »</span> : null}</div>
                   </div>
                 </div>
+                {xpInfo && (
+                  <div className="-mt-0.5" title={xpInfo.to !== null ? `${xpInfo.xp} XP — encore ${xpInfo.to - xpInfo.xp} avant le niveau suivant` : `${xpInfo.xp} XP — niveau maximum`}>
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#7a4a22]/20">
+                      <div className="h-full rounded-full bg-violet-500/80" style={{ width: `${xpInfo.to === null ? 100 : Math.max(2, Math.min(100, ((xpInfo.xp - xpInfo.from) / Math.max(1, xpInfo.to - xpInfo.from)) * 100))}%` }} />
+                    </div>
+                    <div className="text-[10px] font-bold opacity-60">{xpInfo.to !== null ? `XP ${xpInfo.xp} / ${xpInfo.to}` : `XP ${xpInfo.xp} (max)`}</div>
+                  </div>
+                )}
                 {vitals && vitals.pvMax !== null && vital("❤️", vitals.pvMax, "points de peps")}
                 {vitals && vitals.pmMax !== null && vitals.pmMax > 0 && vital("💧", vitals.pmMax, "points de jus")}
                 <div
