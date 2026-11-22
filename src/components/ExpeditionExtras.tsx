@@ -47,6 +47,8 @@ export function OutcomePanel({
         ? { label: pts ? `Tu récupères ${pts} peps` : "Le groupe récupère du peps", color: "#047857" }
         : { label: "Aucune perte de peps", color: "#5e3818" };
   const nar = outcome.narrative;
+  // Tant qu'un objet du butin est encore joué aux dés, « OK » reste grisé (sinon on passe l'étape avant d'avoir choisi).
+  const [lootSettled, setLootSettled] = useState(true);
   // Verdict affiché : une rencontre écrite a le sien ; un coffre piégé qui blesse est toujours un échec.
   const verdict: boolean | null = outcome.forceFail ? false : nar ? nar.success : null;
   // Petit son de réussite ou d'échec à l'apparition du résultat d'une rencontre.
@@ -84,10 +86,10 @@ export function OutcomePanel({
         {outcome.triggersCombat ? <span className="text-[#b91c1c]">⚔ Un combat éclate !</span> : null}
       </div>
       {nar?.potion && loot && (
-        <LootPanel expeditionId={loot.expeditionId} stepId={nar.stepId} characterId={loot.characterId} names={loot.names} gold={0} onSettled={() => {}} />
+        <LootPanel expeditionId={loot.expeditionId} stepId={nar.stepId} characterId={loot.characterId} names={loot.names} gold={0} onSettled={setLootSettled} />
       )}
-      <button type="button" onClick={onClose} className="mt-2 rounded border border-[#7a4a22] px-3 py-0.5 text-xs font-bold text-[#5e3818] hover:bg-[#7a4a22]/15">
-        OK
+      <button type="button" onClick={onClose} disabled={!lootSettled} className="mt-2 rounded border border-[#7a4a22] px-3 py-0.5 text-xs font-bold text-[#5e3818] hover:bg-[#7a4a22]/15 disabled:opacity-50">
+        {lootSettled ? "OK" : "Butin en cours…"}
       </button>
     </div>
   );

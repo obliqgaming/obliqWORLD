@@ -404,7 +404,7 @@ export function ExpeditionCombatView({
               {myVote ? `Vote enregistré — ${votedCount}/${event.voterCount} ont voté${countdownLabel}` : `Votez : le groupe décide ensemble${countdownLabel}`}
             </div>
             <div className="flex gap-2 rounded-xl border border-[#7a4a22]/60 bg-[#2b1406]/90 p-2">
-              {[...event.choices, { key: "rentrer_maintenant", label: "Rentrer maintenant", votes: 0 }].map(
+              {event.choices.map(
                 (c) => {
                   const active = myVote === c.key;
                   return (

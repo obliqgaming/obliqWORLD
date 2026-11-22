@@ -347,7 +347,9 @@ export function ExpeditionBattle({
     return m;
   }, [pending, current?.id, landedId]);
 
-  const shownAllyHp = (a: CombatAlly) => Math.max(0, Math.min(a.hpMax, a.hpCurrent + (delta.get(a.characterId) ?? 0)));
+  // Peps « réels » lus avec le journal du combat (même lecture) ; sinon ceux de la scène.
+  const realAllyHp = (a: CombatAlly) => snap?.hp?.[a.characterId]?.pv ?? a.hpCurrent;
+  const shownAllyHp = (a: CombatAlly) => Math.max(0, Math.min(a.hpMax, realAllyHp(a) + (delta.get(a.characterId) ?? 0)));
   const shownEnemyHp = (id: string, hp: number, max: number) => Math.max(0, Math.min(max, hp + (delta.get(id) ?? 0)));
 
   const deadlineMs = combat ? new Date(combat.turn_deadline).getTime() : null;
@@ -357,7 +359,7 @@ export function ExpeditionBattle({
   const myDead = !!me && shownAllyHp(me) <= 0 && !replaying;
   const mySnapPlayer = snap?.players.find((p) => p.character_id === characterId) ?? null;
   const myCooldowns = mySnapPlayer?.cooldowns ?? {};
-  const aliveAllies = allies.filter((a) => a.hpCurrent > 0);
+  const aliveAllies = allies.filter((a) => realAllyHp(a) > 0);
   const readyCount = snap
     ? snap.players.filter((p) => p.last_submitted_turn >= turn && aliveAllies.some((a) => a.characterId === p.character_id)).length
     : 0;
@@ -593,7 +595,8 @@ export function ExpeditionBattle({
       cancelled = true;
     };
   }, [missingAssetKey]);
-  const logLines = (snap?.log ?? []).filter((l) => !l.ev || (playedId !== null && l.id <= playedId));
+  // Une ligne sans animation (ex. dégâts absorbés par un compagnon) attend son tour : elle ne s'affiche qu'une fois jouées toutes les actions qui la précèdent.
+  const logLines = (snap?.log ?? []).filter((l) => (l.ev ? playedId !== null && l.id <= playedId : pending.length === 0 || l.id < pending[0]!.id));
   const lastLog = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     lastLog.current?.scrollIntoView({ block: "end" });
@@ -696,6 +699,12 @@ export function ExpeditionBattle({
           </div>
         )}
 
+      {/* Nom de l'action en cours au milieu de l'écran : on sait qui fait quoi (sort, saignement, exécution…) et pour combien. */}
+      {replaying && current?.ev && current.text ? (
+        <div key={current.id} className="pointer-events-none absolute left-1/2 top-[14%] z-30 -translate-x-1/2 rounded-lg border border-white/20 bg-black/75 px-4 py-1.5 text-center text-sm font-extrabold text-[#fff3d6] shadow-lg" style={{ maxWidth: "70%" }}>
+          {current.text}
+        </div>
+      ) : null}
       {active && combat?.aoe_warning && !replaying && (
         <div className="absolute left-1/2 top-[5.5rem] z-30 -translate-x-1/2 rounded-lg border-2 border-[#f87171] bg-[#4a0d0d]/95 px-4 py-1.5 text-sm font-bold text-[#fff3d6]">
           ⚠ Le Chef-Patron prépare une attaque de zone : elle touchera tout le groupe à la fin de ce tour !
@@ -845,7 +854,7 @@ export function ExpeditionBattle({
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="truncate font-bold">
                     {a.name}
-                    {a.isSelf ? " (toi)" : ""} {active && !replaying && a.hpCurrent > 0 && ready >= turn ? "✓" : ""}
+                    {a.isSelf ? " (toi)" : ""} {active && !replaying && realAllyHp(a) > 0 && ready >= turn ? "✓" : ""}
                   </span>
                   <span className="shrink-0 text-[11px] font-bold" style={{ color: hpColor(hp, a.hpMax) }}>
                     {hp}/{a.hpMax}

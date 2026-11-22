@@ -208,6 +208,8 @@ export type CombatSnapshot = {
   enemies: CombatEnemyRow[];
   players: CombatPlayerRow[];
   log: CombatLogRow[];
+  /** Peps des participants lus juste après le journal du combat (même lecture) : évite que la barre de vie descende puis remonte. */
+  hp: Record<string, { pv: number; pvMax: number }>;
 };
 
 // Le combat en cours de l'expédition, ou le dernier terminé si on veut son résultat.
@@ -235,7 +237,16 @@ export async function fetchCombatSnapshot(combatId: string): Promise<CombatSnaps
   if (p.error) throw p.error;
   if (l.error) throw l.error;
   if (!c.data) return null;
+  // Peps lus APRÈS le journal, dans la même lecture : les barres de vie et le rejeu du tour restent d'accord.
+  const hp: Record<string, { pv: number; pvMax: number }> = {};
+  try {
+    const stats = await fetchRunStats((c.data as Combat).expedition_id);
+    for (const r of stats) hp[r.character_id] = { pv: r.pv_current ?? 0, pvMax: r.pv_max ?? 0 };
+  } catch {
+    /* on retombe sur les peps de la scène */
+  }
   return {
+    hp,
     combat: c.data as Combat,
     enemies: ((e.data ?? []) as CombatEnemyRow[]).map((en) => ({ ...en, name: vocabText(en.name) })),
     players: (p.data ?? []) as CombatPlayerRow[],
