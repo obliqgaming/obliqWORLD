@@ -21,6 +21,8 @@ export type MapState = {
   chef_pending?: boolean;
   chef_done?: boolean;
   preview?: { layer: number; nodes: MapNodeType[] }[];
+  // SQL 175 : le vote du nœud suivant s'ouvre quand tous les joueurs vivants ont fait « OK » sur le résultat précédent.
+  ack?: { ready: boolean; done: number; total: number };
 };
 
 export const MAP_NODE_INFO: Record<MapNodeType, { icon: string; label: string; text: string; color: string }> = {
@@ -51,4 +53,26 @@ export async function voteExpeditionMap(expeditionId: string, layer: number, slo
 export async function decideExpeditionMap(expeditionId: string, layer: number): Promise<void> {
   const { error } = await scenesClient.rpc("expedition_map_decide", { p_expedition_id: expeditionId, p_layer: layer });
   if (error) throw error;
+}
+
+// SQL 175 : chaque « OK » sur un résultat est enregistré côté serveur. Les échecs sont silencieux (on réessaie un peu) :
+// au pire le serveur ouvre la suite après son délai de sécurité.
+export async function ackOutcome(expeditionId: string, stepIndex: number): Promise<void> {
+  for (let i = 0; i < 4; i++) {
+    const { error } = await scenesClient.rpc("expedition_ack_outcome", { p_expedition_id: expeditionId, p_step_index: stepIndex });
+    if (!error) return;
+    await new Promise((r) => window.setTimeout(r, 2000 * (i + 1)));
+  }
+}
+
+export async function hasAckedOutcome(expeditionId: string, stepIndex: number, characterId: string): Promise<boolean> {
+  const { data, error } = await scenesClient
+    .from("expedition_outcome_acks")
+    .select("step_index")
+    .eq("expedition_id", expeditionId)
+    .eq("step_index", stepIndex)
+    .eq("character_id", characterId)
+    .maybeSingle();
+  if (error) return false;
+  return !!data;
 }

@@ -93,7 +93,9 @@ export function ExpeditionMapChoice({
   }, [chosen]);
 
   const myVote = votes.find((v) => v.c === myCharacterId)?.slot ?? null;
-  const canVote = chosen === null && aliveIds.includes(myCharacterId);
+  // SQL 175 : tant que tout le monde n'a pas fait « OK » sur le résultat précédent, le vote n'est pas ouvert.
+  const waitingOthers = !!st?.ack && st.ack.ready === false;
+  const canVote = chosen === null && aliveIds.includes(myCharacterId) && !waitingOthers;
   const vote = async (slot: number) => {
     if (!canVote) return;
     setErr(null);
@@ -121,6 +123,11 @@ export function ExpeditionMapChoice({
       <div>
         <div className="text-center text-[11px] font-bold uppercase tracking-widest text-[#7a4a22]">Embranchement</div>
         <div className="text-center text-xl font-extrabold">Quel chemin prendre ?</div>
+        {waitingOthers && (
+          <div className="mt-1 rounded-lg bg-[#7a4a22]/15 py-1 text-center text-xs font-extrabold">
+            En attente des autres joueurs ({st?.ack?.done ?? 0}/{st?.ack?.total ?? 0} ont lu le résultat)…
+          </div>
+        )}
 
         <div className="mt-3 grid grid-cols-2 gap-3">
           {st.nodes.map((n) => {
@@ -160,7 +167,7 @@ export function ExpeditionMapChoice({
 
         <div className="mt-3 flex items-center justify-center gap-4 rounded-lg bg-[#7a4a22]/15 py-1.5 text-base font-extrabold">
           <span>🗳 {votedAlive}/{aliveIds.length} votes</span>
-          {left !== null && chosen === null && <span style={{ color: left <= 20 ? "#b91c1c" : undefined }}>⏱ {left} s</span>}
+          {left !== null && chosen === null && !waitingOthers && <span style={{ color: left <= 20 ? "#b91c1c" : undefined }}>⏱ {left} s</span>}
         </div>
 
         {chosenNode && (

@@ -131,7 +131,7 @@ import {
 } from "../lib/expedition-combat";
 import { PLACEHOLDER_EVENTS, eventForStep, expeditionLength, mapRegGet, mapRegSet, mapRegKey } from "../lib/expedition-placeholder-events";
 import { ExpeditionMapChoice } from "../components/ExpeditionMapChoice";
-import { getExpeditionMap, type MapState } from "../lib/expedition-map";
+import { ackOutcome, getExpeditionMap, hasAckedOutcome, type MapState } from "../lib/expedition-map";
 import { openNarrativeStep, fetchNarrativeEvent, type NarrativeEvent } from "../lib/narrative";
 import { NarrativeStepPanel } from "../components/NarrativeStepPanel";
 import { raccordFor } from "../lib/raccords";
@@ -1598,6 +1598,9 @@ function Index() {
   const heldIdx = hold.exp === holdExp ? Math.min(hold.settled, stepIndex) : stepIndex;
   const settleHold = (i: number) => setHold((h) => (h.settled >= i ? h : { ...h, settled: i }));
   const asyncDoneRef = useRef<number>(-1);
+  // SQL 175 : « OK » enregistré côté serveur. Sans résultat à lire, j'attends d'avoir quitté l'écran de combat avant de le confirmer.
+  const pendingAckRef = useRef<number | null>(null);
+  const [ackTick, setAckTick] = useState(0);
 
   // Musique par type d'étape (SQL 050) : narratif / combat / danger / boss ; vide = musique de la scène.
   // Si deux étapes de même type s'enchaînent, le choix ne change pas : la musique continue sans redémarrer.
@@ -2030,14 +2033,15 @@ function Index() {
         // Un combat déjà lancé (par un autre joueur, plus rapide) : on le rejoint, mais si on vient d'arriver dans l'étape
         // on affiche d'abord le résultat de l'étape précédente, sinon il était sauté pour les joueurs les plus lents.
         const combatAlreadyActive = latest?.status === "active";
-        if (combatAlreadyActive) {
-          const age = Date.now() - new Date(latest!.created_at).getTime();
-          if (idx === 0 || !(age < 130000)) { setActiveCombatId(latest!.id); return; } // page rechargée en plein combat : pas de résultat à rejouer
-        }
+        // Page rechargée en plein combat : pas de résultat à rejouer si j'ai déjà fait « OK » dessus (enregistré côté serveur, SQL 175).
+        if (combatAlreadyActive && (idx === 0 || (await hasAckedOutcome(expId, idx - 1, character.id)))) { setActiveCombatId(latest!.id); return; }
+        if (cancelled) return;
         if (idx > 0) {
           const prev = await fetchStepOutcome(expId, idx - 1);
           if (cancelled) return;
-          if (prev?.outcome_text) {
+          const alreadyAcked = prev?.outcome_text ? await hasAckedOutcome(expId, idx - 1, character.id) : false;
+          if (cancelled) return;
+          if (prev?.outcome_text && !alreadyAcked) {
             const nd = prev.outcome_data;
             const isNarr = !!prev.step_type && prev.step_type !== "legacy" && !!prev.id;
             const nameMap: Record<string, string> = Object.fromEntries(partyMembers.map((m) => [m.character_id, m.name]));
@@ -2092,7 +2096,11 @@ function Index() {
           if (!outcomeShown) {
             settleHold(idx);
             // Je n'ai pas (ou plus) de résultat à regarder : je ne dois pas faire attendre les autres sur le leur.
-            if (idx > 0) ackOutcomeRef.current(idx - 1);
+            if (idx > 0) {
+              ackOutcomeRef.current(idx - 1);
+              pendingAckRef.current = idx - 1;
+              setAckTick((t) => t + 1);
+            }
           }
         }
       }
@@ -2192,6 +2200,7 @@ function Index() {
   const allAcked = outIdx !== null && requiredIds.length > 0 && requiredIds.every((id) => leavingIds.includes(id));
   const closeOutcome = () => {
     if (!outcomeInfo || !character || iAcked) return;
+    if (activeExpedition) void ackOutcome(activeExpedition.id, outcomeInfo.stepIndex);
     addAck(outcomeInfo.stepIndex, character.id);
     void ackChannelRef.current?.send({ type: "broadcast", event: "ack", payload: { idx: outcomeInfo.stepIndex, cid: character.id } });
   };
@@ -2210,13 +2219,16 @@ function Index() {
     const t = window.setTimeout(() => setOutcomeInfo(null), 1700);
     return () => window.clearTimeout(t);
   }, [allAcked, outIdx]);
-  // Sécurités : un joueur absent ne bloque pas le groupe. 120 s sans « OK » → OK automatique ;
-  // 45 s après MON « OK », on passe à la suite même si quelqu'un n'a pas répondu.
+  // Résultat sans lecture (rien à afficher pour moi) : « OK » envoyé au serveur dès que je ne suis plus dans un combat ni devant un résultat.
   useEffect(() => {
-    if (!outcomeInfo) return;
-    const t = window.setTimeout(() => closeOutcomeRef.current(), 120000);
-    return () => window.clearTimeout(t);
-  }, [outcomeInfo]);
+    const i = pendingAckRef.current;
+    if (i === null || !activeExpedition || activeCombatId || outcomeInfo) return;
+    pendingAckRef.current = null;
+    void ackOutcome(activeExpedition.id, i);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ackTick, activeCombatId, !!outcomeInfo, activeExpedition?.id]);
+  // Sécurité : 45 s après MON « OK », mon écran passe à la suite (le serveur, lui, n'ouvre le vote que quand tout le monde a lu :
+  // un joueur absent est débloqué par le délai de sécurité du serveur, plus par un « OK » automatique à sa place).
   useEffect(() => {
     if (!iAcked || allAcked) return;
     const t = window.setTimeout(() => setOutcomeInfo(null), 45000);
