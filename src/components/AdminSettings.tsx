@@ -6,11 +6,41 @@ import { scenesClient } from "../lib/scenes-supabase";
 
 type Setting = { key: string; value: number; note: string };
 
-const GROUPS: [string, string][] = [
-  ["loot_", "Butin (flouz, armes de monstres, dés)"],
-  ["weapon_", "Armes (durabilité…)"],
-  ["forge_", "Forge"],
-  ["combat_", "Combat"],
+// Réglages que plus aucune fonction du serveur ne lit (audit 83 + SQL 172/173) : gardés visibles mais signalés, à supprimer au prochain nettoyage.
+const OBSOLETE = new Set([
+  "xp_boss", "xp_per_chef", "xp_per_monster", // remplacés par xp_combat_* (SQL 172)
+  "map_chef_gold", "map_elite_gold", // remplacés par map_chef_gold_min/max et map_elite_gold_min/max
+  "extra_player_extra_monsters", // le nombre de monstres suit le nombre de joueurs, ce réglage n'est lu nulle part
+]);
+// Pas retrouvés dans le code serveur lu : à confirmer avant de les supprimer.
+const TO_CHECK = new Set(["default_group_size", "map_chef_weapons", "companion_rest_small", "companion_rest_medium", "companion_rest_large"]);
+
+// Groupes, dans l'ordre : le premier qui correspond gagne. `hint` explique comment les réglages se combinent.
+const GROUPS: { title: string; hint?: string; test: (k: string) => boolean }[] = [
+  {
+    title: "Difficulté — P'tite Balade",
+    hint: "Peps (ou dégâts) d'un monstre normal/élite/chef = base de l'étape × monster_hp_scale (monster_damage_scale) × taille du groupe × short_hp_mult (short_damage_mult) × map_normal_* × map_élite_* ou map_chef_* × court_<type>_hp_mult (court_<type>_dmg_mult). Le boss : (150 + 18 × expedition_length) × boss_hp_scale × groupe × short_* × court_boss_*.",
+    test: (k) => k.startsWith("court_") || k.startsWith("short_") || k === "expedition_length" || k === "map_layers_court" || k === "map_narrative_layer_1" || k === "map_narrative_layer_2" || k === "map_clairiere_max",
+  },
+  {
+    title: "Difficulté — Grand Safari",
+    hint: "Comme la Balade, mais avec long_<type>_hp_mult / long_<type>_dmg_mult, une étape ramenée par long_step_scale + long_step_offset (plafond long_step_cap) et un boss dont la taille vient de long_boss_n (14 = comme le boss de la Balade). short_* ne touche PAS le Safari.",
+    test: (k) => k.startsWith("long_") || k.startsWith("map_combat_layer_long_") || k.startsWith("map_narr_long_") || k === "map_layers_long" || k === "map_camp_layer_long" || k === "map_clairiere_max_long" || k === "map_extra_combat_long" || k === "map_marchand_chance" || k === "map_tripot_chance",
+  },
+  {
+    title: "Difficulté — communs aux deux expéditions",
+    hint: "S'appliquent à la Balade ET au Safari : échelle de base des monstres, bonus de groupe, type de case (élite/chef), visées des monstres.",
+    test: (k) => ["monster_hp_scale", "monster_damage_scale", "boss_hp_scale", "monster_count_bonus", "mini_boss_hp_mult", "pv_scale", "pm_scale", "duo_extra_monsters", "default_group_size", "enemy_focus_tank", "enemy_focus_weak", "map_normal_hp", "map_normal_dmg", "map_elite_hp", "map_elite_dmg", "map_chef_hp", "map_chef_dmg", "map_elite_chance", "chef_damage_bonus"].includes(k) || k.startsWith("extra_player_") || k.startsWith("missing_player_"),
+  },
+  { title: "Boss, techniques et invocations des monstres", test: (k) => k.startsWith("boss_") || k.startsWith("summon_") || k.startsWith("tech_") || k.startsWith("monster_tech_") || k === "coup_marque_mult" || k === "monster_poison_dmg" || k === "tir_desarmant_mult" },
+  { title: "XP et niveaux", test: (k) => k.startsWith("xp_") || k.startsWith("event_xp_") || k === "quest_xp" || k.startsWith("map_xp_") || k.endsWith("_lvl_bump") || k.includes("_lvl_gain_") || k === "level_axis_choice" || k.startsWith("talent_") },
+  { title: "Flouz, butin et dés", test: (k) => k.startsWith("loot_") || k.endsWith("_gold") || k.includes("_gold_") || k.startsWith("booster_") || k.startsWith("daily_gold_") || k.startsWith("death_") || k === "pot_extra_player" || k.startsWith("potion_w_") || k.startsWith("map_chef_") && k.includes("chance") || k.startsWith("map_elite_potion") || k.startsWith("map_elite_w_") || k === "map_chef_weapons" || k === "consumable_stack_max" },
+  { title: "Armes, forge, boutique et réparation", test: (k) => k.startsWith("weapon_") || k.startsWith("forge_") || k.startsWith("shop_") || k.startsWith("repair_") || k.startsWith("monster_w_") },
+  { title: "Compagnons", test: (k) => k.startsWith("companion_") },
+  { title: "Marchand itinérant, Tripot et Camp", test: (k) => k.startsWith("merchant_") || k.startsWith("map_merchant_") || k.startsWith("tripot_") || k.startsWith("camp_") },
+  { title: "Carte : forme des expéditions", test: (k) => k.startsWith("map_") || k.startsWith("expedition_") || k.startsWith("step_weight_") || k.startsWith("outcome_") },
+  { title: "Rencontres écrites et événements", test: (k) => k.startsWith("event_") || k.startsWith("community_event_") },
+  { title: "Soins, potions et combat", test: (k) => k.startsWith("combat_") || k.startsWith("heal_") || k.startsWith("potion_") || k.startsWith("scroll_") || k.endsWith("_mult") || ["rage_bonus", "warcry_bonus", "permadeath_enabled", "pm_regen_per_step"].includes(k) },
 ];
 
 export function AdminSettings() {
@@ -50,12 +80,12 @@ export function AdminSettings() {
 
   const shown = useMemo(() => rows.filter((r) => !filter || (r.key + " " + r.note).toLowerCase().includes(filter.toLowerCase())), [rows, filter]);
   const grouped = useMemo(() => {
-    const out: { title: string; items: Setting[] }[] = [];
+    const out: { title: string; hint?: string | undefined; items: Setting[] }[] = [];
     const used = new Set<string>();
-    for (const [prefix, title] of GROUPS) {
-      const items = shown.filter((r) => r.key.startsWith(prefix));
+    for (const g of GROUPS) {
+      const items = shown.filter((r) => !used.has(r.key) && g.test(r.key));
       items.forEach((i) => used.add(i.key));
-      if (items.length) out.push({ title, items });
+      if (items.length) out.push({ title: g.title, hint: g.hint, items });
     }
     const rest = shown.filter((r) => !used.has(r.key));
     if (rest.length) out.push({ title: "Autres réglages", items: rest });
@@ -72,15 +102,20 @@ export function AdminSettings() {
       <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filtrer…" className="mb-3 w-full rounded bg-neutral-800 px-2 py-1" />
       {msg && <div className="mb-2 rounded bg-neutral-800 px-2 py-1 text-xs">{msg}</div>}
       {grouped.map((g) => (
-        <div key={g.title} className="mb-4">
-          <div className="mb-1 font-bold text-amber-400">{g.title}</div>
+        <details key={g.title} className="mb-3" open={!!filter}>
+          <summary className="mb-1 cursor-pointer font-bold text-amber-400">{g.title} <span className="text-xs font-normal text-neutral-500">({g.items.length})</span></summary>
+          {g.hint && <div className="mb-2 rounded bg-neutral-800 p-2 text-xs text-neutral-300">{g.hint}</div>}
           {g.items.map((s) => {
             const cur = edit[s.key];
             const dirty = cur !== undefined && cur !== String(s.value);
             return (
               <div key={s.key} className="mb-1 flex items-center gap-2 rounded bg-neutral-900 p-2">
                 <div className="min-w-0 flex-1">
-                  <div className="font-mono text-xs text-neutral-300">{s.key}</div>
+                  <div className="font-mono text-xs text-neutral-300">
+                    {s.key}
+                    {OBSOLETE.has(s.key) && <span className="ml-2 rounded bg-red-900 px-1 text-[10px] font-bold text-red-200">OBSOLÈTE : plus lu par le jeu</span>}
+                    {TO_CHECK.has(s.key) && <span className="ml-2 rounded bg-neutral-700 px-1 text-[10px] font-bold text-amber-200">à confirmer : pas retrouvé dans le code</span>}
+                  </div>
                   <div className="text-xs text-neutral-400">{s.note}</div>
                 </div>
                 <input
@@ -95,7 +130,7 @@ export function AdminSettings() {
               </div>
             );
           })}
-        </div>
+        </details>
       ))}
     </div>
   );
