@@ -699,9 +699,9 @@ export function ExpeditionBattle({
           </div>
         )}
 
-      {/* Nom de l'action en cours au milieu de l'écran : on sait qui fait quoi (sort, saignement, exécution…) et pour combien. */}
-      {replaying && current?.ev && current.text ? (
-        <div key={current.id} className="pointer-events-none absolute left-1/2 top-[14%] z-30 -translate-x-1/2 rounded-lg border border-white/20 bg-black/75 px-4 py-1.5 text-center text-sm font-extrabold text-[#fff3d6] shadow-lg" style={{ maxWidth: "70%" }}>
+      {/* Une seule ligne, centrée : qui fait quoi et pour combien. */}
+      {current?.text ? (
+        <div key={current.id} className="pointer-events-none absolute left-1/2 top-[38%] z-30 -translate-x-1/2 rounded-lg border border-white/20 bg-black/75 px-4 py-1.5 text-center text-sm font-extrabold text-[#fff3d6] shadow-lg" style={{ maxWidth: "70%" }}>
           {current.text}
         </div>
       ) : null}
@@ -711,12 +711,6 @@ export function ExpeditionBattle({
         </div>
       )}
 
-      {/* Texte de l'action en cours de rejeu */}
-      {current && (
-        <div className="absolute left-1/2 top-[11%] z-30 -translate-x-1/2 rounded-lg bg-black/70 px-4 py-1.5 text-center text-sm font-bold text-[#fff3d6]">
-          {current.text}
-        </div>
-      )}
 
       {/* Groupe à gauche */}
       {orderAlliesForViewer(allies, characterId).map((a, i) => {

@@ -1,4 +1,4 @@
-// Tripot du Grand Safari (SQL 156) : une seule partie par personne, avec les flouz trouvés pendant l'expédition.
+// Tripot du Grand Safari (SQL 156) : une seule partie par personne, avec les flouz de ta bourse.
 // Le serveur lance le dé ; tout le monde voit la mise et le jet de chacun. Le groupe repart ensuite par le vote habituel.
 import { useEffect, useRef, useState } from "react";
 import { uiSound } from "../lib/ui-sounds";
@@ -53,10 +53,10 @@ export function TripotPanel({ expeditionId, characterId }: { expeditionId: strin
   }
 
   return (
-    <div className="absolute right-2 top-14 z-30 w-[min(21rem,50%)] rounded-lg border-2 border-[#7a4a22] bg-[#f1dfb6]/95 p-3 text-[#3a2410] shadow-xl" style={{ fontFamily: "'Baloo 2', cursive" }} onClick={(e) => e.stopPropagation()}>
+    <div className="absolute left-1/2 top-[58%] z-30 w-[min(21rem,94%)] -translate-x-1/2 md:left-[71%] md:w-[min(21rem,46%)] rounded-lg border-2 border-[#7a4a22] bg-[#f1dfb6]/95 p-3 text-[#3a2410] shadow-xl" style={{ fontFamily: "'Baloo 2', cursive" }} onClick={(e) => e.stopPropagation()}>
       <div className="text-base font-extrabold">🎲 Tripot clandestin</div>
       <div className="text-xs leading-snug">
-        Un coin sombre, des dés, des sourires en coin. <b>Une seule partie par personne</b>, et seulement avec les <b>flouz trouvés pendant cette expédition</b> (jamais ceux du village).
+        Un coin sombre, des dés, des sourires en coin. <b>Une seule partie par personne</b>, avec les <b>flouz de ta bourse</b> (ceux de ton sac) : ce que tu perds ou gagnes ici, tu le perds ou le gagnes pour de bon.
       </div>
       {st && (
         <div className="mt-1.5 rounded border border-[#7a4a22]/50 bg-white/40 p-1.5 text-xs leading-snug">
@@ -68,7 +68,7 @@ export function TripotPanel({ expeditionId, characterId }: { expeditionId: strin
       )}
       {st && !mine && (
         <div className="mt-2 space-y-1">
-          <div className="text-xs">Tu as <b>{gold} flouz</b> de cette expédition.</div>
+          <div className="text-xs">Tu as <b>{gold} flouz</b> dans ta bourse.</div>
           <div className="flex flex-wrap items-center gap-1">
             <input
               type="number"
