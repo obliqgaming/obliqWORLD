@@ -1,4 +1,4 @@
-// Marchand itinérant Boursejoufflue (SQL 156) : prix doublés, payés avec les flouz trouvés pendant l'expédition.
+// Marchand itinérant Boursejoufflue (SQL 156) : prix doublés, payés avec les flouz de ta bourse.
 import { useEffect, useRef, useState } from "react";
 import { uiSound } from "../lib/ui-sounds";
 import { CONSUMABLE_INFO, type ConsumableKind } from "../lib/consumables";
@@ -42,7 +42,7 @@ export function TravelMerchantPanel({ expeditionId }: { expeditionId: string }) 
         <div className="text-base font-extrabold leading-tight">🛒 Boursejoufflue, marchand itinérant</div>
       </div>
       <div className="mt-1 text-xs leading-snug">
-        « Prix doublés, mais pas de file d'attente ! » Tu paies avec les <b>flouz trouvés pendant cette expédition</b> : <b>{st?.gold ?? 0} flouz</b>. Comme le butin, ce que tu achètes est perdu si tu meurs.
+        « Prix doublés, mais pas de file d'attente ! » Tu paies avec les <b>flouz de ta bourse</b> : <b>{st?.gold ?? 0} flouz</b>. Comme le butin, ce que tu achètes est perdu si tu meurs.
       </div>
       <div className="mt-2 space-y-1.5">
         {(st?.offers ?? []).map((o) => {
