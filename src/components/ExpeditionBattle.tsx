@@ -43,26 +43,51 @@ import { leaveScenePresence, scenesClient, type PresenceChannel } from "../lib/s
 
 const ROLE_LABEL: Record<string, string> = { chef: "Chef de meute", boss: "Chef-Patron", add: "Invoqué", normal: "" };
 
-/** Effets actifs (poison, gel, bouclier, bonus…) lus dans le statut du combattant, pour les afficher sous son nom. */
-function statusEffects(status: Record<string, unknown> | null | undefined): { icon: string; label: string; info: string }[] {
+/** Effets actifs (saignement, gel, bouclier, bonus…) lus dans le statut du combattant. Une icône par effet (images dans public/icons/status, à remplacer par tes dessins au même nom). */
+function statusEffects(status: Record<string, unknown> | null | undefined): { icon: string; label: string; info: string; count?: number | undefined }[] {
   const st = status ?? {};
   const num = (k: string) => { const v = Number(st[k]); return Number.isFinite(v) ? v : 0; };
-  const out: { icon: string; label: string; info: string }[] = [];
+  const out: { icon: string; label: string; info: string; count?: number | undefined }[] = [];
   // Le poison des sorts et le saignement des armes sont rangés dans la même liste côté serveur : on les affiche ensemble.
   const poison = st["poison"];
   if (Array.isArray(poison) && poison.length > 0) {
     const perTurn = poison.reduce((sum: number, x) => sum + (Number((x as { d?: unknown })?.d) || 0), 0);
-    out.push({ icon: "🩸", label: `Saignement / poison${perTurn > 0 ? ` −${Math.round(perTurn)}` : ""}${poison.length > 1 ? ` (×${poison.length})` : ""}`, info: "Perd des peps au début de chaque tour, tant que l'effet dure (saignement d'une arme ou poison d'un sort)." });
+    out.push({ icon: "saignement", label: "Saignement / poison", info: `Perd ${perTurn > 0 ? Math.round(perTurn) + " peps" : "des peps"} au début de chaque tour, tant que l'effet dure (saignement d'une arme ou poison d'un sort).`, count: poison.length > 1 ? poison.length : undefined });
   }
-  if (num("chill") > 0) out.push({ icon: "❄", label: `Gelé (${num("chill")} t)`, info: "Ralenti et affaibli pendant quelques tours." });
-  if (st["mark"]) out.push({ icon: "🎯", label: "Marqué", info: "Désigné comme cible : il subit plus de dégâts." });
-  if (num("rage") > 0) out.push({ icon: "🔥", label: "Rage", info: "Frappe plus fort tant qu'il est enragé." });
-  if (num("shield") > 0) out.push({ icon: "🛡", label: `Bouclier ${num("shield")}`, info: "Absorbe des dégâts avant de toucher les peps." });
-  if (num("resist_turns") > 0) out.push({ icon: "🧪", label: `Résistance (${num("resist_turns")} t)`, info: "Les dégâts reçus sont réduits pendant quelques tours." });
-  if (num("scroll_turns") > 0) out.push({ icon: "📜", label: `Parchemin (${num("scroll_turns")} t)`, info: "Dégâts augmentés pendant quelques tours." });
-  if (num("warcry") > 0) out.push({ icon: "📣", label: `Cri de guerre (${num("warcry")} t)`, info: "Dégâts augmentés pendant quelques tours." });
-  if (st["rallied"] === true) out.push({ icon: "📯", label: "Ralliés", info: "Le cri du chef a rallié la meute : elle frappe plus fort." });
+  if (num("chill") > 0) out.push({ icon: "gel", label: "Gelé", info: `Ralenti et affaibli encore ${num("chill")} tour(s).`, count: num("chill") });
+  if (st["mark"]) out.push({ icon: "marque", label: "Marqué", info: "Désigné comme cible : il subit plus de dégâts." });
+  if (num("rage") > 0) out.push({ icon: "rage", label: "Rage", info: "Frappe plus fort tant qu'il est enragé." });
+  if (num("shield") > 0) out.push({ icon: "bouclier", label: "Bouclier", info: `Absorbe ${num("shield")} dégâts avant de toucher les peps.`, count: num("shield") });
+  if (num("resist_turns") > 0) out.push({ icon: "resistance", label: "Résistance", info: `Dégâts reçus réduits encore ${num("resist_turns")} tour(s).`, count: num("resist_turns") });
+  if (num("scroll_turns") > 0) out.push({ icon: "parchemin", label: "Parchemin", info: `Dégâts augmentés encore ${num("scroll_turns")} tour(s).`, count: num("scroll_turns") });
+  if (num("warcry") > 0) out.push({ icon: "cri_guerre", label: "Cri de guerre", info: `Dégâts augmentés encore ${num("warcry")} tour(s).`, count: num("warcry") });
+  if (st["rallied"] === true) out.push({ icon: "ralliement", label: "Ralliés", info: "Le cri du chef a rallié la meute : elle frappe plus fort." });
   return out;
+}
+
+/** Une icône d'effet actif : au survol, au clic ou au toucher, un cadre parchemin donne le nom et la description. */
+function EffectIcon({ icon, label, info, count }: { icon: string; label: string; info: string; count?: number | undefined }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span
+      className="relative inline-flex h-6 w-6 cursor-help items-center justify-center rounded-full border border-[#7a4a22] bg-[#f1dfb6]/90"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
+    >
+      <img src={`/icons/status/${icon}.svg`} alt={label} draggable={false} className="h-[18px] w-[18px]" />
+      {count !== undefined ? <span className="absolute -bottom-1 -right-1 rounded-full bg-[#2b1406] px-[3px] text-[8px] font-extrabold leading-tight text-[#fff3d6]">{count}</span> : null}
+      {open ? (
+        <span
+          className="pointer-events-none absolute bottom-full left-1/2 z-[70] mb-1 w-44 -translate-x-1/2 whitespace-normal rounded-lg border-2 border-[#7a4a22] bg-[#f1dfb6] px-2 py-1.5 text-center text-[11px] font-semibold leading-snug text-[#3a2410] shadow-xl"
+          style={{ fontFamily: "'Baloo 2', cursive" }}
+        >
+          <b className="block text-[12px]">{label}</b>
+          {info}
+        </span>
+      ) : null}
+    </span>
+  );
 }
 
 /** Technique d'un monstre : la description s'ouvre au survol, au clic ou au toucher, dans un cadre parchemin (le « title » du navigateur n'apparaît pas chez tout le monde). */
@@ -865,8 +890,8 @@ export function ExpeditionBattle({
                 </div>
               ) : null}
               {!dead && statusEffects(en.status).length > 0 ? (
-                <div className="pointer-events-auto mt-0.5 flex flex-wrap justify-center gap-x-1 text-[9px] font-bold leading-none text-[#fde68a]">
-                  {statusEffects(en.status).map((x) => <TechChip key={x.label} icon={x.icon} label={x.label} info={x.info} />)}
+                <div className="pointer-events-auto mt-0.5 flex flex-wrap justify-center gap-1">
+                  {statusEffects(en.status).map((x) => <EffectIcon key={x.icon} {...x} />)}
                 </div>
               ) : null}
               {!dead && !replaying && target ? <div className="mt-0.5 whitespace-nowrap text-[10px] leading-none text-[#fca5a5]">vise {target.name}</div> : null}
@@ -907,7 +932,7 @@ export function ExpeditionBattle({
                 </div>
                 <HpBar current={hp} max={a.hpMax} />
                 {a.pmMax ? <div className="mt-0.5 text-[10px] font-bold text-[#93c5fd]">Jus {a.pmCurrent ?? 0}/{a.pmMax}</div> : null}
-                {(() => { const fx = statusEffects(snap?.players.find((p) => p.character_id === a.characterId)?.status); return fx.length > 0 ? <div className="mt-0.5 flex flex-wrap gap-x-1 text-[9px] font-bold text-[#fde68a]">{fx.map((x) => <TechChip key={x.label} icon={x.icon} label={x.label} info={x.info} />)}</div> : null; })()}
+                {(() => { const fx = statusEffects(snap?.players.find((p) => p.character_id === a.characterId)?.status); return fx.length > 0 ? <div className="mt-0.5 flex flex-wrap gap-1">{fx.map((x) => <EffectIcon key={x.icon} {...x} />)}</div> : null; })()}
                 {a.companion ? <div className="text-[10px] font-bold text-[#fcd34d]">🐾 {a.companion.name} {a.companion.hp}/{a.companion.hp_max}</div> : null}
               </div>
             </div>
