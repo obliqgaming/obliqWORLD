@@ -43,8 +43,26 @@ import { leaveScenePresence, scenesClient, type PresenceChannel } from "../lib/s
 
 const ROLE_LABEL: Record<string, string> = { chef: "Chef de meute", boss: "Chef-Patron", add: "Invoqué", normal: "" };
 
+/** Effets actifs (poison, gel, bouclier, bonus…) lus dans le statut du combattant, pour les afficher sous son nom. */
+function statusEffects(status: Record<string, unknown> | null | undefined): { icon: string; label: string; info: string }[] {
+  const st = status ?? {};
+  const num = (k: string) => { const v = Number(st[k]); return Number.isFinite(v) ? v : 0; };
+  const out: { icon: string; label: string; info: string }[] = [];
+  const poison = st["poison"];
+  if (Array.isArray(poison) && poison.length > 0) out.push({ icon: "☠", label: poison.length > 1 ? `Poison ×${poison.length}` : "Poison", info: "Perd des peps au début de chaque tour, tant que le poison dure." });
+  if (num("chill") > 0) out.push({ icon: "❄", label: `Gelé (${num("chill")} t)`, info: "Ralenti et affaibli pendant quelques tours." });
+  if (st["mark"]) out.push({ icon: "🎯", label: "Marqué", info: "Désigné comme cible : il subit plus de dégâts." });
+  if (num("rage") > 0) out.push({ icon: "🔥", label: "Rage", info: "Frappe plus fort tant qu'il est enragé." });
+  if (num("shield") > 0) out.push({ icon: "🛡", label: `Bouclier ${num("shield")}`, info: "Absorbe des dégâts avant de toucher les peps." });
+  if (num("resist_turns") > 0) out.push({ icon: "🧪", label: `Résistance (${num("resist_turns")} t)`, info: "Les dégâts reçus sont réduits pendant quelques tours." });
+  if (num("scroll_turns") > 0) out.push({ icon: "📜", label: `Parchemin (${num("scroll_turns")} t)`, info: "Dégâts augmentés pendant quelques tours." });
+  if (num("warcry") > 0) out.push({ icon: "📣", label: `Cri de guerre (${num("warcry")} t)`, info: "Dégâts augmentés pendant quelques tours." });
+  if (st["rallied"] === true) out.push({ icon: "📯", label: "Ralliés", info: "Le cri du chef a rallié la meute : elle frappe plus fort." });
+  return out;
+}
+
 /** Technique d'un monstre : la description s'ouvre au survol, au clic ou au toucher, dans un cadre parchemin (le « title » du navigateur n'apparaît pas chez tout le monde). */
-function TechChip({ label, info }: { label: string; info: string }) {
+function TechChip({ label, info, icon = "✦" }: { label: string; info: string; icon?: string }) {
   const [open, setOpen] = useState(false);
   return (
     <span
@@ -53,7 +71,7 @@ function TechChip({ label, info }: { label: string; info: string }) {
       onMouseLeave={() => setOpen(false)}
       onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
     >
-      ✦ {label}
+      {icon} {label}
       {open ? (
         <span
           className="pointer-events-none absolute bottom-full left-1/2 z-[70] mb-1 w-44 -translate-x-1/2 whitespace-normal rounded-lg border-2 border-[#7a4a22] bg-[#f1dfb6] px-2 py-1.5 text-center text-[11px] font-semibold leading-snug text-[#3a2410] shadow-xl"
@@ -842,6 +860,11 @@ export function ExpeditionBattle({
                   {enemyTechs(en.status).map((k) => <TechChip key={k} label={TECH_INFO[k]!.label} info={TECH_INFO[k]!.info} />)}
                 </div>
               ) : null}
+              {!dead && statusEffects(en.status).length > 0 ? (
+                <div className="pointer-events-auto mt-0.5 flex flex-wrap justify-center gap-x-1 text-[9px] font-bold leading-none text-[#fde68a]">
+                  {statusEffects(en.status).map((x) => <TechChip key={x.label} icon={x.icon} label={x.label} info={x.info} />)}
+                </div>
+              ) : null}
               {!dead && !replaying && target ? <div className="mt-0.5 whitespace-nowrap text-[10px] leading-none text-[#fca5a5]">vise {target.name}</div> : null}
             </div>
             {lookFor("e", en.id) && <FxOverlay key={"fx" + current!.id} look={lookFor("e", en.id)!} />}
@@ -868,7 +891,7 @@ export function ExpeditionBattle({
           return (
             <div key={a.characterId} className="flex items-center gap-2 text-xs">
               <img src={a.imageUrl} alt="" className="h-8 w-8 rounded-full bg-black/30 object-cover" />
-              <div className="flex-1 overflow-hidden">
+              <div className="min-w-0 flex-1">
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="truncate font-bold">
                     {a.name}
@@ -880,6 +903,7 @@ export function ExpeditionBattle({
                 </div>
                 <HpBar current={hp} max={a.hpMax} />
                 {a.pmMax ? <div className="mt-0.5 text-[10px] font-bold text-[#93c5fd]">Jus {a.pmCurrent ?? 0}/{a.pmMax}</div> : null}
+                {(() => { const fx = statusEffects(snap?.players.find((p) => p.character_id === a.characterId)?.status); return fx.length > 0 ? <div className="mt-0.5 flex flex-wrap gap-x-1 text-[9px] font-bold text-[#fde68a]">{fx.map((x) => <TechChip key={x.label} icon={x.icon} label={x.label} info={x.info} />)}</div> : null; })()}
                 {a.companion ? <div className="text-[10px] font-bold text-[#fcd34d]">🐾 {a.companion.name} {a.companion.hp}/{a.companion.hp_max}</div> : null}
               </div>
             </div>
