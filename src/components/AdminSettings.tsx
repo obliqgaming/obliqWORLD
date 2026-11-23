@@ -13,7 +13,7 @@ const OBSOLETE = new Set([
   "extra_player_extra_monsters", // le nombre de monstres suit le nombre de joueurs, ce réglage n'est lu nulle part
 ]);
 // Pas retrouvés dans le code serveur lu : à confirmer avant de les supprimer.
-const TO_CHECK = new Set(["default_group_size", "map_chef_weapons", "companion_rest_small", "companion_rest_medium", "companion_rest_large"]);
+const TO_CHECK = new Set<string>();
 
 // Groupes, dans l'ordre : le premier qui correspond gagne. `hint` explique comment les réglages se combinent.
 const GROUPS: { title: string; hint?: string; test: (k: string) => boolean }[] = [
