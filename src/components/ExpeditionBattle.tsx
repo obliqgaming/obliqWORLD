@@ -43,6 +43,30 @@ import { leaveScenePresence, scenesClient, type PresenceChannel } from "../lib/s
 
 const ROLE_LABEL: Record<string, string> = { chef: "Chef de meute", boss: "Chef-Patron", add: "Invoqué", normal: "" };
 
+/** Technique d'un monstre : la description s'ouvre au survol, au clic ou au toucher, dans un cadre parchemin (le « title » du navigateur n'apparaît pas chez tout le monde). */
+function TechChip({ label, info }: { label: string; info: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span
+      className="relative cursor-help whitespace-nowrap rounded bg-black/40 px-1 py-0.5"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
+    >
+      ✦ {label}
+      {open ? (
+        <span
+          className="pointer-events-none absolute bottom-full left-1/2 z-[70] mb-1 w-44 -translate-x-1/2 whitespace-normal rounded-lg border-2 border-[#7a4a22] bg-[#f1dfb6] px-2 py-1.5 text-center text-[11px] font-semibold leading-snug text-[#3a2410] shadow-xl"
+          style={{ fontFamily: "'Baloo 2', cursive" }}
+        >
+          <b className="block text-[12px]">{label}</b>
+          {info}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
 /** Techniques des monstres (posées par le serveur dans combat_enemies.status.techs) : nom court + explication au survol. */
 const TECH_INFO: Record<string, { label: string; info: string }> = {
   enrage: { label: "Enragé", info: "Sous la moitié de ses PV, il frappe plus fort." },
@@ -815,7 +839,7 @@ export function ExpeditionBattle({
               <HpBar current={hp} max={en.pv_max} className="mt-0.5" label={`${hp}/${en.pv_max}`} />
               {!dead && enemyTechs(en.status).length > 0 ? (
                 <div className="pointer-events-auto mt-0.5 flex flex-wrap justify-center gap-x-1 text-[9px] font-bold leading-none text-[#fbbf24]">
-                  {enemyTechs(en.status).map((k) => <span key={k} title={TECH_INFO[k]!.info} className="cursor-help whitespace-nowrap rounded bg-black/40 px-1 py-0.5">✦ {TECH_INFO[k]!.label}</span>)}
+                  {enemyTechs(en.status).map((k) => <TechChip key={k} label={TECH_INFO[k]!.label} info={TECH_INFO[k]!.info} />)}
                 </div>
               ) : null}
               {!dead && !replaying && target ? <div className="mt-0.5 whitespace-nowrap text-[10px] leading-none text-[#fca5a5]">vise {target.name}</div> : null}
