@@ -471,6 +471,7 @@ function Index() {
   const [activeCombatId, setActiveCombatId] = useState<string | null>(null);
   const [combatError, setCombatError] = useState<string | null>(null);
   const [outcomeInfo, setOutcomeInfo] = useState<OutcomeInfo | null>(null);
+  const [outcomeRetry, setOutcomeRetry] = useState(0); // relance la lecture d'un résultat que le réseau n'a pas laissé lire
   const [endBanner, setEndBanner] = useState<{ title: string; text: string } | null>(null);
   const [axisChoice, setAxisChoice] = useState<{ axes: GameAxis[]; powers: GamePower[] } | null>(null);
   const [axisBusy, setAxisBusy] = useState(false);
@@ -2025,6 +2026,7 @@ function Index() {
     if (ev.id === "map-wait") return; // on ne sait pas encore si la carte est active
     let cancelled = false;
     let outcomeShown = false;
+    let outcomeReadFailed = false;
     (async () => {
       try {
         setCombatError(null);
@@ -2037,7 +2039,21 @@ function Index() {
         if (combatAlreadyActive && (idx === 0 || (await hasAckedOutcome(expId, idx - 1, character.id)))) { setActiveCombatId(latest!.id); return; }
         if (cancelled) return;
         if (idx > 0) {
-          const prev = await fetchStepOutcome(expId, idx - 1);
+          // Un réseau capricieux ne doit jamais faire sauter un résultat : on réessaie, et si la lecture échoue vraiment
+          // on ne fait PAS « OK » à la place du joueur (le serveur attend encore sa lecture).
+          let prev: Awaited<ReturnType<typeof fetchStepOutcome>> = null;
+          for (let attempt = 0; attempt < 6; attempt++) {
+            try {
+              prev = await fetchStepOutcome(expId, idx - 1);
+              outcomeReadFailed = false;
+              break;
+            } catch (err) {
+              outcomeReadFailed = true;
+              if (attempt === 5) console.error("fetchStepOutcome failed", err);
+              else await new Promise((r) => window.setTimeout(r, 1000));
+            }
+            if (cancelled) return;
+          }
           if (cancelled) return;
           const alreadyAcked = prev?.outcome_text ? await hasAckedOutcome(expId, idx - 1, character.id) : false;
           if (cancelled) return;
@@ -2096,7 +2112,9 @@ function Index() {
           if (!outcomeShown) {
             settleHold(idx);
             // Je n'ai pas (ou plus) de résultat à regarder : je ne dois pas faire attendre les autres sur le leur.
-            if (idx > 0) {
+            // (Pas si la lecture du résultat a échoué : je ne l'ai pas vu, je ne dis pas que je l'ai lu.)
+            if (idx > 0 && outcomeReadFailed) window.setTimeout(() => setOutcomeRetry((t) => t + 1), 3000);
+            if (idx > 0 && !outcomeReadFailed) {
               ackOutcomeRef.current(idx - 1);
               pendingAckRef.current = idx - 1;
               setAckTick((t) => t + 1);
@@ -2109,7 +2127,7 @@ function Index() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeExpedition?.id, activeExpedition?.current_step_index, activeExpedition?.status, inExpeditionScene, character?.id, mapKey === "wait"]);
+  }, [activeExpedition?.id, activeExpedition?.current_step_index, activeExpedition?.status, inExpeditionScene, character?.id, mapKey === "wait", outcomeRetry]);
 
   // Carte : le chemin vient d'être choisi (combat, élite ou boss) : on lance le combat. Les autres nœuds sont gérés par le serveur ou la rencontre.
   useEffect(() => {
