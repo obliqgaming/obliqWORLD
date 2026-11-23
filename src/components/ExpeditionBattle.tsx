@@ -48,8 +48,12 @@ function statusEffects(status: Record<string, unknown> | null | undefined): { ic
   const st = status ?? {};
   const num = (k: string) => { const v = Number(st[k]); return Number.isFinite(v) ? v : 0; };
   const out: { icon: string; label: string; info: string }[] = [];
+  // Le poison des sorts et le saignement des armes sont rangés dans la même liste côté serveur : on les affiche ensemble.
   const poison = st["poison"];
-  if (Array.isArray(poison) && poison.length > 0) out.push({ icon: "☠", label: poison.length > 1 ? `Poison ×${poison.length}` : "Poison", info: "Perd des peps au début de chaque tour, tant que le poison dure." });
+  if (Array.isArray(poison) && poison.length > 0) {
+    const perTurn = poison.reduce((sum: number, x) => sum + (Number((x as { d?: unknown })?.d) || 0), 0);
+    out.push({ icon: "🩸", label: `Saignement / poison${perTurn > 0 ? ` −${Math.round(perTurn)}` : ""}${poison.length > 1 ? ` (×${poison.length})` : ""}`, info: "Perd des peps au début de chaque tour, tant que l'effet dure (saignement d'une arme ou poison d'un sort)." });
+  }
   if (num("chill") > 0) out.push({ icon: "❄", label: `Gelé (${num("chill")} t)`, info: "Ralenti et affaibli pendant quelques tours." });
   if (st["mark"]) out.push({ icon: "🎯", label: "Marqué", info: "Désigné comme cible : il subit plus de dégâts." });
   if (num("rage") > 0) out.push({ icon: "🔥", label: "Rage", info: "Frappe plus fort tant qu'il est enragé." });
