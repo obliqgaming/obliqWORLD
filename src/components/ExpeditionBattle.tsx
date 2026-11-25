@@ -128,6 +128,7 @@ const TECH_INFO: Record<string, { label: string; info: string }> = {
   phase2: { label: "Rage", info: "Sous la moitié de ses PV, il frappe plus fort et ses attaques de zone reviennent plus souvent." },
   seconde_action: { label: "Seconde frappe", info: "Blessé, il frappe aussi un autre joueur un tour sur deux." },
   charge_preparee: { label: "Coup dévastateur", info: "Blessé, il prépare un coup terrible : il l'annonce deux tours à l'avance. Provocation, Piège, tir désarmant, gel ou Camouflage peuvent l'atténuer." },
+  venin: { label: "Venin", info: "Il empoisonne un joueur un tour sur deux et se soigne tant qu'au moins un joueur est empoisonné. La Purification du Prêtre retire les poisons ; un combat rapide l'empêche de se refaire." },
   bouclier_garde: { label: "Bouclier des gardes", info: "Tant que ses gardes sont en vie, il subit moins de dégâts : chaque garde vivant réduit les coups qu'il reçoit. À toi de choisir : éliminer les gardes d'abord ou le frapper malgré le bouclier." },
 };
 
@@ -137,6 +138,13 @@ function bossGuardShield(en: { role: string; status: Record<string, unknown> | n
   const guards = enemies.filter((x) => x.role === "add" && x.axis_key === "guerrier" && x.pv_current > 0).length;
   if (guards <= 0) return null;
   return { icon: "garde", label: "Bouclier des gardes", info: `Il subit moins de dégâts tant que ses gardes sont vivants (${guards} en vie). Élimine-les pour lever le bouclier.`, count: guards };
+}
+/** Venin du boss : icône tant qu'au moins un joueur est empoisonné (le boss se soigne alors). */
+function bossVenom(en: { role: string; status: Record<string, unknown> | null | undefined }, players: { status?: Record<string, unknown> | null }[]): { icon: string; label: string; info: string; count?: number | undefined } | null {
+  if (en.role !== "boss" || !enemyTechs(en.status).includes("venin")) return null;
+  const n = players.filter((p) => Array.isArray(p.status?.["poison"]) && (p.status!["poison"] as unknown[]).length > 0).length;
+  if (n <= 0) return null;
+  return { icon: "venin", label: "Il se nourrit du poison", info: `Il récupère des PV à chaque tour tant que des joueurs sont empoisonnés (${n} en ce moment). Une Purification le prive de ce soin.`, count: n };
 }
 function enemyTechs(status: Record<string, unknown> | null | undefined): string[] {
   // Techniques de départ (techs) + techniques du profil de combat tiré (profile_techs), sans doublon.
@@ -902,9 +910,10 @@ export function ExpeditionBattle({
                   {enemyTechs(en.status).map((k) => <TechChip key={k} label={TECH_INFO[k]!.label} info={TECH_INFO[k]!.info} />)}
                 </div>
               ) : null}
-              {!dead && (statusEffects(en.status).length > 0 || bossGuardShield(en, snap?.enemies ?? [])) ? (
+              {!dead && (statusEffects(en.status).length > 0 || bossGuardShield(en, snap?.enemies ?? []) || bossVenom(en, snap?.players ?? [])) ? (
                 <div className="pointer-events-auto mt-0.5 flex flex-wrap justify-center gap-1">
                   {(() => { const gs = bossGuardShield(en, snap?.enemies ?? []); return gs ? <EffectIcon key={gs.icon} {...gs} /> : null; })()}
+                  {(() => { const vn = bossVenom(en, snap?.players ?? []); return vn ? <EffectIcon key={vn.icon} {...vn} /> : null; })()}
                   {statusEffects(en.status).map((x) => <EffectIcon key={x.icon} {...x} />)}
                 </div>
               ) : null}
