@@ -125,7 +125,16 @@ const TECH_INFO: Record<string, { label: string; info: string }> = {
   escorte: { label: "Escorte", info: "Il arrive accompagné de gardes." },
   coup_marque: { label: "Coup marqué", info: "Il annonce un coup sur un joueur, puis frappe très fort au tour suivant. Une Provocation le détourne." },
   phase2: { label: "Rage", info: "Sous la moitié de ses PV, il frappe plus fort et ses attaques de zone reviennent plus souvent." },
+  bouclier_garde: { label: "Bouclier des gardes", info: "Tant que ses gardes sont en vie, il subit moins de dégâts : chaque garde vivant réduit les coups qu'il reçoit. À toi de choisir : éliminer les gardes d'abord ou le frapper malgré le bouclier." },
 };
+
+/** Bouclier des gardes du boss : actif tant qu'au moins un garde de l'escorte est vivant (le serveur applique la réduction ; ici on l'affiche sans chiffre, pour suivre les réglages). */
+function bossGuardShield(en: { role: string; status: Record<string, unknown> | null | undefined }, enemies: { role: string; axis_key: string | null; pv_current: number }[]): { icon: string; label: string; info: string; count?: number | undefined } | null {
+  if (en.role !== "boss" || !enemyTechs(en.status).includes("bouclier_garde")) return null;
+  const guards = enemies.filter((x) => x.role === "add" && x.axis_key === "guerrier" && x.pv_current > 0).length;
+  if (guards <= 0) return null;
+  return { icon: "garde", label: "Bouclier des gardes", info: `Il subit moins de dégâts tant que ses gardes sont vivants (${guards} en vie). Élimine-les pour lever le bouclier.`, count: guards };
+}
 function enemyTechs(status: Record<string, unknown> | null | undefined): string[] {
   const t = status?.["techs"];
   return Array.isArray(t) ? t.filter((x): x is string => typeof x === "string" && !!TECH_INFO[x]) : [];
@@ -889,8 +898,9 @@ export function ExpeditionBattle({
                   {enemyTechs(en.status).map((k) => <TechChip key={k} label={TECH_INFO[k]!.label} info={TECH_INFO[k]!.info} />)}
                 </div>
               ) : null}
-              {!dead && statusEffects(en.status).length > 0 ? (
+              {!dead && (statusEffects(en.status).length > 0 || bossGuardShield(en, snap?.enemies ?? [])) ? (
                 <div className="pointer-events-auto mt-0.5 flex flex-wrap justify-center gap-1">
+                  {(() => { const gs = bossGuardShield(en, snap?.enemies ?? []); return gs ? <EffectIcon key={gs.icon} {...gs} /> : null; })()}
                   {statusEffects(en.status).map((x) => <EffectIcon key={x.icon} {...x} />)}
                 </div>
               ) : null}
