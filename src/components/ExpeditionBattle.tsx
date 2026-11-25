@@ -61,6 +61,7 @@ function statusEffects(status: Record<string, unknown> | null | undefined): { ic
   if (num("resist_turns") > 0) out.push({ icon: "resistance", label: "Résistance", info: `Dégâts reçus réduits encore ${num("resist_turns")} tour(s).`, count: num("resist_turns") });
   if (num("scroll_turns") > 0) out.push({ icon: "parchemin", label: "Parchemin", info: `Dégâts augmentés encore ${num("scroll_turns")} tour(s).`, count: num("scroll_turns") });
   if (num("warcry") > 0) out.push({ icon: "cri_guerre", label: "Cri de guerre", info: `Dégâts augmentés encore ${num("warcry")} tour(s).`, count: num("warcry") });
+  if (num("sort_t") > 0) out.push({ icon: "sort", label: "Incantation en cours", info: num("sort_t") >= 2 ? "Il incante un sort puissant : inflige-lui de gros dégâts pour l'interrompre. Sinon il part dans 2 tours (Provocation, Piège ou Camouflage l'atténuent)." : "Son sort est prêt : il part à sa prochaine attaque, sauf si on l'interrompt maintenant.", count: num("sort_t") });
   if (num("charge_t") > 0) out.push({ icon: "charge", label: "Coup dévastateur", info: num("charge_t") >= 2 ? "Il rassemble ses forces : un coup terrible arrive dans 2 tours." : "Il va déchaîner son coup terrible à sa prochaine attaque.", count: num("charge_t") });
   if (st["rallied"] === true) out.push({ icon: "ralliement", label: "Ralliés", info: "Le cri du chef a rallié la meute : elle frappe plus fort." });
   return out;
@@ -128,6 +129,7 @@ const TECH_INFO: Record<string, { label: string; info: string }> = {
   phase2: { label: "Rage", info: "Sous la moitié de ses PV, il frappe plus fort et ses attaques de zone reviennent plus souvent." },
   seconde_action: { label: "Seconde frappe", info: "Blessé, il frappe aussi un autre joueur un tour sur deux." },
   charge_preparee: { label: "Coup dévastateur", info: "Blessé, il prépare un coup terrible : il l'annonce deux tours à l'avance. Provocation, Piège, tir désarmant, gel ou Camouflage peuvent l'atténuer." },
+  sort_puissant: { label: "Incantation", info: "Il incante un sort puissant sur un joueur, annoncé deux tours à l'avance. Infligez-lui assez de dégâts pendant l'incantation pour l'interrompre. Provocation, Piège ou Camouflage atténuent le sort s'il part quand même." },
   meute: { label: "Meute", info: "Il frappe plus fort pour chaque compagnon encore en vie à ses côtés (+10 % chacun). Élimine ses compagnons pour le ramener à sa force normale ; les attaques de zone aident." },
   venin: { label: "Venin", info: "Il empoisonne un joueur un tour sur deux et se soigne tant qu'au moins un joueur est empoisonné. La Purification du Prêtre retire les poisons ; un combat rapide l'empêche de se refaire." },
   bouclier_garde: { label: "Bouclier des gardes", info: "Tant que ses gardes sont en vie, il subit moins de dégâts : chaque garde vivant réduit les coups qu'il reçoit. À toi de choisir : éliminer les gardes d'abord ou le frapper malgré le bouclier." },
