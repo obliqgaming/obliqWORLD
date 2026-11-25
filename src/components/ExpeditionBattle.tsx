@@ -61,6 +61,7 @@ function statusEffects(status: Record<string, unknown> | null | undefined): { ic
   if (num("resist_turns") > 0) out.push({ icon: "resistance", label: "Résistance", info: `Dégâts reçus réduits encore ${num("resist_turns")} tour(s).`, count: num("resist_turns") });
   if (num("scroll_turns") > 0) out.push({ icon: "parchemin", label: "Parchemin", info: `Dégâts augmentés encore ${num("scroll_turns")} tour(s).`, count: num("scroll_turns") });
   if (num("warcry") > 0) out.push({ icon: "cri_guerre", label: "Cri de guerre", info: `Dégâts augmentés encore ${num("warcry")} tour(s).`, count: num("warcry") });
+  if (num("charge_t") > 0) out.push({ icon: "charge", label: "Coup dévastateur", info: num("charge_t") >= 2 ? "Il rassemble ses forces : un coup terrible arrive dans 2 tours." : "Il va déchaîner son coup terrible à sa prochaine attaque.", count: num("charge_t") });
   if (st["rallied"] === true) out.push({ icon: "ralliement", label: "Ralliés", info: "Le cri du chef a rallié la meute : elle frappe plus fort." });
   return out;
 }
@@ -125,6 +126,8 @@ const TECH_INFO: Record<string, { label: string; info: string }> = {
   escorte: { label: "Escorte", info: "Il arrive accompagné de gardes." },
   coup_marque: { label: "Coup marqué", info: "Il annonce un coup sur un joueur, puis frappe très fort au tour suivant. Une Provocation le détourne." },
   phase2: { label: "Rage", info: "Sous la moitié de ses PV, il frappe plus fort et ses attaques de zone reviennent plus souvent." },
+  seconde_action: { label: "Seconde frappe", info: "Blessé, il frappe aussi un autre joueur un tour sur deux." },
+  charge_preparee: { label: "Coup dévastateur", info: "Blessé, il prépare un coup terrible : il l'annonce deux tours à l'avance. Provocation, Piège, tir désarmant, gel ou Camouflage peuvent l'atténuer." },
   bouclier_garde: { label: "Bouclier des gardes", info: "Tant que ses gardes sont en vie, il subit moins de dégâts : chaque garde vivant réduit les coups qu'il reçoit. À toi de choisir : éliminer les gardes d'abord ou le frapper malgré le bouclier." },
 };
 
@@ -136,8 +139,9 @@ function bossGuardShield(en: { role: string; status: Record<string, unknown> | n
   return { icon: "garde", label: "Bouclier des gardes", info: `Il subit moins de dégâts tant que ses gardes sont vivants (${guards} en vie). Élimine-les pour lever le bouclier.`, count: guards };
 }
 function enemyTechs(status: Record<string, unknown> | null | undefined): string[] {
-  const t = status?.["techs"];
-  return Array.isArray(t) ? t.filter((x): x is string => typeof x === "string" && !!TECH_INFO[x]) : [];
+  // Techniques de départ (techs) + techniques du profil de combat tiré (profile_techs), sans doublon.
+  const all = [status?.["techs"], status?.["profile_techs"]].flatMap((t) => (Array.isArray(t) ? t : []));
+  return all.filter((x, i): x is string => typeof x === "string" && !!TECH_INFO[x] && all.indexOf(x) === i);
 }
 
 const EVENT_MS = 1050; // durée d'une action rejouée
