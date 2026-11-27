@@ -210,11 +210,11 @@ export function CharacterWindow({
                   </div>
                 </div>
                 {xpInfo && (
-                  <div className="-mt-0.5" title={xpInfo.to !== null ? `${xpInfo.xp} XP — encore ${xpInfo.to - xpInfo.xp} avant le niveau suivant` : `${xpInfo.xp} XP — niveau maximum`}>
+                  <div className="-mt-0.5" title={xpInfo.to !== null ? `${xpInfo.xp - xpInfo.from} / ${xpInfo.to - xpInfo.from} XP dans ce niveau — encore ${xpInfo.to - xpInfo.xp} avant le niveau suivant` : `${xpInfo.xp} XP au total — niveau maximum`}>
                     <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#7a4a22]/20">
                       <div className="h-full rounded-full bg-violet-500/80" style={{ width: `${xpInfo.to === null ? 100 : Math.max(2, Math.min(100, ((xpInfo.xp - xpInfo.from) / Math.max(1, xpInfo.to - xpInfo.from)) * 100))}%` }} />
                     </div>
-                    <div className="text-[10px] font-bold opacity-60">{xpInfo.to !== null ? `XP ${xpInfo.xp} / ${xpInfo.to}` : `XP ${xpInfo.xp} (max)`}</div>
+                    <div className="text-[10px] font-bold opacity-60">{xpInfo.to !== null ? `XP ${xpInfo.xp - xpInfo.from} / ${xpInfo.to - xpInfo.from}` : `XP ${xpInfo.xp} (max)`}</div>
                   </div>
                 )}
                 {vitals && vitals.pvMax !== null && vital("❤️", vitals.pvMax, "points de peps")}
