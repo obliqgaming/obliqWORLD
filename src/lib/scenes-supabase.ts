@@ -646,6 +646,13 @@ export async function enterExpeditionPortal(
   return (Array.isArray(data) ? data[0] : data) as Expedition;
 }
 
+/** Expéditions utilisées aujourd'hui / plafond par jour pour un type d'expédition (SQL 199). null si le SQL n'est pas lancé. per_day 0 = pas de limite. */
+export async function fetchExpeditionDayStatus(route: string): Promise<{ done: number; per_day: number } | null> {
+  const { data, error } = await scenesClient.rpc("expedition_day_status", { p_route: route });
+  if (error || !data) return null;
+  return data as { done: number; per_day: number };
+}
+
 // Annule le "prêt" de ce personnage (reclique sur le portail pour se retirer,
 // avant que l'expédition parte) — simple commodité, pas dans le GDD
 // explicitement mais cohérent avec "le portail attend tout le groupe" : si on

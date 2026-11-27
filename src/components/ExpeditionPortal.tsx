@@ -11,6 +11,7 @@ export function ExpeditionPortalMarker({
   readyCount,
   totalCount,
   label,
+  dayStatus,
   onClick,
 }: {
   position: Point;
@@ -19,6 +20,8 @@ export function ExpeditionPortalMarker({
   totalCount: number;
   /** Nom affiché sous le portail (ex. « Expédition longue · niv. 5 »). */
   label?: string | undefined;
+  /** Plafond du jour pour ce type d'expédition (SQL 199) ; null ou per_day 0 = rien d'affiché. */
+  dayStatus?: { done: number; per_day: number } | null;
   onClick: () => void;
 }) {
   return (
@@ -45,6 +48,11 @@ export function ExpeditionPortalMarker({
       {label && (
         <span className="rounded-full bg-black/60 px-2 py-0.5 text-[11px] font-bold text-[#fde68a]" style={{ fontFamily: "'Baloo 2', cursive" }}>
           {label}
+        </span>
+      )}
+      {dayStatus && dayStatus.per_day > 0 && (
+        <span className="rounded-full bg-black/50 px-2 py-0.5 text-[11px] font-bold text-[#fde68a]" style={{ fontFamily: "'Baloo 2', cursive", opacity: dayStatus.done >= dayStatus.per_day ? 0.7 : 1 }}>
+          jusqu'à {dayStatus.per_day} par jour · aujourd'hui {Math.min(dayStatus.done, dayStatus.per_day)}/{dayStatus.per_day}
         </span>
       )}
       {totalCount > 1 && (

@@ -21,6 +21,7 @@ import {
   createSoloParty,
   declinePartyInvite,
   enterExpeditionPortal,
+  fetchExpeditionDayStatus,
   getAuthIdentity,
   fetchCharacterAssets,
   fetchExpeditionParticipants,
@@ -416,6 +417,7 @@ function Index() {
   const activeGold = useActiveGoldIds();
   const [inspectId, setInspectId] = useState<string | null>(null); // recharge l'affichage quand la flèche-curseur des portails est prête
   const [scenePortals, setScenePortals] = useState<ExpeditionPortal[]>([]);
+  const [dayStatus, setDayStatus] = useState<Record<string, { done: number; per_day: number } | null>>({}); // plafond d'expéditions du jour (SQL 199)
   const [longMinLevel, setLongMinLevel] = useState(5); // réglage long_expedition_min_level (SQL 040), pour l'étiquette du portail
   // Lieux interactifs de la scène (forgeron, éditeur d'étapes…), posés depuis /admin.
   const [hotspots, setHotspots] = useState<SceneHotspot[]>([]);
@@ -1369,6 +1371,20 @@ function Index() {
     };
   }, [scenePortals.map((p) => p.route).join(",")]);
 
+  useEffect(() => {
+    if (scenePortals.length === 0 || !character) return;
+    let off = false;
+    for (const r of new Set(scenePortals.map((p) => p.route))) {
+      void fetchExpeditionDayStatus(r).then((st) => {
+        if (!off) setDayStatus((prev) => ({ ...prev, [r]: st }));
+      });
+    }
+    return () => {
+      off = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scenePortals.map((p) => p.route).join(","), character?.id, openExpedition?.status, scene.id]);
+
   // Le départ exige que TOUT le groupe soit physiquement au portail : si on le quitte (autre lieu, dessin au village…), on n'est plus « prêt ».
   useEffect(() => {
     if (!character || !openExpedition || openExpedition.status !== "lobby" || !selfReady) return;
@@ -1430,7 +1446,7 @@ function Index() {
       console.error("Portal toggle failed", e);
       const m = String((e as { message?: string })?.message ?? "");
       window.alert(
-        m.includes("niveau") || m.includes("autre portail") || m.includes("joueurs")
+        m.includes("niveau") || m.includes("autre portail") || m.includes("joueurs") || m.includes("aujourd'hui")
           ? m
           : "Impossible d'entrer dans le portail pour l'instant. Réessaie dans un instant.",
       );
@@ -3460,6 +3476,7 @@ function Index() {
                 isSelfReady={selfReady && mine}
                 readyCount={mine ? readyCount : 0}
                 totalCount={groupIds.length}
+                dayStatus={dayStatus[portal.route] ?? null}
                 label={portal.route === "long" ? `Grand Safari Sylvestre · niv. ${longMinLevel}` : scenePortals.length > 1 ? "P'tite Balade en Forêt" : undefined}
                 onClick={() => walkThen(portal.position, () => void handleTogglePortal(portal))}
               />
