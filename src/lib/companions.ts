@@ -16,7 +16,7 @@ export const COMPANION_RARITY_LABEL: Record<Rarity, string> = { common: "Commun"
 /** Rareté à afficher : celle du dessin ; pour les anciens compagnons sans rareté, celle qui correspond à leurs PV (petit = commun 40, moyen = rare 80, grand = légendaire 150). */
 export function companionRarity(c: { rarity?: Rarity | null | undefined; tier?: Tier | null | undefined }): Rarity {
   if (c.rarity) return c.rarity;
-  return c.tier === "large" ? "legendary" : c.tier === "medium" ? "rare" : "common";
+  return c.tier === "large" ? "rare" : c.tier === "medium" ? "uncommon" : "common";
 }
 
 export type Companion = {
@@ -226,7 +226,7 @@ export async function fetchPastureAnimals(): Promise<PastureAnimal[]> {
   const list: PastureAnimal[] = picked.map((p) =>
     p.rarity
       ? { key: p.key, name: p.name, image_url: p.image_url, line: `${RARITY_INFO[p.rarity].label}${names[p.author ?? ""] ? ` · par ${names[p.author!]}` : ""}`, color: RARITY_INFO[p.rarity].color }
-      : { key: p.key, name: p.name, image_url: p.image_url, line: `Compagnon de départ · ${TIER_INFO[p.tier ?? "small"].label}`, color: TIER_INFO[p.tier ?? "small"].color },
+      : { key: p.key, name: p.name, image_url: p.image_url, line: `Compagnon de départ · ${COMPANION_RARITY_LABEL[companionRarity({ tier: p.tier ?? "small" })]}`, color: TIER_INFO[p.tier ?? "small"].color },
   );
   pastureCache = { day, list };
   return list;
