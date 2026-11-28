@@ -210,7 +210,7 @@ export function ForgePanel({ character, onClose, onWeaponChanged }: { character:
                 </button>
                 {repairOpen && (
                   <div className="mt-1 text-xs">
-                    <div className="mb-1 space-y-0.5 opacity-90"><div>🔧 <b>Prix par point de durabilité manquant</b>, <i>selon la rareté</i>.</div><div><i>Un prototype ne se répare pas.</i> <b>Une arme à 0 disparaît.</b></div></div>
+                    <div className="mb-1 space-y-0.5 opacity-90"><div>🔧 <b>Prix par point de durabilité manquant</b>, <i>selon la rareté</i>.</div><div><i>Un prototype ne se répare pas.</i> <b>Une arme à 0 est « cassée »</b> : elle reste dans ton sac, inutilisable, jusqu'à ce que tu la répares. Un prototype cassé disparaît.</div></div>
                     {repairItems.length === 0 && <div>Aucune arme à réparer.</div>}
                     {repairItems.map((it) => {
                       const price = (it.durability_max - it.durability) * (repairCosts[it.weapon.rarity] ?? 2);
