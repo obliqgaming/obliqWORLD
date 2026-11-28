@@ -10,7 +10,7 @@ import { WornSprite } from "./WornSprite";
 import { ItemDetails, RarityName, RarityPill } from "./InventoryPanel";
 import type { ForgeCharacter } from "./ForgePanel";
 import { inspectCharacter, type Inspected } from "../lib/inspect";
-import { TIER_INFO } from "../lib/companions";
+import { CompanionPill } from "./CompanionPill";
 import { CONSUMABLE_INFO, fetchMyConsumables, type ConsumableStack } from "../lib/consumables";
 import { fetchMyGold } from "../lib/loot";
 import { fetchGameAxes, fetchGameSettings, fetchMyBuild } from "../lib/expedition-combat";
@@ -305,7 +305,7 @@ export function CharacterWindow({
                   w ? (
                     <div className="flex gap-3 rounded-lg border border-[#7a4a22]/50 bg-white/40 p-2">
                       <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded bg-white/50">
-                        <ZoomImage src={w.image_url} details={<WeaponSheet name={w.name} rarity={w.rarity} prototype={!!w.prototype} bonus={w.bonus} effect={w.effect} />} className="max-h-full max-w-full object-contain" />
+                        <ZoomImage src={w.image_url} details={<WeaponSheet name={w.name} rarity={w.rarity} prototype={!!w.prototype} bonus={w.bonus} effect={w.effect} authorId={w.author_user_id ?? null} />} className="max-h-full max-w-full object-contain" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
@@ -332,10 +332,10 @@ export function CharacterWindow({
                       {d.companions.map((c, i) => (
                         <div key={i} className="rounded-lg border border-[#7a4a22]/40 bg-white/40 p-1.5 text-center leading-tight" title={c.name}>
                           <div className="flex h-16 items-center justify-center">
-                            <ZoomImage src={c.image_url} scale={0.75} details={<CompanionSheet name={c.name} tier={c.tier} />} className="max-h-full max-w-full object-contain" />
+                            <ZoomImage src={c.image_url} scale={0.75} details={<CompanionSheet name={c.name} rarity={c.rarity} tier={c.tier} prototype={c.is_prototype} hp={c.hp_max} authorId={c.author_user_id ?? null} />} className="max-h-full max-w-full object-contain" />
                           </div>
                           <div className="mt-1 truncate text-[12px] font-bold">{c.name}</div>
-                          <div className="text-[10px] opacity-70">{TIER_INFO[c.tier].label}</div>
+                          <div className="text-[10px] opacity-80"><CompanionPill rarity={c.rarity} tier={c.tier} prototype={c.is_prototype} />{c.hp_max != null ? ` · ${c.hp_max} peps` : ""}{c.active ? " · ✔ équipé" : ""}</div>
                         </div>
                       ))}
                     </div>

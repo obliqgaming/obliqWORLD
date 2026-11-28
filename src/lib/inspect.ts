@@ -7,12 +7,12 @@ export type Inspected = {
   family: "melee" | "magie" | null;
   level: number | null;
   axis: string | null;
-  weapon: { name: string; image_url: string; rarity: "common" | "uncommon" | "rare" | "epic" | "legendary"; bonus: number; effect: string | null; prototype: boolean } | null;
+  weapon: { name: string; image_url: string; rarity: "common" | "uncommon" | "rare" | "epic" | "legendary"; bonus: number; effect: string | null; prototype: boolean; author_user_id?: string | null } | null;
   weapons_drawn: number;
   companions_drawn?: number;
   events_written?: number;
   class_name?: string | null;
-  companions: { name: string; image_url: string; tier: "small" | "medium" | "large" }[];
+  companions: { name: string; image_url: string; tier: "small" | "medium" | "large"; rarity?: "common" | "uncommon" | "rare" | "epic" | "legendary" | null; is_prototype?: boolean; hp_max?: number; active?: boolean; author_user_id?: string | null }[];
 };
 
 export async function inspectCharacter(characterId: string): Promise<Inspected> {

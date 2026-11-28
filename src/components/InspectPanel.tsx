@@ -4,7 +4,7 @@ import { WeaponSheet, CompanionSheet } from "./ItemSheets";
 import { PanelIcon } from "./GameIcons";
 import { useEffect, useState } from "react";
 import { inspectCharacter, type Inspected } from "../lib/inspect";
-import { TIER_INFO } from "../lib/companions";
+import { CompanionPill } from "./CompanionPill";
 import { EFFECT_INFO, RARITY_INFO, bonusText } from "../lib/weapons";
 import { RarityName } from "./InventoryPanel";
 import { scenesClient } from "../lib/scenes-supabase";
@@ -106,7 +106,7 @@ export function InspectPanel({ characterId, onClose }: { characterId: string; on
               {w ? (
                 <div className="mt-1.5 flex gap-3 rounded-lg border border-[#7a4a22]/50 bg-white/40 p-2">
                   <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded bg-white/50">
-                    <ZoomImage src={w.image_url} details={<WeaponSheet name={w.name} rarity={w.rarity} prototype={!!w.prototype} bonus={w.bonus} effect={w.effect} />} className="max-h-full max-w-full object-contain" />
+                    <ZoomImage src={w.image_url} details={<WeaponSheet name={w.name} rarity={w.rarity} prototype={!!w.prototype} bonus={w.bonus} effect={w.effect} authorId={w.author_user_id ?? null} />} className="max-h-full max-w-full object-contain" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -132,10 +132,10 @@ export function InspectPanel({ characterId, onClose }: { characterId: string; on
                   {d.companions.map((c, i) => (
                     <div key={i} className="rounded-lg border border-[#7a4a22]/40 bg-white/40 p-1.5 text-center leading-tight" title={c.name}>
                       <div className="flex h-16 items-center justify-center">
-                        <ZoomImage src={c.image_url} scale={0.75} details={<CompanionSheet name={c.name} tier={c.tier} />} className="max-h-full max-w-full object-contain" />
+                        <ZoomImage src={c.image_url} scale={0.75} details={<CompanionSheet name={c.name} rarity={c.rarity} tier={c.tier} prototype={c.is_prototype} hp={c.hp_max} authorId={c.author_user_id ?? null} />} className="max-h-full max-w-full object-contain" />
                       </div>
                       <div className="mt-1 truncate text-[12px] font-bold">{c.name}</div>
-                      <div className="text-[10px] opacity-70">{TIER_INFO[c.tier].label}</div>
+                      <div className="text-[10px] opacity-80"><CompanionPill rarity={c.rarity} tier={c.tier} prototype={c.is_prototype} />{c.hp_max != null ? ` · ${c.hp_max} peps` : ""}{c.active ? " · ✔ équipé" : ""}</div>
                     </div>
                   ))}
                 </div>
