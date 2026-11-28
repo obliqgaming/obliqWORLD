@@ -4,6 +4,7 @@ import { Coin } from "./GameIcons";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchLoot, lootRespond, lootResolve, subscribeToLoot, type LootItem, type LootRoll, type LootWeapon } from "../lib/loot";
 import { EFFECT_INFO, RARITY_INFO, bonusText } from "../lib/weapons";
+import { COMPANION_RARITY_LABEL, companionRarity } from "../lib/companions";
 import { CONSUMABLE_INFO, type ConsumableKind } from "../lib/consumables";
 import { RarityName } from "./InventoryPanel";
 
@@ -120,7 +121,7 @@ export function LootPanel({
               {w && <img src={w.image_url} alt="" className="h-12 w-8 object-contain" />}
               {it.kind === "companion" && it.visual_asset_id && creatures[it.visual_asset_id] && <img src={creatures[it.visual_asset_id]} alt="" className="h-12 w-12 object-contain" />}
               <div className="min-w-0 flex-1">
-                {w ? <RarityName name={w.name} rarity={w.rarity} pill /> : it.kind === "companion" ? <span className="font-bold">🐾 Compagnon ({it.item_key === "large" ? "grand" : it.item_key === "medium" ? "moyen" : "petit"})</span> : <span className="font-bold">{it.item_key && CONSUMABLE_INFO[it.item_key as ConsumableKind] ? `${CONSUMABLE_INFO[it.item_key as ConsumableKind]!.icon} ${CONSUMABLE_INFO[it.item_key as ConsumableKind]!.name}` : "Objet"}</span>}
+                {w ? <RarityName name={w.name} rarity={w.rarity} pill /> : it.kind === "companion" ? <span className="font-bold">🐾 Compagnon ({COMPANION_RARITY_LABEL[companionRarity({ tier: it.item_key as "small" | "medium" | "large" })]})</span> : <span className="font-bold">{it.item_key && CONSUMABLE_INFO[it.item_key as ConsumableKind] ? `${CONSUMABLE_INFO[it.item_key as ConsumableKind]!.icon} ${CONSUMABLE_INFO[it.item_key as ConsumableKind]!.name}` : "Objet"}</span>}
                 {w && family && (w.weapon_type === "magic" || w.weapon_type === "blunt_slash") && (
                   (w.weapon_type === "magic") === (family === "magie")
                     ? <span title="Les jets de dés sont d'abord pour ceux qui ont la bonne spé" className="mr-1 inline-block rounded bg-[#16a34a] px-1.5 text-[10px] font-extrabold text-white">✦ Prio spé</span>

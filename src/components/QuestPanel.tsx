@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { acceptQuest, claimQuest, fetchQuests, type BoosterResult, type MyQuest, type Quest } from "../lib/quests";
 import { CONSUMABLE_INFO, type ConsumableKind } from "../lib/consumables";
 import { RARITY_INFO, type Rarity } from "../lib/weapons";
-import { TIER_INFO } from "../lib/companions";
+import { COMPANION_RARITY_LABEL, companionRarity } from "../lib/companions";
 import { RARITY_TIER, RevealModal } from "./RevealModal";
 import { InvitePanel } from "./InvitePanel";
 import { fetchReferralPending, markReferralSeen } from "../lib/referral";
@@ -50,7 +50,7 @@ function BoosterInner({ r }: { r: BoosterResult }) {
     <div className="flex flex-col items-center gap-1">
       <img src={r.image_url} alt="" className="h-16 object-contain" />
       <div className="text-lg font-extrabold">🐾 {r.name}</div>
-      <div className="text-xs"><i>Nouveau compagnon ({TIER_INFO[r.tier as keyof typeof TIER_INFO]?.label ?? r.tier}) — à la Ferme des Jetés en Pâture</i></div>
+      <div className="text-xs"><i>Nouveau compagnon ({COMPANION_RARITY_LABEL[companionRarity({ tier: r.tier as "small" | "medium" | "large" })]}) — à la Ferme des Jetés en Pâture</i></div>
     </div>
   );
 }
