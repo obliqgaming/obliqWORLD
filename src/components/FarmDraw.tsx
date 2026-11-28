@@ -9,6 +9,7 @@ import { uiSound } from "../lib/ui-sounds";
 import { Coin } from "./GameIcons";
 import { DrawingCanvas } from "./DrawingCanvas";
 import { RARITY_TIER, RevealModal } from "./RevealModal";
+import { CompanionPill } from "./CompanionPill";
 import { RarityName, RarityPill } from "./InventoryPanel";
 import { RARITY_INFO, type Rarity } from "../lib/weapons";
 import { fetchMyGold } from "../lib/loot";
@@ -91,7 +92,7 @@ export function FarmDraw({ onChanged, onEconomy }: { onChanged: () => void; onEc
       {result && (
         <RevealModal tier={RARITY_TIER[result.rarity] ?? 1} title="Ton compagnon est validé !" onClose={() => setResult(null)}>
           <ZoomImage src={result.image_url} scale={0.75} details={<CompanionSheet name={result.name} rarity={result.rarity} hp={rules?.hp[result.rarity]} authorId={result.author_user_id} />} className="mx-auto h-36 w-36 object-contain" />
-          <div className="mt-2 text-center"><RarityName name={result.name} rarity={result.rarity} pill /></div>
+          <div className="mt-2 text-center"><RarityName name={result.name} rarity={result.rarity} /> <CompanionPill rarity={result.rarity} /></div>
           <div className="mt-1 text-center text-sm">{rules?.hp[result.rarity] ?? "?"} peps pour les acheteurs</div>
           <div className="mt-1 text-center text-xs opacity-80">Ton prototype est dans « Mes compagnons ».</div>
         </RevealModal>
@@ -155,7 +156,7 @@ export function FarmShop({ onChanged }: { onChanged: () => void }) {
         <ZoomImage src={d.image_url} scale={0.75} details={<CompanionSheet name={d.name} rarity={d.rarity as Rarity} hp={rules?.hp[d.rarity as Rarity]} authorId={d.author_user_id} extra={<><div className="text-xs"><b>{l.price}</b> flouz · {l.stock_left}/{l.stock_total} en stock</div>{sold && <div className="rounded bg-[#991b1b] px-2 py-1 text-center text-xs font-extrabold text-white">{l.stock_total <= 0 ? "Invendu" : "Rupture de stock"}<div className="text-[10px] font-semibold">Tu peux toujours le trouver en expédition !</div></div>}</>} />} className="h-24 w-24 shrink-0 object-contain" />
         <div className="min-w-0 flex-1 text-xs">
           <RarityName name={d.name} rarity={d.rarity as Rarity} />
-          <div className="mt-0.5"><RarityPill rarity={d.rarity as Rarity} /> · {rules?.hp[d.rarity as Rarity] ?? "?"} peps</div>
+          <div className="mt-0.5"><CompanionPill rarity={d.rarity as Rarity} /> · {rules?.hp[d.rarity as Rarity] ?? "?"} peps</div>
           <div className="opacity-70">{l.authorName ? `par ${l.authorName} · ` : ""}{unsold ? "invendu" : sold ? "rupture de stock" : `${l.stock_left}/${l.stock_total} en stock`}</div>
           {sold && <div className="rounded bg-[#991b1b] px-2 py-1 text-center text-xs font-extrabold text-white">{l.stock_total <= 0 ? "Invendu" : "Rupture de stock"}<div className="text-[10px] font-semibold">Tu peux toujours le trouver en expédition !</div></div>}
           <div className="mt-1 flex flex-wrap items-center gap-2">

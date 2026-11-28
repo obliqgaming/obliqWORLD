@@ -11,6 +11,7 @@ import { Coin } from "./GameIcons";
 import { CreationPrice } from "./CreationNotes";
 import { Pill } from "./InventoryPanel";
 import { shopCollect } from "../lib/shop";
+import { CompanionPill } from "./CompanionPill";
 import { TIER_INFO, claimStarterCompanion, fetchCompanionRules, fetchCompanionShop, fetchMyCompanions, fetchStarterChoices, releaseCompanion, setActiveCompanion, type Companion, type StarterCompanion } from "../lib/companions";
 
 const BTN = "rounded-lg border-2 border-[#7a4a22] bg-[#7a4a22] px-3 py-1 text-xs font-bold text-[#fff3d6] hover:bg-[#5e3818] disabled:opacity-50";
@@ -127,7 +128,7 @@ export function FarmPanel({ onClose }: { onClose: () => void }) {
                   <div className="truncate">
                     <span className="text-sm font-extrabold">{c.name}</span>
                   </div>
-                  <div>{c.is_prototype ? <Pill label="Prototype" color="#f3f4f6" /> : c.rarity ? <Pill label={RARITY_INFO[c.rarity].label} color={RARITY_INFO[c.rarity].color} /> : <Pill label={TIER_INFO[c.tier].label} color={TIER_INFO[c.tier].color} />} · {c.hp}/{c.hp_max} peps</div>
+                  <div><CompanionPill rarity={c.rarity} tier={c.tier} prototype={c.is_prototype} /> · {c.hp}/{c.hp_max} peps</div>
                   {resting && <div className="font-bold text-[#7a3a0e]">💤 Se repose encore {c.rest_left} expédition{c.rest_left > 1 ? "s" : ""}</div>}
                   {provisional && <div className="font-bold text-[#7a3a0e]">À toi à la fin de l'expédition</div>}
                   {c.active && !resting && <div className="font-bold text-[#166534]">✔ T'accompagne</div>}

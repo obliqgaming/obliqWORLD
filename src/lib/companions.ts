@@ -11,6 +11,14 @@ export const TIER_INFO: Record<Tier, { label: string; color: string }> = {
   large: { label: "Grand", color: "#c58bff" },
 };
 
+// Libellés de rareté des COMPAGNONS (au masculin) : un seul endroit pour que la ferme, les fiches, l'échange et l'inspection disent la même chose.
+export const COMPANION_RARITY_LABEL: Record<Rarity, string> = { common: "Commun", uncommon: "Inhabituel", rare: "Rare", epic: "Épique", legendary: "Légendaire" };
+/** Rareté à afficher : celle du dessin ; pour les anciens compagnons sans rareté, celle qui correspond à leurs PV (petit = commun 40, moyen = rare 80, grand = légendaire 150). */
+export function companionRarity(c: { rarity?: Rarity | null | undefined; tier?: Tier | null | undefined }): Rarity {
+  if (c.rarity) return c.rarity;
+  return c.tier === "large" ? "legendary" : c.tier === "medium" ? "rare" : "common";
+}
+
 export type Companion = {
   id: string;
   owner_user_id: string;

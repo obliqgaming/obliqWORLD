@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { RARITY_INFO, EFFECT_INFO, bonusText, weaponKindLabel, type Rarity, type WeaponType } from "../lib/weapons";
 import { TIER_INFO, type Tier } from "../lib/companions";
 import { AuthorLine } from "./AuthorLine";
+import { CompanionPill } from "./CompanionPill";
 import { WEAPON_FONT } from "./GameIcons";
 
 function Pill({ label, color }: { label: string; color: string }) {
@@ -54,8 +55,7 @@ export function CompanionSheet({ name, rarity, tier, prototype, hp, hpMax, restL
     <div className="space-y-1 text-sm">
       <Title name={name} />
       <div className="flex flex-wrap items-center gap-1.5">
-        {prototype ? <Pill label="Prototype" color="#f3f4f6" /> : rarity ? <Pill label={RARITY_INFO[rarity].label} color={RARITY_INFO[rarity].color} /> : null}
-        {tier && <Pill label={TIER_INFO[tier].label} color={TIER_INFO[tier].color} />}
+        <CompanionPill rarity={rarity} tier={tier} prototype={prototype} />
       </div>
       {hp != null && <div className="text-xs font-bold">❤ {hpMax != null ? `${hp}/${hpMax}` : hp} peps</div>}
       <div className="text-xs">Prend <b>la moitié des dégâts</b> que les monstres te font en combat.</div>
