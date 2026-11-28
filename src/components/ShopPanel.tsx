@@ -20,6 +20,7 @@ export function ShopPanel({ gold, family, onGoldChange, onBought }: { gold: numb
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [tab, setTab] = useState<"stock" | "rupture" | "invendu">("stock");
+  const [sortBy, setSortBy] = useState<"new" | "rarity" | "usable">("new");
 
   const reload = async () => {
     try {
@@ -64,7 +65,13 @@ export function ShopPanel({ gold, family, onGoldChange, onBought }: { gold: numb
   const nStock = others.filter((l) => l.stock_left > 0).length;
   const nRupture = others.filter((l) => l.stock_left <= 0 && l.stock_total > 0).length;
   const nUnsold = others.filter((l) => l.stock_total <= 0).length;
-  const shown = others.filter((l) => (tab === "stock" ? l.stock_left > 0 : tab === "rupture" ? l.stock_left <= 0 && l.stock_total > 0 : l.stock_total <= 0));
+  const RANK: Record<string, number> = { legendary: 5, epic: 4, rare: 3, uncommon: 2, common: 1 };
+  // Tri : « Nouveautés » = ordre du serveur (les plus récentes d'abord) ; la liste est déjà dans cet ordre, le tri est stable.
+  const shown = others.filter((l) => (tab === "stock" ? l.stock_left > 0 : tab === "rupture" ? l.stock_left <= 0 && l.stock_total > 0 : l.stock_total <= 0)).sort((a, b) => {
+    if (sortBy === "rarity") return (RANK[b.weapon.rarity] ?? 0) - (RANK[a.weapon.rarity] ?? 0);
+    if (sortBy === "usable") return Number(weaponFits(b.weapon.weapon_type, family)) - Number(weaponFits(a.weapon.weapon_type, family)) || (RANK[b.weapon.rarity] ?? 0) - (RANK[a.weapon.rarity] ?? 0);
+    return 0;
+  });
 
   const card = (l: Listing) => {
     const w = l.weapon;
@@ -138,6 +145,12 @@ export function ShopPanel({ gold, family, onGoldChange, onBought }: { gold: numb
       </div>
       <div className="mt-1 text-[11px] opacity-70">{tab === "rupture" ? "Tout a été acheté : elle reste lootable en expédition." : tab === "invendu" ? "Personne n'en a voulu depuis longtemps : le stock s'est épuisé, elle reste lootable en expédition." : "Le stock d'une annonce que personne n'achète diminue peu à peu."}</div>
       {listings && shown.length === 0 && <div className="mt-1 text-sm">Rien dans cet onglet.</div>}
+      <div className="mt-2 flex flex-wrap items-center gap-1 text-[11px]">
+        <span className="font-bold">Trier :</span>
+        {([["new", "Nouveautés"], ["rarity", "Rareté"], ["usable", "Utilisables par mon perso"]] as const).map(([k, label]) => (
+          <button key={k} type="button" onClick={() => setSortBy(k)} className={`rounded border border-[#7a4a22] px-1.5 font-bold ${sortBy === k ? "bg-[#7a4a22] text-[#fff3d6]" : "hover:bg-[#7a4a22]/15"}`}>{label}</button>
+        ))}
+      </div>
       <div className="mt-1 grid gap-2 md:grid-cols-2">{shown.map(card)}</div>
     </div>
   );

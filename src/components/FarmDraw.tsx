@@ -15,7 +15,7 @@ import { RARITY_INFO, type Rarity } from "../lib/weapons";
 import { fetchMyGold } from "../lib/loot";
 import { shopCollect } from "../lib/shop";
 import {
-  COMPANION_H, COMPANION_W, companionSetPrice, companionShopBuy, createCompanionDesign, fetchCompanionDrawStatus, fetchCompanionRules, fetchCompanionShop,
+  COMPANION_H, COMPANION_W, companionRarity, companionSetPrice, companionShopBuy, createCompanionDesign, fetchCompanionDrawStatus, fetchCompanionRules, fetchCompanionShop,
   type CompanionDesign, type CompanionListing, type CompanionRules,
 } from "../lib/companions";
 
@@ -110,6 +110,7 @@ export function FarmShop({ onChanged }: { onChanged: () => void }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [tab, setTab] = useState<"stock" | "rupture" | "invendu">("stock");
+  const [sortBy, setSortBy] = useState<"new" | "rarity">("new");
 
   const reload = async () => {
     try {
@@ -180,7 +181,8 @@ export function FarmShop({ onChanged }: { onChanged: () => void }) {
   const nStock = others.filter((l) => l.stock_left > 0).length;
   const nRupture = others.filter((l) => l.stock_left <= 0 && l.stock_total > 0).length;
   const nUnsold = others.filter((l) => l.stock_total <= 0).length;
-  const shown = others.filter((l) => (tab === "stock" ? l.stock_left > 0 : tab === "rupture" ? l.stock_left <= 0 && l.stock_total > 0 : l.stock_total <= 0));
+  const RANK: Record<string, number> = { legendary: 5, epic: 4, rare: 3, uncommon: 2, common: 1 };
+  const shown = others.filter((l) => (tab === "stock" ? l.stock_left > 0 : tab === "rupture" ? l.stock_left <= 0 && l.stock_total > 0 : l.stock_total <= 0)).sort((a, b) => (sortBy === "rarity" ? (RANK[companionRarity(b.design)] ?? 0) - (RANK[companionRarity(a.design)] ?? 0) : 0));
   return (
     <div className="mt-3">
       <div className="rounded-lg bg-white/35 p-2.5 text-sm leading-snug">
@@ -205,6 +207,12 @@ export function FarmShop({ onChanged }: { onChanged: () => void }) {
       </div>
       <div className="mt-1 text-[11px] opacity-70">{tab === "rupture" ? "Tout a été acheté : il reste lootable en expédition." : tab === "invendu" ? "Personne n'en a voulu depuis longtemps : le stock s'est épuisé, il reste lootable en expédition." : "Le stock d'une annonce que personne n'achète diminue peu à peu."}</div>
       {list && shown.length === 0 && <div className="mt-1 text-sm">Rien dans cet onglet.</div>}
+      <div className="mt-2 flex flex-wrap items-center gap-1 text-[11px]">
+        <span className="font-bold">Trier :</span>
+        {([["new", "Nouveautés"], ["rarity", "Rareté"]] as const).map(([k, label]) => (
+          <button key={k} type="button" onClick={() => setSortBy(k)} className={`rounded border border-[#7a4a22] px-1.5 font-bold ${sortBy === k ? "bg-[#7a4a22] text-[#fff3d6]" : "hover:bg-[#7a4a22]/15"}`}>{label}</button>
+        ))}
+      </div>
       <div className="mt-1 grid gap-2 md:grid-cols-2">{shown.map(card)}</div>
     </div>
   );
