@@ -2,6 +2,7 @@
 // quelques outils (ressusciter, ancrage de la main, niveau / axe).
 import { useEffect, useRef, useState } from "react";
 import { FlipToggle } from "./FlipToggle";
+import { shouldMirror, useImageFlips } from "../lib/image-flips";
 import { WornSprite } from "./WornSprite";
 import { scenesClient } from "../lib/scenes-supabase";
 import {
@@ -187,6 +188,12 @@ export function AnchorEditor({ character, onClose, onSave, rotatable = false }: 
   const [rot, setRot] = useState<number>(character.hand_anchor?.rot ?? 0);
   const [drag, setDrag] = useState(false);
   const box = useRef<HTMLDivElement | null>(null);
+  const flips = useImageFlips();
+  // Aperçu « comme en jeu » : si le miroir est réglé pour ce dessin, on le montre retourné (arme et point compris).
+  // Le point est toujours enregistré sur le dessin d'origine : on inverse donc le x du clic quand l'aperçu est retourné.
+  const [seeMirror, setSeeMirror] = useState<boolean | null>(null);
+  const mirrored = seeMirror ?? shouldMirror(flips, character.image_url, false);
+  const sprite = useRef<HTMLDivElement | null>(null); // l'image elle-même : c'est SUR elle que l'ancrage est exprimé en %
   const [weapons, setWeapons] = useState<{ id: string; name: string; image_url: string; grip_anchor: Point; width: number; height: number }[]>([]);
   const [wid, setWid] = useState<string>("");
   useEffect(() => {
@@ -206,10 +213,11 @@ export function AnchorEditor({ character, onClose, onSave, rotatable = false }: 
   const testW = weapons.find((w) => w.id === wid);
   const move = (e: React.PointerEvent) => {
     if (!box.current) return;
-    const r = box.current.getBoundingClientRect();
+    // Mesuré sur l'image (pas sur le cadre carré) : un dessin pas carré donnait un y décalé en expédition.
+    const r = (sprite.current ?? box.current).getBoundingClientRect();
     setP((cur) => ({
       ...cur,
-      x: Math.round(Math.min(100, Math.max(0, ((e.clientX - r.left) / r.width) * 100)) * 10) / 10,
+      x: Math.round(Math.min(100, Math.max(0, mirrored ? ((r.right - e.clientX) / r.width) * 100 : ((e.clientX - r.left) / r.width) * 100)) * 10) / 10,
       y: Math.round(Math.min(100, Math.max(0, ((e.clientY - r.top) / r.height) * 100)) * 10) / 10,
     }));
   };
@@ -250,17 +258,21 @@ export function AnchorEditor({ character, onClose, onSave, rotatable = false }: 
         onPointerUp={() => setDrag(false)}
       >
         {character.image_url && (
-          <div className="absolute inset-0">
+          <div className="absolute left-0 top-0 w-full" ref={sprite} style={{ transform: mirrored ? "scaleX(-1)" : undefined }}>
             <WornSprite
               src={character.image_url}
               alt=""
               weapon={testW ? { imageUrl: testW.image_url, grip: testW.grip_anchor, width: testW.width, height: testW.height, hand: p, rot: rotatable ? rot : 0 } : null}
               className="block w-full"
             />
+            <div className="pointer-events-none absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-red-500/80" style={{ left: `${p.x}%`, top: `${p.y}%` }} />
           </div>
         )}
-        <div className="pointer-events-none absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-red-500/80" style={{ left: `${p.x}%`, top: `${p.y}%` }} />
       </div>
+      <label className="mt-2 flex items-center gap-2 text-xs">
+        <input type="checkbox" checked={mirrored} onChange={(e) => setSeeMirror(e.target.checked)} />
+        Aperçu en miroir (comme en jeu quand « ⇋ Miroir » est coché) — l'ancrage reste valable dans les deux sens
+      </label>
       <div className="mt-2 text-xs">x {p.x} · y {p.y}{rotatable ? ` · rotation ${rot}°` : ""}</div>
       <div className="mt-3 flex gap-2">
         <button type="button" className="rounded bg-emerald-700 px-3 py-1 text-sm" onClick={() => onSave(result())}>

@@ -83,6 +83,7 @@ export function FarmDraw({ onChanged, onEconomy }: { onChanged: () => void; onEc
         <div>🐾 Ton <b>prototype</b> est obtenu tout de suite <i>(dans « Mes compagnons »)</i>.</div>
         <div>🎲 La <b>rareté du modèle</b> est tirée au hasard à la validation : <i>plus elle est haute, plus il a de peps.</i></div>
         <div>🌲 Il pourra aussi apparaître comme créature dans la forêt.</div>
+        <div>👀 Dessine-le <b>de face</b> ou <b>le regard tourné vers la gauche</b> : c'est le sens dans lequel il marche.</div>
       </CreationNotes>
       <input value={name} maxLength={40} onChange={(e) => setName(e.target.value)} placeholder="Nom du compagnon" className="mt-2 w-full rounded border border-[#7a4a22] bg-white/70 px-2 py-1 text-sm" />
       <div className="mt-2">

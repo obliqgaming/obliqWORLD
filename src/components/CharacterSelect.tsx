@@ -165,6 +165,10 @@ export function CharacterSelect({
           Ton personnage doit avoir une main (ou un membre) capable de tenir une arme :<br /><span className="mr-1 inline-flex h-5 w-5 items-center justify-center rounded-full border-2 border-dashed border-[#b45309] bg-[#fed7aa]/70 align-[-5px]"><Hand className="h-3 w-3 text-[#7a4a22]" /></span>place bien le repère de main sur le dessin.
         </p>
 
+        <p className="mb-3 text-center text-[13px] font-bold leading-snug">
+          👀 Dessine ton personnage <b>de face</b> ou <b>le regard tourné vers la gauche</b> : c'est le sens dans lequel il marche.
+        </p>
+
         <div className="grid gap-x-5 gap-y-4 lg:grid-cols-[16rem_minmax(0,1fr)] xl:grid-cols-[15rem_26.5rem_15rem]">
           {/* Gauche : identité du personnage */}
           <div className="order-2 lg:order-1 lg:col-start-1 lg:row-start-1 xl:self-start">
