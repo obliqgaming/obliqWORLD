@@ -1,4 +1,5 @@
 // Boutique du forgeron (SQL 029) : armes forgées par les joueurs, mises en vente.
+import { runStockDecayOnce } from "./stock-decay";
 import { scenesClient, ensureUserId } from "./scenes-supabase";
 import { fetchAuthorNames } from "./authors";
 import type { Weapon, Rarity } from "./weapons";
@@ -18,6 +19,7 @@ export type Listing = {
 export type PriceRange = { min: number; max: number };
 
 export async function fetchShop(): Promise<{ listings: Listing[]; ranges: Record<Rarity, PriceRange>; minLevels: Record<Rarity, number>; authorPct: number }> {
+  await runStockDecayOnce();
   const uid = await ensureUserId();
   const { data, error } = await scenesClient
     .from("weapon_listings")

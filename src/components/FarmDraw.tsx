@@ -107,6 +107,7 @@ export function FarmShop({ onChanged }: { onChanged: () => void }) {
   const [prices, setPrices] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [tab, setTab] = useState<"stock" | "rupture" | "invendu">("stock");
 
   const reload = async () => {
     try {
@@ -147,15 +148,16 @@ export function FarmShop({ onChanged }: { onChanged: () => void }) {
   const card = (l: CompanionListing) => {
     const d = l.design;
     const sold = l.stock_left <= 0;
+    const unsold = l.stock_total <= 0; // quitté la vente faute d'acheteurs (SQL 205)
     const range = rules?.ranges[d.rarity as Rarity];
     return (
       <div key={l.design_id} className={`flex gap-2 rounded border border-[#7a4a22]/60 bg-white/40 p-2 ${sold ? "opacity-60" : ""}`}>
-        <ZoomImage src={d.image_url} scale={0.75} details={<CompanionSheet name={d.name} rarity={d.rarity as Rarity} hp={rules?.hp[d.rarity as Rarity]} authorId={d.author_user_id} extra={<><div className="text-xs"><b>{l.price}</b> flouz · {l.stock_left}/{l.stock_total} en stock</div>{sold && <div className="rounded bg-[#991b1b] px-2 py-1 text-center text-xs font-extrabold text-white">Plus en stock<div className="text-[10px] font-semibold">Tu peux toujours le trouver en expédition !</div></div>}</>} />} className="h-24 w-24 shrink-0 object-contain" />
+        <ZoomImage src={d.image_url} scale={0.75} details={<CompanionSheet name={d.name} rarity={d.rarity as Rarity} hp={rules?.hp[d.rarity as Rarity]} authorId={d.author_user_id} extra={<><div className="text-xs"><b>{l.price}</b> flouz · {l.stock_left}/{l.stock_total} en stock</div>{sold && <div className="rounded bg-[#991b1b] px-2 py-1 text-center text-xs font-extrabold text-white">{l.stock_total <= 0 ? "Invendu" : "Rupture de stock"}<div className="text-[10px] font-semibold">Tu peux toujours le trouver en expédition !</div></div>}</>} />} className="h-24 w-24 shrink-0 object-contain" />
         <div className="min-w-0 flex-1 text-xs">
           <RarityName name={d.name} rarity={d.rarity as Rarity} />
           <div className="mt-0.5"><RarityPill rarity={d.rarity as Rarity} /> · {rules?.hp[d.rarity as Rarity] ?? "?"} peps</div>
-          <div className="opacity-70">{l.authorName ? `par ${l.authorName} · ` : ""}{sold ? "plus en stock" : `${l.stock_left}/${l.stock_total} en stock`}</div>
-          {sold && <div className="rounded bg-[#991b1b] px-2 py-1 text-center text-xs font-extrabold text-white">Plus en stock<div className="text-[10px] font-semibold">Tu peux toujours le trouver en expédition !</div></div>}
+          <div className="opacity-70">{l.authorName ? `par ${l.authorName} · ` : ""}{unsold ? "invendu" : sold ? "rupture de stock" : `${l.stock_left}/${l.stock_total} en stock`}</div>
+          {sold && <div className="rounded bg-[#991b1b] px-2 py-1 text-center text-xs font-extrabold text-white">{l.stock_total <= 0 ? "Invendu" : "Rupture de stock"}<div className="text-[10px] font-semibold">Tu peux toujours le trouver en expédition !</div></div>}
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <b>{l.price} <Coin /></b>
             {!l.mine && <button type="button" disabled={busy || sold || gold < l.price} className={BTN} onClick={() => void act(() => companionShopBuy(l.design_id), `✔ « ${d.name} » est à la Ferme des Jetés en Pâture.`)}>Acheter</button>}
@@ -173,6 +175,10 @@ export function FarmShop({ onChanged }: { onChanged: () => void }) {
   };
   const mine = (list ?? []).filter((l) => l.mine);
   const others = (list ?? []).filter((l) => !l.mine);
+  const nStock = others.filter((l) => l.stock_left > 0).length;
+  const nRupture = others.filter((l) => l.stock_left <= 0 && l.stock_total > 0).length;
+  const nUnsold = others.filter((l) => l.stock_total <= 0).length;
+  const shown = others.filter((l) => (tab === "stock" ? l.stock_left > 0 : tab === "rupture" ? l.stock_left <= 0 && l.stock_total > 0 : l.stock_total <= 0));
   return (
     <div className="mt-3">
       <div className="rounded-lg bg-white/35 p-2.5 text-sm leading-snug">
@@ -190,8 +196,14 @@ export function FarmShop({ onChanged }: { onChanged: () => void }) {
       {mine.length > 0 && <div className="mt-3 text-xs font-bold uppercase tracking-widest text-[#7a4a22]">Mes compagnons en vente</div>}
       <div className="mt-1 grid gap-2 md:grid-cols-2">{mine.map(card)}</div>
       <div className="mt-3 text-xs font-bold uppercase tracking-widest text-[#7a4a22]">Compagnons des autres joueurs</div>
-      {list && others.length === 0 && <div className="mt-1 text-sm">Rien d'autre en vente pour l'instant.</div>}
-      <div className="mt-1 grid gap-2 md:grid-cols-2">{others.map(card)}</div>
+      <div className="mt-1 flex flex-wrap gap-1.5">
+        {([["stock", "En stock", nStock], ["rupture", "Rupture de stock", nRupture], ["invendu", "Invendus", nUnsold]] as const).map(([k, t, n]) => (
+          <button key={k} type="button" onClick={() => setTab(k)} className={`rounded-full border-2 px-3 py-0.5 text-xs font-bold ${tab === k ? "border-[#7a4a22] bg-[#7a4a22] text-[#fff3d6]" : "border-[#7a4a22]/50 bg-white/40 text-[#5e3818]"}`}>{t} ({n})</button>
+        ))}
+      </div>
+      <div className="mt-1 text-[11px] opacity-70">{tab === "rupture" ? "Tout a été acheté : il reste lootable en expédition." : tab === "invendu" ? "Personne n'en a voulu depuis longtemps : le stock s'est épuisé, il reste lootable en expédition." : "Le stock d'une annonce que personne n'achète diminue peu à peu."}</div>
+      {list && shown.length === 0 && <div className="mt-1 text-sm">Rien dans cet onglet.</div>}
+      <div className="mt-1 grid gap-2 md:grid-cols-2">{shown.map(card)}</div>
     </div>
   );
 }

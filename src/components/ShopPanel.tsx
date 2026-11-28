@@ -19,6 +19,7 @@ export function ShopPanel({ gold, family, onGoldChange, onBought }: { gold: numb
   const [prices, setPrices] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [tab, setTab] = useState<"stock" | "rupture" | "invendu">("stock");
 
   const reload = async () => {
     try {
@@ -60,15 +61,20 @@ export function ShopPanel({ gold, family, onGoldChange, onBought }: { gold: numb
   const pending = (listings ?? []).filter((l) => l.mine).reduce((s, l) => s + l.author_gold_pending, 0);
   const mine = (listings ?? []).filter((l) => l.mine);
   const others = (listings ?? []).filter((l) => !l.mine);
+  const nStock = others.filter((l) => l.stock_left > 0).length;
+  const nRupture = others.filter((l) => l.stock_left <= 0 && l.stock_total > 0).length;
+  const nUnsold = others.filter((l) => l.stock_total <= 0).length;
+  const shown = others.filter((l) => (tab === "stock" ? l.stock_left > 0 : tab === "rupture" ? l.stock_left <= 0 && l.stock_total > 0 : l.stock_total <= 0));
 
   const card = (l: Listing) => {
     const w = l.weapon;
     const sold = l.stock_left <= 0;
+    const unsold = l.stock_total <= 0; // quitté la vente faute d'acheteurs (SQL 205)
     const range = ranges?.[w.rarity];
     const fits = weaponFits(w.weapon_type, family);
     return (
       <div key={l.weapon_id} className={`flex gap-2 rounded border border-[#7a4a22]/60 bg-white/40 p-2 ${sold ? "opacity-60" : ""}`}>
-        <ZoomImage src={w.image_url} details={<WeaponSheet name={w.name} rarity={w.rarity} weaponType={w.weapon_type} bonus={w.bonus_damage} effect={w.effect_key} authorId={w.author_user_id} extra={<><div className="text-xs"><b>{l.price}</b> flouz · {l.stock_left}/{l.stock_total} en stock</div>{sold && <div className="rounded bg-[#991b1b] px-2 py-1 text-center text-xs font-extrabold text-white">Plus en stock<div className="text-[10px] font-semibold">Tu peux toujours la trouver en expédition !</div></div>}</>} />} className="h-28 w-20 shrink-0 object-contain" />
+        <ZoomImage src={w.image_url} details={<WeaponSheet name={w.name} rarity={w.rarity} weaponType={w.weapon_type} bonus={w.bonus_damage} effect={w.effect_key} authorId={w.author_user_id} extra={<><div className="text-xs"><b>{l.price}</b> flouz · {l.stock_left}/{l.stock_total} en stock</div>{sold && <div className="rounded bg-[#991b1b] px-2 py-1 text-center text-xs font-extrabold text-white">{l.stock_total <= 0 ? "Invendue" : "Rupture de stock"}<div className="text-[10px] font-semibold">Tu peux toujours la trouver en expédition !</div></div>}</>} />} className="h-28 w-20 shrink-0 object-contain" />
         <div className="min-w-0 flex-1 text-xs">
           <RarityName name={w.name} rarity={w.rarity} />
           <div className="mt-0.5"><RarityPill rarity={w.rarity} /> · {weaponKindLabel(w.weapon_type)} · {bonusText(w.bonus_damage)}</div>
@@ -76,9 +82,9 @@ export function ShopPanel({ gold, family, onGoldChange, onBought }: { gold: numb
             <div><b>{EFFECT_INFO[w.effect_key]!.name}</b> : {EFFECT_INFO[w.effect_key]!.text}</div>
           )}
           {(minLevels?.[w.rarity] ?? 1) > 1 && <div className="font-bold text-[#7a3a0e]">🔒 Niveau {minLevels![w.rarity]} requis pour l'acheter</div>}
-          <div className="opacity-70">{l.authorName ? `par ${l.authorName} · ` : ""}{sold ? "plus en stock" : `${l.stock_left}/${l.stock_total} en stock`}</div>
+          <div className="opacity-70">{l.authorName ? `par ${l.authorName} · ` : ""}{unsold ? "invendu" : sold ? "rupture de stock" : `${l.stock_left}/${l.stock_total} en stock`}</div>
           {!fits && !l.mine && <div className="font-bold text-[#7a3a0e]">⚠ Pas portable par ta spécialisation (elle resterait dans ton inventaire).</div>}
-          {sold && <div className="rounded bg-[#991b1b] px-2 py-1 text-center text-xs font-extrabold text-white">Plus en stock<div className="text-[10px] font-semibold">Tu peux toujours la trouver en expédition !</div></div>}
+          {sold && <div className="rounded bg-[#991b1b] px-2 py-1 text-center text-xs font-extrabold text-white">{l.stock_total <= 0 ? "Invendue" : "Rupture de stock"}<div className="text-[10px] font-semibold">Tu peux toujours la trouver en expédition !</div></div>}
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <b>{l.price} <Coin /></b>
             {!l.mine && (
@@ -125,8 +131,14 @@ export function ShopPanel({ gold, family, onGoldChange, onBought }: { gold: numb
       {mine.length > 0 && <div className="mt-3 text-xs font-bold uppercase tracking-widest text-[#7a4a22]">Mes armes en vente</div>}
       <div className="mt-1 grid gap-2 md:grid-cols-2">{mine.map(card)}</div>
       <div className="mt-3 text-xs font-bold uppercase tracking-widest text-[#7a4a22]">Armes des autres joueurs</div>
-      {listings && others.length === 0 && <div className="mt-1 text-sm">Rien d'autre en vente pour l'instant.</div>}
-      <div className="mt-1 grid gap-2 md:grid-cols-2">{others.map(card)}</div>
+      <div className="mt-1 flex flex-wrap gap-1.5">
+        {([["stock", "En stock", nStock], ["rupture", "Rupture de stock", nRupture], ["invendu", "Invendus", nUnsold]] as const).map(([k, t, n]) => (
+          <button key={k} type="button" onClick={() => setTab(k)} className={`rounded-full border-2 px-3 py-0.5 text-xs font-bold ${tab === k ? "border-[#7a4a22] bg-[#7a4a22] text-[#fff3d6]" : "border-[#7a4a22]/50 bg-white/40 text-[#5e3818]"}`}>{t} ({n})</button>
+        ))}
+      </div>
+      <div className="mt-1 text-[11px] opacity-70">{tab === "rupture" ? "Tout a été acheté : elle reste lootable en expédition." : tab === "invendu" ? "Personne n'en a voulu depuis longtemps : le stock s'est épuisé, elle reste lootable en expédition." : "Le stock d'une annonce que personne n'achète diminue peu à peu."}</div>
+      {listings && shown.length === 0 && <div className="mt-1 text-sm">Rien dans cet onglet.</div>}
+      <div className="mt-1 grid gap-2 md:grid-cols-2">{shown.map(card)}</div>
     </div>
   );
 }

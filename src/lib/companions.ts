@@ -1,4 +1,5 @@
 // Ferme et compagnons (SQL 031).
+import { runStockDecayOnce } from "./stock-decay";
 import { scenesClient, ensureUserId } from "./scenes-supabase";
 import { fetchAuthorNames } from "./authors";
 import type { Rarity } from "./weapons";
@@ -122,6 +123,7 @@ export type CompanionListing = {
 };
 
 export async function fetchCompanionShop(): Promise<CompanionListing[]> {
+  await runStockDecayOnce();
   const uid = await ensureUserId();
   const { data, error } = await scenesClient
     .from("companion_listings")
