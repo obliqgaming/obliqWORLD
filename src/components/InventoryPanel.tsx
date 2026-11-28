@@ -71,10 +71,12 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
   const [hand, setHand] = useState<Point>(DEFAULT_HAND);
   const [family, setFamily] = useState<"melee" | "magie" | null>(null);
   const [busy, setBusy] = useState(false);
+  const [sortBy, setSortBy] = useState<"usable" | "rarity">("usable");
   const [msg, setMsg] = useState<string | null>(null);
   // Réglage en cours de modification (sinon on montre le réglage enregistré de l'arme affichée).
   const [edit, setEdit] = useState<{ id: string; dx: number; dy: number; rot: number; scale: number } | null>(null);
   const previewRef = useRef<HTMLDivElement | null>(null);
+  const spriteRef = useRef<HTMLDivElement | null>(null); // l'image elle-même (sans le cadre ni la marge)
   const dragRef = useRef<{ x: number; y: number } | null>(null);
 
   const reload = useCallback(async () => {
@@ -112,6 +114,15 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
     }
   }
 
+  // Tri simple : « Utilisables » = celles que ce personnage peut tenir d'abord (puis rareté), « Rareté » = les plus rares d'abord.
+  const RANK: Record<string, number> = { legendary: 5, epic: 4, rare: 3, uncommon: 2, common: 1 };
+  const sortedItems = [...items].sort((a, b) => {
+    const fit = (it: WeaponItem) => (!it.weapon.hidden && it.durability > 0 && weaponFits(it.weapon.weapon_type, family) ? 1 : 0);
+    const byRarity = (RANK[String(itemStats(b).rarity)] ?? 0) - (RANK[String(itemStats(a).rarity)] ?? 0);
+    const byFit = fit(b) - fit(a);
+    const r = sortBy === "usable" ? byFit || byRarity : byRarity || byFit;
+    return r || itemDisplayName(a).localeCompare(itemDisplayName(b), "fr");
+  });
   const shownId = equipped;
   const eq = items.find((i) => i.id === shownId) ?? null;
   const adj = eq && edit && edit.id === eq.id ? edit : eq ? { id: eq.id, dx: eq.adjust_dx, dy: eq.adjust_dy, rot: eq.adjust_rot, scale: eq.adjust_scale } : { id: "", dx: 0, dy: 0, rot: 0, scale: 100 };
@@ -123,7 +134,7 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
   const dirty = !!eq && (adj.dx !== eq.adjust_dx || adj.dy !== eq.adjust_dy || adj.rot !== eq.adjust_rot || adj.scale !== eq.adjust_scale);
   const onDragMove = (e: React.PointerEvent) => {
     if (!dragRef.current || !previewRef.current) return;
-    const r = previewRef.current.getBoundingClientRect();
+    const r = (spriteRef.current ?? previewRef.current).getBoundingClientRect();
     const ddx = ((e.clientX - dragRef.current.x) / r.width) * 100;
     const ddy = ((e.clientY - dragRef.current.y) / r.height) * 100;
     dragRef.current = { x: e.clientX, y: e.clientY };
@@ -153,11 +164,13 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
                 onPointerUp={() => (dragRef.current = null)}
                 onPointerCancel={() => (dragRef.current = null)}
               >
+                <div ref={spriteRef}>
                 <WornSprite
                   src={character.imageUrl}
                   alt={character.name}
                   weapon={eq ? { imageUrl: eq.weapon.image_url, grip: eq.weapon.grip_anchor, width: eq.weapon.width, height: eq.weapon.height, hand, dx: adj.dx, dy: adj.dy, rot: adj.rot, scale: adj.scale } : null}
                 />
+                </div>
               </div>
               <div className="mt-1 text-center text-xs font-bold">{eq ? itemDisplayName(eq) : "Mains nues"}</div>
               {eq && (
@@ -196,7 +209,15 @@ export function InventoryPanel({ character, onClose, onWeaponChanged }: { charac
                 </div>
               )}
               {items.length === 0 && <div className="text-sm">Aucune arme sur toi. Va voir à la Forge du Manchot !</div>}
-              {items.map((it) => (
+              {items.length > 1 && (
+                <div className="flex items-center gap-1 text-[11px]">
+                  <span className="font-bold">Trier :</span>
+                  {([["usable", "Utilisables d'abord"], ["rarity", "Rareté"]] as const).map(([k, label]) => (
+                    <button key={k} type="button" onClick={() => setSortBy(k)} className={`rounded border border-[#7a4a22] px-1.5 font-bold ${sortBy === k ? "bg-[#7a4a22] text-[#f1dfb6]" : "hover:bg-[#7a4a22]/15"}`}>{label}</button>
+                  ))}
+                </div>
+              )}
+              {sortedItems.map((it) => (
                 <div key={it.id} className={`flex items-center gap-2 rounded border p-1.5 ${it.id === shownId ? "border-[#7a4a22] bg-white/70" : "border-[#7a4a22]/50 bg-white/40"}`}>
                   <ZoomImage src={it.weapon.image_url} details={(() => { const st = itemStats(it); return <WeaponSheet name={itemDisplayName(it)} rarity={st.rarity} prototype={it.is_prototype} weaponType={it.weapon.weapon_type} bonus={st.bonus} effect={st.effect} authorId={it.weapon.author_user_id} extra={<div className="text-xs">Durabilité <b>{it.durability}/{it.durability_max}</b></div>} />; })()} className="h-14 w-16 shrink-0 object-contain" />
                   <div className="min-w-0 flex-1">

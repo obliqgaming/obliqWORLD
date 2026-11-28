@@ -48,6 +48,7 @@ export function CharacterWindow({
   const [msg, setMsg] = useState<string | null>(null);
   const [edit, setEdit] = useState<{ id: string; dx: number; dy: number; rot: number; scale: number } | null>(null);
   const previewRef = useRef<HTMLDivElement | null>(null);
+  const spriteRef = useRef<HTMLDivElement | null>(null); // l'image elle-même (sans le cadre)
   const dragRef = useRef<{ x: number; y: number } | null>(null);
   const lock = useRef(false);
 
@@ -152,7 +153,7 @@ export function CharacterWindow({
   const dirty = !!eq && (adj.dx !== eq.adjust_dx || adj.dy !== eq.adjust_dy || adj.rot !== eq.adjust_rot || adj.scale !== eq.adjust_scale);
   const onDragMove = (e: React.PointerEvent) => {
     if (!dragRef.current || !previewRef.current) return;
-    const r = previewRef.current.getBoundingClientRect();
+    const r = (spriteRef.current ?? previewRef.current).getBoundingClientRect();
     const ddx = ((e.clientX - dragRef.current.x) / r.width) * 100;
     const ddy = ((e.clientY - dragRef.current.y) / r.height) * 100;
     dragRef.current = { x: e.clientX, y: e.clientY };
@@ -232,11 +233,13 @@ export function CharacterWindow({
                   onPointerCancel={() => (dragRef.current = null)}
                 >
                   {mine && character ? (
+                    <div ref={spriteRef}>
                     <WornSprite
                       src={character.imageUrl}
                       alt={character.name}
                       weapon={eq ? { imageUrl: eq.weapon.image_url, grip: eq.weapon.grip_anchor, width: eq.weapon.width, height: eq.weapon.height, hand, dx: adj.dx, dy: adj.dy, rot: adj.rot, scale: adj.scale } : null}
                     />
+                    </div>
                   ) : (
                     d.image_url && <img src={d.image_url} alt="" className="block w-full object-contain" draggable={false} />
                   )}
